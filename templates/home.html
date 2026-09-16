@@ -1,12 +1,16 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Fantasy Football Analyzer</title>
-</head>
-<body>
+{% extends 'base.html' %}
 
-    <h1>Welcome to the Fantasy Football Analyzer!</h1>
-    <p>Analyze your fantasy football team here.</p>
-
-</body>
-</html>
+{% block content %}
+<h1>Fantasy Football Analyzer</h1>
+{% if user.is_authenticated %}
+  <p>Welcome back, <strong>{{ user.username }}</strong>!</p>
+  <form action="{% url 'logout' %}" method="post">
+    {% csrf_token %}
+    <button type="submit">Sign Out</button>
+  </form>
+{% else %}
+  <p>Analyze your roster and win your fantasy league.</p>
+  <a href="{% url 'login' %}">Sign In</a> |
+  <a href="{% url 'signup' %}">Sign Up</a>
+{% endif %}
+{% endblock %}
