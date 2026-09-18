@@ -1,33 +1,133 @@
+{% load static %}
+
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fantasy Football Analyzer</title>
+
+    <title>
+        {% block title %}Fantasy Football Analyzer{% endblock %}
+    </title>
+
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
 </head>
+
 <body>
-    <header>
-        <nav>
-            <a href="{% url 'home' %}">Home</a> |
+
+    <!-- ==================== TOP HEADER ==================== -->
+    <header class="main-header">
+
+        <!-- Brand / Home -->
+        <a href="{% url 'home' %}" class="brand">
+
+            <div class="brand-logo">
+                🏆
+            </div>
+
+            <div class="brand-text">
+                <span class="brand-title">UWM</span>
+                <span class="brand-subtitle">FANTASY</span>
+            </div>
+
+        </a>
+
+
+        <!-- League Selector -->
+        <div class="league-selector">
+            <span>🏈</span>
+            <span>Milwaukee League (12 Team PPR)</span>
+            <span>⌄</span>
+        </div>
+
+
+        <!-- User Controls -->
+        <div class="header-actions">
+
             {% if user.is_authenticated %}
-                <span>Logged in as: <strong>{{ user.username }}</strong></span> |
-                <form action="{% url 'logout' %}" method="post" style="display:inline;">
-                    {% csrf_token %}
-                    <button type="submit">Sign Out</button>
-                </form>
+
+                <button class="header-button">
+                    ⚙ Settings
+                </button>
+
+                <div class="account-area">
+
+                    <span class="username">
+                        {{ user.username }}
+                    </span>
+
+                    <span class="online-indicator"></span>
+
+                    <form action="{% url 'logout' %}"
+                          method="post"
+                          class="logout-form">
+
+                        {% csrf_token %}
+
+                        <button type="submit"
+                                class="account-button">
+                            Sign Out
+                        </button>
+
+                    </form>
+
+                </div>
+
             {% else %}
-                <a href="{% url 'login' %}">Sign In</a> |
-                <a href="{% url 'signup' %}">Sign Up</a>
+
+                <a href="{% url 'login' %}"
+                   class="header-button">
+                    Sign In
+                </a>
+
+                <a href="{% url 'signup' %}"
+                   class="account-button">
+                    Sign Up
+                </a>
+
             {% endif %}
-        </nav>
+
+        </div>
+
     </header>
 
-    <hr>
 
-    <main>
+    <!-- ==================== NAVIGATION ==================== -->
+    <nav class="main-nav">
+
+        <a href="#" class="nav-link active">
+            ⚡ Start / Sit
+        </a>
+
+        <a href="#" class="nav-link">
+            ☷ Weekly Rankings
+        </a>
+
+        <a href="#" class="nav-link">
+            ↗ ADP
+        </a>
+
+        <a href="#" class="nav-link">
+            ♙ Waiver Wire
+        </a>
+
+        <a href="#" class="nav-link">
+            ♜ League Power Rankings
+        </a>
+
+    </nav>
+
+
+    <!-- ==================== PAGE CONTENT ==================== -->
+    <main class="page-content">
+
         {% block content %}
         <!-- Child templates inject their HTML content here -->
         {% endblock %}
+
     </main>
+
 </body>
+
 </html>
