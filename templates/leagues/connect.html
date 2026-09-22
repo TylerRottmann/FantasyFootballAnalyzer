@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="connect-page">
+
+    <!-- PAGE HEADER -->
+    <div class="connect-header">
+        <h1>Connect Your League</h1>
+        <p>Connect your fantasy league to unlock league-specific analysis.</p>
+    </div>
+
+
+    <!-- SUCCESS MESSAGE -->
+    {% if success %}
+        <div class="league-message success-message" id="success-message">
+            <span class="message-icon">✓</span>
+            <span>{{ success }}</span>
+        </div>
+    {% endif %}
+
+
+    <!-- ERROR MESSAGE -->
+    {% if error %}
+        <div class="league-message error-message" id="error-message">
+            <span class="message-icon">!</span>
+            <span>{{ error }}</span>
+        </div>
+    {% endif %}
+
+
+    <!-- TWO COLUMN LAYOUT -->
+    <div class="league-layout">
+
+        <!-- CONNECT FORM -->
+        <div class="connect-card">
+
+            <div class="card-title">
+                <h2>League Information</h2>
+
+                <p>
+                    Enter your league information below to connect
+                    your fantasy league.
+                </p>
+            </div>
+
+
+            <form method="POST">
+
+            {% csrf_token %}
+
+            <!-- FANTASY PLATFORM -->
+            <div class="form-group">
+
+                <label for="platform">
+                    Fantasy Platform
+                </label>
+
+                <select
+                    id="platform"
+                    name="platform"
+                    class="form-input"
+                >
+                    <option value="sleeper">
+                        Sleeper
+                    </option>
+
+                    <option value="espn" disabled>
+                        ESPN — Coming Soon
+                    </option>
+
+                    <option value="yahoo" disabled>
+                        Yahoo — Coming Soon
+                    </option>
+                </select>
+
+            </div>
+
+
+            <!-- PLATFORM USERNAME -->
+            <div class="form-group">
+
+                <label for="platform_username">
+                    Sleeper Username
+                </label>
+
+                <input
+                    type="text"
+                    id="platform_username"
+                    name="platform_username"
+                    class="form-input"
+                    value="{{ request.user.sleeper_username }}"
+                    placeholder="Enter your Sleeper username"
+                    required
+                >
+
+                <p class="input-help">
+                    This is pre-filled from your profile settings, but you can change it if needed.
+                </p>
+
+            </div>
+
+
+            <!-- LEAGUE ID -->
+            <div class="form-group">
+
+                <label for="league_identifier">
+                    League ID
+                </label>
+
+                <input
+                    type="text"
+                    id="league_identifier"
+                    name="league_identifier"
+                    class="form-input"
+                    placeholder="Enter your league ID"
+                >
+
+                <p class="input-help">
+                    You can find your League ID on your fantasy platform.
+                </p>
+
+            </div>
+
+
+            <!-- OR -->
+            <div class="or-divider">
+                <span>OR</span>
+            </div>
+
+
+            <!-- LEAGUE URL -->
+            <div class="form-group">
+
+                <label for="league_url">
+                    League URL
+                </label>
+
+                <input
+                    type="text"
+                    id="league_url"
+                    name="league_url"
+                    class="form-input"
+                    placeholder="https://..."
+                >
+
+            </div>
+
+
+            <!-- CONNECT -->
+            <button
+                type="submit"
+                class="connect-button"
+            >
+                Connect League
+            </button>
+
+        </form>
+
+        </div>
+
+
+        <!-- CONNECTED LEAGUES -->
+        <div class="connected-leagues">
+
+            <div class="connected-leagues-header">
+                <h2>Your Leagues</h2>
+                <p>Your connected fantasy leagues.</p>
+            </div>
+
+
+            <div class="league-table-wrapper">
+
+                <table class="league-table">
+
+                    <thead>
+                        <tr>
+                            <th>League</th>
+                            <th>Platform</th>
+                            <th>PPR</th>
+                            <th>TE Premium</th>
+                            <th>Starters</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+
+
+                    <tbody>
+
+                        {% for connection in connected_leagues %}
+
+                            <tr
+                                class="league-table-row
+                                {% if connection.league.id == active_league.id %}
+                                    active-league
+                                {% endif %}
+                                "
+                            >
+
+                                <!-- LEAGUE -->
+                                <td class="league-name-cell">
+
+                                    <div class="league-name-wrapper">
+
+                                        <div class="league-icon">
+                                            🏈
+                                        </div>
+
+                                        <div>
+
+                                            <div class="league-name">
+                                                {{ connection.league.name }}
+                                            </div>
+
+                                            <div class="league-season">
+                                                {{ connection.league.season }}
+                                            </div>
+
+                                        </div>
+
+                                    </div>
+
+                                </td>
+
+
+                                <!-- PLATFORM -->
+                                <td>
+
+                                    <span class="league-platform">
+                                        {{ connection.get_platform_display }}
+                                    </span>
+
+                                </td>
+
+
+                                <!-- PPR -->
+                                <td>
+
+                                    <span class="league-setting">
+                                        {{ connection.league.ppr|default:"0" }}
+                                    </span>
+
+                                </td>
+
+
+                                <!-- TE PREMIUM -->
+                                <td>
+
+                                    <span class="league-setting">
+                                        {{ connection.league.te_premium|default:"0" }}
+                                    </span>
+
+                                </td>
+
+
+                                <!-- STARTERS -->
+                                <td>
+
+                                    <span class="league-setting">
+                                        {{ connection.league.starter_count|default:"—" }}
+                                    </span>
+
+                                </td>
+
+
+                                <!-- ACTION -->
+                                <td class="league-action-cell">
+
+                                    {% if connection.league.id == active_league.id %}
+
+                                        <span class="current-league">
+                                            ✓ Current League
+                                        </span>
+
+                                    {% else %}
+
+                                        <a
+                                            href="{% url 'select_league' connection.league.id %}"
+                                            class="select-league-button"
+                                        >
+                                            Select League
+                                        </a>
+
+                                    {% endif %}
+
+                                </td>
+
+                            </tr>
+
+
+                        {% empty %}
+
+                            <tr>
+
+                                <td
+                                    colspan="6"
+                                    class="no-leagues-table"
+                                >
+                                    No leagues connected yet.
+                                </td>
+
+                            </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- AUTO-DISMISS MESSAGES -->
+<script>
+
+    setTimeout(function () {
+
+        const messages = [
+            document.getElementById("success-message"),
+            document.getElementById("error-message")
+        ];
+
+        messages.forEach(function (message) {
+
+            if (message) {
+
+                message.style.opacity = "0";
+
+                setTimeout(function () {
+                    message.remove();
+                }, 300);
+
+            }
+
+        });
+
+    }, 10000);
+
+</script>
+
+
+{% endblock %}

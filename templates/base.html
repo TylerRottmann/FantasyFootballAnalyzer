@@ -12,6 +12,7 @@
     </title>
 
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/leagues.css' %}">
 </head>
 
 <body>
@@ -35,11 +36,108 @@
 
 
         <!-- League Selector -->
-        <div class="league-selector">
-            <span>🏈</span>
-            <span>Milwaukee League (12 Team PPR)</span>
-            <span>⌄</span>
-        </div>
+        {% if connected_leagues %}
+
+            <details class="league-dropdown">
+
+                <summary class="league-selector">
+
+                    <span class="league-selector-icon">
+                        🏈
+                    </span>
+
+                    <span class="league-selector-name">
+                        {{ active_league.name }}
+                    </span>
+
+                    <span class="league-selector-arrow">
+                        ⌄
+                    </span>
+
+                </summary>
+
+
+                <div class="league-dropdown-menu">
+
+                    {% for connection in connected_leagues %}
+
+                        <a
+                            href="{% url 'select_league' connection.league.id %}"
+                            class="league-option {% if connection.league.id == active_league.id %}active{% endif %}"
+                        >
+
+                            <span class="league-option-icon">
+                                🏈
+                            </span>
+
+                            <span class="league-option-info">
+
+                                <span class="league-option-name">
+                                    {{ connection.league.name }}
+                                </span>
+
+                                <span class="league-option-meta">
+                                    {{ connection.league.season }}
+                                    •
+                                    {{ connection.get_platform_display }}
+                                </span>
+
+                            </span>
+
+                            {% if connection.league.id == active_league.id %}
+
+                                <span class="league-option-check">
+                                    ✓
+                                </span>
+
+                            {% endif %}
+
+                        </a>
+
+                    {% endfor %}
+
+
+                    <!-- Divider -->
+                    <div class="league-dropdown-divider"></div>
+
+
+                    <!-- Add League -->
+                    <a
+                        href="{% url 'connect_league' %}"
+                        class="league-add-option"
+                    >
+
+                        <span class="league-add-icon">
+                            +
+                        </span>
+
+                        <span>
+                            Add League
+                        </span>
+
+                    </a>
+
+                </div>
+
+            </details>
+
+        {% else %}
+
+            <!-- No Connected Leagues -->
+            <a
+                href="{% url 'connect_league' %}"
+                class="league-add-button"
+            >
+
+                <span>
+                    +
+                </span>
+
+                Add League
+
+            </a>
+
+        {% endif %}
 
 
         <!-- User Controls -->
@@ -48,7 +146,10 @@
             {% if user.is_authenticated %}
 
                 <!-- Settings -->
-                <button type="button" class="header-button">
+                <button
+                    type="button"
+                    class="header-button"
+                >
                     ⚙ Settings
                 </button>
 
@@ -62,14 +163,20 @@
 
                     <span class="online-indicator"></span>
 
+
                     <!-- Django Logout -->
-                    <form action="{% url 'logout' %}"
-                          method="post"
-                          class="logout-form">
+                    <form
+                        action="{% url 'logout' %}"
+                        method="post"
+                        class="logout-form"
+                    >
 
                         {% csrf_token %}
 
-                        <button type="submit" class="account-button">
+                        <button
+                            type="submit"
+                            class="account-button"
+                        >
                             Sign Out
                         </button>
 
@@ -80,13 +187,17 @@
             {% else %}
 
                 <!-- Logged Out -->
-                <a href="{% url 'login' %}"
-                   class="header-button">
+                <a
+                    href="{% url 'login' %}"
+                    class="header-button"
+                >
                     Sign In
                 </a>
 
-                <a href="{% url 'signup' %}"
-                   class="account-button">
+                <a
+                    href="{% url 'signup' %}"
+                    class="account-button"
+                >
                     Sign Up
                 </a>
 
@@ -100,28 +211,38 @@
     <!-- ==================== MAIN NAVIGATION ==================== -->
     <nav class="main-nav">
 
-        <a href="#"
-           class="nav-link active">
+        <a
+            href="#"
+            class="nav-link active"
+        >
             ⚡ Start / Sit
         </a>
 
-        <a href="#"
-           class="nav-link">
+        <a
+            href="#"
+            class="nav-link"
+        >
             ☷ Weekly Rankings
         </a>
 
-        <a href="#"
-           class="nav-link">
+        <a
+            href="#"
+            class="nav-link"
+        >
             ↗ ADP
         </a>
 
-        <a href="#"
-           class="nav-link">
+        <a
+            href="#"
+            class="nav-link"
+        >
             ♙ Waiver Wire
         </a>
 
-        <a href="#"
-           class="nav-link">
+        <a
+            href="#"
+            class="nav-link"
+        >
             ♜ League Power Rankings
         </a>
 
