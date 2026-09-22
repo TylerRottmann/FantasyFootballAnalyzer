@@ -25,4 +25,5 @@ urlpatterns = [
     path('', home, name='home'),
     path('accounts/', include('django.contrib.auth.urls')),  # login, logout, password reset
     path('', include('analyzer.urls')),  # includes analyzer/urls.py (signup)
+    path("leagues/",    include("leagues.urls")),
 ]
