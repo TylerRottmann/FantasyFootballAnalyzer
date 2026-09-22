@@ -17,14 +17,13 @@
 
 <body>
 
-    <!-- ==================== TOP HEADER ==================== -->
     <header class="main-header">
 
-        <!-- Brand / Home -->
+        <!-- Brand / Home Link -->
         <a href="{% url 'home' %}" class="brand">
 
             <div class="brand-logo">
-                🏆
+                🏈
             </div>
 
             <div class="brand-text">
@@ -43,23 +42,21 @@
         </div>
 
 
-        <!-- User Controls -->
+        <!-- Account Controls -->
         <div class="header-actions">
 
             {% if user.is_authenticated %}
 
-                <button class="header-button">
-                    ⚙ Settings
-                </button>
-
                 <div class="account-area">
 
-                    <span class="username">
+                    <!-- Username / Profile Button -->
+                    <a href="{% url 'profile' %}"
+                       class="account-button">
                         {{ user.username }}
-                    </span>
+                    </a>
 
-                    <span class="online-indicator"></span>
 
+                    <!-- Sign Out Button -->
                     <form action="{% url 'logout' %}"
                           method="post"
                           class="logout-form">
@@ -94,7 +91,7 @@
     </header>
 
 
-    <!-- ==================== NAVIGATION ==================== -->
+    <!-- Main Navigation -->
     <nav class="main-nav">
 
         <a href="#" class="nav-link active">
@@ -120,7 +117,7 @@
     </nav>
 
 
-    <!-- ==================== PAGE CONTENT ==================== -->
+    <!-- Page Content -->
     <main class="page-content">
 
         {% block content %}

@@ -13,6 +13,7 @@
 
     <!-- Page Header -->
     <div class="profile-header">
+
         <h1 class="profile-title">Profile</h1>
 
         <button type="button"
@@ -20,18 +21,19 @@
                 onclick="openSettings()">
             ⚙ Settings
         </button>
+
     </div>
 
 
-    <!-- Profile Information -->
+    <!-- Account Information -->
     <div class="profile-card">
 
         <h2>Account Information</h2>
 
         <form method="post">
+
             {% csrf_token %}
             <input type="hidden" name="form_type" value="profile">
-
 
             <!-- Username -->
             <div class="profile-field">
@@ -128,7 +130,9 @@
 </div>
 
 
-<!-- ==================== SETTINGS MODAL ==================== -->
+<!-- =========================================================
+     SETTINGS MODAL
+     ========================================================= -->
 
 <div id="settingsModal" class="settings-modal">
 
@@ -179,36 +183,54 @@
 </div>
 
 
+<!-- =========================================================
+     PROFILE JAVASCRIPT
+     ========================================================= -->
+
 <script>
 
+    // Enables/disables editing for an account field.
     function toggleEdit(fieldId, button) {
+
         const field = document.getElementById(fieldId);
 
         field.readOnly = !field.readOnly;
 
         if (field.readOnly) {
+
             button.textContent = "Edit";
+
         } else {
+
             button.textContent = "Cancel";
             field.focus();
+
         }
+
     }
 
 
+    // Opens the settings modal.
     function openSettings() {
+
         document
             .getElementById("settingsModal")
             .classList.add("open");
+
     }
 
 
+    // Closes the settings modal.
     function closeSettings() {
+
         document
             .getElementById("settingsModal")
             .classList.remove("open");
+
     }
 
 
+    // Make profile fields read-only when the page first loads.
     document.addEventListener("DOMContentLoaded", function () {
 
         const profileFields = [
