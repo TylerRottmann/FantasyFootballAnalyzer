@@ -47,10 +47,13 @@
 
             {% if user.is_authenticated %}
 
-                <button class="header-button">
+                <!-- Settings -->
+                <button type="button" class="header-button">
                     ⚙ Settings
                 </button>
 
+
+                <!-- Account -->
                 <div class="account-area">
 
                     <span class="username">
@@ -59,14 +62,13 @@
 
                     <span class="online-indicator"></span>
 
+                    <!-- Django Logout -->
                     <form action="{% url 'logout' %}"
                           method="post"
                           class="logout-form">
 
                         {% csrf_token %}
 
-                        <button type="submit"
-                                class="account-button">
                             Sign Out
                         </button>
 
@@ -76,6 +78,7 @@
 
             {% else %}
 
+                <!-- Logged Out -->
                 <a href="{% url 'login' %}"
                    class="header-button">
                     Sign In
@@ -93,26 +96,31 @@
     </header>
 
 
-    <!-- ==================== NAVIGATION ==================== -->
+    <!-- ==================== MAIN NAVIGATION ==================== -->
     <nav class="main-nav">
 
-        <a href="#" class="nav-link active">
+        <a href="#"
+           class="nav-link active">
             ⚡ Start / Sit
         </a>
 
-        <a href="#" class="nav-link">
+        <a href="#"
+           class="nav-link">
             ☷ Weekly Rankings
         </a>
 
-        <a href="#" class="nav-link">
+        <a href="#"
+           class="nav-link">
             ↗ ADP
         </a>
 
-        <a href="#" class="nav-link">
+        <a href="#"
+           class="nav-link">
             ♙ Waiver Wire
         </a>
 
-        <a href="#" class="nav-link">
+        <a href="#"
+           class="nav-link">
             ♜ League Power Rankings
         </a>
 

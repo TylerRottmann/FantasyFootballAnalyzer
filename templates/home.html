@@ -1,4 +1,9 @@
-{% extends 'base.html' %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fantasy Football Analyzer</title>
+</head>
+<body>
 
 {% block content %}
 <h1>Fantasy Football Analyzer</h1>
@@ -10,7 +15,5 @@
   </form>
 {% else %}
   <p>Analyze your roster and win your fantasy league.</p>
-  <a href="{% url 'login' %}">Sign In</a> |
-  <a href="{% url 'signup' %}">Sign Up</a>
 {% endif %}
 {% endblock %}
