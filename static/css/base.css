@@ -78,7 +78,6 @@ body {
 .brand {
     display: flex;
     align-items: center;
-
     gap: 10px;
 
     color: var(--text-primary);
@@ -544,7 +543,6 @@ body {
 
 .logout-form {
     display: inline;
-
     margin: 0;
 }
 
