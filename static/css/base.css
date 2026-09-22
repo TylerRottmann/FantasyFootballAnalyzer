@@ -124,15 +124,7 @@ body {
 
 
 /* =========================================================
-   LEAGUE DROPDOWN
    ========================================================= */
-
-.league-dropdown {
-    position: relative;
-}
-
-
-/* ---------- Selector ---------- */
 
 .league-selector {
     display: flex;
@@ -511,7 +503,6 @@ body {
 
 .account-button:hover {
     background-color: var(--gold);
-
     color: #111;
 }
 
