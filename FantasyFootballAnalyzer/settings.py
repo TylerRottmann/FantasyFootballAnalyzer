@@ -140,5 +140,7 @@ MAILERS = {
 # point AUTH_USER_MODEL to analyzer app
 AUTH_USER_MODEL = 'analyzer.CustomUser'
 
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
