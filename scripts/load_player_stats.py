@@ -7,13 +7,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SEASON = 2026
+SEASONS = [2023, 2024, 2025]
 FANTASY_POSITIONS = {"QB", "RB", "WR", "TE"}
 
 
-print(f"Loading {SEASON} player stats...")
+print(f"Loading {SEASONS} player stats...")
 
-stats = nfl.load_player_stats(seasons=[SEASON])
+stats = nfl.load_player_stats(seasons=SEASONS)
 
 print(f"Loaded {stats.height} total stat rows.")
 

@@ -21,10 +21,10 @@ conn = psycopg.connect(
 # Load NFL data
 # --------------------------------------------------
 
-SEASON = 2026
+SEASONS = [2023, 2024, 2025]
 
-team_stats = nfl.load_team_stats(seasons=[SEASON])
-schedules = nfl.load_schedules(seasons=[SEASON])
+team_stats = nfl.load_team_stats(seasons=SEASONS)
+schedules = nfl.load_schedules(seasons=SEASONS)
 
 # Only completed/available regular-season games
 schedules = schedules.filter(
@@ -62,7 +62,10 @@ inserted = 0
 
 for game in schedules.iter_rows(named=True):
 
+    season = game["season"]
     week = game["week"]
+
+    print(f"DEBUG: season={season!r}, type={type(season)}")
 
     away = game["away_team"]
     home = game["home_team"]
@@ -105,7 +108,8 @@ for game in schedules.iter_rows(named=True):
         points_for,
         points_against,
         stats,
-        opponent_stats
+        opponent_stats,
+        season
     ):
         team_id = team_map.get(team)
         opponent_id = team_map.get(opponent)
@@ -194,7 +198,7 @@ for game in schedules.iter_rows(named=True):
                     updated_at = NOW()
             """, (
                 team_id,
-                SEASON,
+                season,
                 week,
                 opponent_id,
                 is_home,
@@ -217,7 +221,10 @@ for game in schedules.iter_rows(named=True):
                 game_date,
             ))
 
+    # --------------------------------------------------
     # Away team
+    # --------------------------------------------------
+
     insert_team(
         away,
         home,
@@ -225,10 +232,14 @@ for game in schedules.iter_rows(named=True):
         away_score,
         home_score,
         away_stats,
-        home_stats
+        home_stats,
+        season
     )
 
+    # --------------------------------------------------
     # Home team
+    # --------------------------------------------------
+
     insert_team(
         home,
         away,
@@ -236,12 +247,15 @@ for game in schedules.iter_rows(named=True):
         home_score,
         away_score,
         home_stats,
-        away_stats
+        away_stats,
+        season
     )
 
     inserted += 2
 
-    print(f"Loaded Week {week}: {away} @ {home}")
+    print(f"Loaded {season} Week {week}: {away} @ {home}")
+
+
 # --------------------------------------------------
 # Load fantasy points allowed by position
 # --------------------------------------------------
@@ -249,73 +263,81 @@ for game in schedules.iter_rows(named=True):
 print()
 print("Loading fantasy points allowed by position...")
 
-player_stats = nfl.load_player_stats(seasons=[SEASON])
+player_stats = nfl.load_player_stats(seasons=SEASONS)
 
-for week in sorted(player_stats["week"].unique().to_list()):
+for season in SEASONS:
 
-    week_players = player_stats.filter(
-        (player_stats["week"] == week) &
+    season_players = player_stats.filter(
+        (player_stats["season"] == season) &
         (player_stats["season_type"] == "REG")
     )
 
-    # Group opposing player production by defense.
-    #
-    # A player's opponent_team is the defense that
-    # allowed the player's fantasy points.
-    for defense in week_players["opponent_team"].unique().to_list():
+    for week in sorted(season_players["week"].unique().to_list()):
 
-        defense_players = week_players.filter(
-            week_players["opponent_team"] == defense
+        week_players = season_players.filter(
+            season_players["week"] == week
         )
 
-        qb_points = defense_players.filter(
-            defense_players["position_group"] == "QB"
-        )["fantasy_points_ppr"].sum()
+        # Group opposing player production by defense.
+        #
+        # A player's opponent_team is the defense that
+        # allowed the player's fantasy points.
+        for defense in week_players["opponent_team"].unique().to_list():
 
-        rb_points = defense_players.filter(
-            defense_players["position_group"] == "RB"
-        )["fantasy_points_ppr"].sum()
+            defense_players = week_players.filter(
+                week_players["opponent_team"] == defense
+            )
 
-        wr_points = defense_players.filter(
-            defense_players["position_group"] == "WR"
-        )["fantasy_points_ppr"].sum()
+            qb_points = defense_players.filter(
+                defense_players["position_group"] == "QB"
+            )["fantasy_points_ppr"].sum()
 
-        te_points = defense_players.filter(
-            defense_players["position_group"] == "TE"
-        )["fantasy_points_ppr"].sum()
+            rb_points = defense_players.filter(
+                defense_players["position_group"] == "RB"
+            )["fantasy_points_ppr"].sum()
 
-        team_id = team_map.get(defense)
+            wr_points = defense_players.filter(
+                defense_players["position_group"] == "WR"
+            )["fantasy_points_ppr"].sum()
 
-        if team_id is None:
-            print(f"Unknown defensive team: {defense}")
-            continue
+            te_points = defense_players.filter(
+                defense_players["position_group"] == "TE"
+            )["fantasy_points_ppr"].sum()
 
-        with conn.cursor() as cur:
-            cur.execute("""
-                UPDATE team_weekly_stats
-                SET
-                    qb_fantasy_points_allowed = %s,
-                    rb_fantasy_points_allowed = %s,
-                    wr_fantasy_points_allowed = %s,
-                    te_fantasy_points_allowed = %s,
-                    updated_at = NOW()
-                WHERE team_id = %s
-                  AND season = %s
-                  AND week = %s
-                  AND season_type = 1
-            """, (
-                qb_points or 0,
-                rb_points or 0,
-                wr_points or 0,
-                te_points or 0,
-                team_id,
-                SEASON,
-                week,
-            ))
+            team_id = team_map.get(defense)
+
+            if team_id is None:
+                print(f"Unknown defensive team: {defense}")
+                continue
+
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE team_weekly_stats
+                    SET
+                        qb_fantasy_points_allowed = %s,
+                        rb_fantasy_points_allowed = %s,
+                        wr_fantasy_points_allowed = %s,
+                        te_fantasy_points_allowed = %s,
+                        updated_at = NOW()
+                    WHERE team_id = %s
+                      AND season = %s
+                      AND week = %s
+                      AND season_type = 1
+                """, (
+                    qb_points or 0,
+                    rb_points or 0,
+                    wr_points or 0,
+                    te_points or 0,
+                    team_id,
+                    season,
+                    week,
+                ))
 
 print("Fantasy matchup data loaded.")
+
 conn.commit()
 conn.close()
 
 print()
 print(f"Finished. Loaded/updated {inserted} team-week records.")
+
