@@ -121,9 +121,62 @@
 
         <h2>Teams</h2>
 
-        <div class="teams-empty">
-            Your connected fantasy teams will appear here.
-        </div>
+        {% if connected_leagues %}
+
+            <div class="teams-list">
+
+                {% for connection in connected_leagues %}
+
+                    <div class="team-item {% if connection.league.id == active_league.id %}active{% endif %}">
+
+                        <div class="team-info">
+
+                            <div class="team-name">
+                                {{ connection.league.name }}
+                            </div>
+
+                            <div class="team-meta">
+                                {{ connection.league.season }}
+                                •
+                                {{ connection.get_platform_display }}
+                            </div>
+
+                        </div>
+
+
+                        {% if connection.league.id == active_league.id %}
+
+                            <span class="active-team-label">
+                                Current
+                            </span>
+
+                        {% else %}
+
+                            <a href="{% url 'select_league' connection.league.id %}"
+                               class="switch-team-button">
+                                Switch
+                            </a>
+
+                        {% endif %}
+
+                    </div>
+
+                {% endfor %}
+
+            </div>
+
+        {% else %}
+
+            <div class="teams-empty">
+                No fantasy teams connected yet.
+            </div>
+
+            <a href="{% url 'connect_league' %}"
+               class="connect-team-button">
+                Connect League
+            </a>
+
+        {% endif %}
 
     </div>
 
