@@ -24,7 +24,9 @@
 }
 
 
-/* ---------- Global Styles ---------- */
+/* =========================================================
+   GLOBAL STYLES
+   ========================================================= */
 
 * {
     box-sizing: border-box;
@@ -122,7 +124,6 @@ body {
 
 
 /* =========================================================
-   LEAGUE SELECTOR
    ========================================================= */
 
 .league-selector {
@@ -131,7 +132,11 @@ body {
 
     gap: 10px;
 
-    padding: 10px 16px;
+    width: 280px;
+    min-height: 40px;
+    box-sizing: border-box;
+
+    padding: 9px 14px;
 
     background-color: var(--bg-card);
 
@@ -140,19 +145,305 @@ body {
 
     color: var(--text-primary);
 
+    font-family: inherit;
     font-size: 14px;
     font-weight: 600;
 
     cursor: pointer;
+
+    list-style: none;
 
     transition:
         background-color 0.2s ease,
         border-color 0.2s ease;
 }
 
+.league-selector::-webkit-details-marker {
+    display: none;
+}
+
+.league-selector::marker {
+    display: none;
+}
+
 .league-selector:hover {
     background-color: var(--bg-hover);
     border-color: var(--gold-dark);
+}
+
+.league-dropdown[open] .league-selector {
+    border-color: var(--gold);
+
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+
+/* ---------- Selector Contents ---------- */
+
+.league-selector-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 24px;
+    flex-shrink: 0;
+
+    font-size: 14px;
+}
+
+.league-selector-name {
+    flex: 1;
+
+    overflow: hidden;
+
+    color: var(--text-primary);
+
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.league-selector-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 18px;
+    flex-shrink: 0;
+
+    color: var(--text-secondary);
+
+    font-size: 12px;
+}
+
+.league-dropdown[open] .league-selector-arrow {
+    transform: rotate(180deg);
+}
+
+
+/* =========================================================
+   DROPDOWN MENU
+   ========================================================= */
+
+.league-dropdown-menu {
+    position: absolute;
+
+    top: 100%;
+    left: 0;
+
+    z-index: 1000;
+
+    width: 280px;
+    box-sizing: border-box;
+
+    padding: 8px;
+
+    background-color: #111317;
+
+    border: 1px solid var(--gold);
+    border-top: none;
+
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+
+    box-shadow:
+        0 12px 30px rgba(0, 0, 0, 0.45);
+}
+
+
+/* =========================================================
+   LEAGUE OPTIONS
+   ========================================================= */
+
+.league-option {
+    display: flex;
+    align-items: center;
+
+    gap: 11px;
+
+    width: 100%;
+    box-sizing: border-box;
+
+    padding: 11px;
+
+    border-radius: 6px;
+
+    color: var(--text-primary);
+
+    text-decoration: none;
+
+    transition:
+        background-color 0.15s ease;
+}
+
+.league-option:hover {
+    background-color: var(--bg-hover);
+}
+
+.league-option.active {
+    background-color: rgba(255, 204, 0, 0.07);
+}
+
+
+/* ---------- League Icon ---------- */
+
+.league-option-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+
+    background: rgba(255, 204, 0, 0.1);
+
+    border: 1px solid rgba(255, 204, 0, 0.25);
+    border-radius: 6px;
+
+    font-size: 16px;
+}
+
+
+/* ---------- League Information ---------- */
+
+.league-option-info {
+    display: flex;
+    flex-direction: column;
+
+    min-width: 0;
+
+    flex: 1;
+}
+
+.league-option-name {
+    overflow: hidden;
+
+    color: #ffffff;
+
+    font-size: 14px;
+    font-weight: 600;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.league-option-meta {
+    margin-top: 3px;
+
+    color: #777b82;
+
+    font-size: 11px;
+}
+
+.league-option-check {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 18px;
+    flex-shrink: 0;
+
+    color: var(--gold);
+
+    font-size: 17px;
+    font-weight: 700;
+}
+
+
+/* =========================================================
+   DROPDOWN DIVIDER
+   ========================================================= */
+
+.league-dropdown-divider {
+    height: 1px;
+
+    margin: 6px 4px;
+
+    background-color: var(--border);
+}
+
+
+/* =========================================================
+   ADD LEAGUE
+   ========================================================= */
+
+.league-add-option {
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    padding: 11px;
+
+    border-radius: 6px;
+
+    color: var(--gold);
+
+    text-decoration: none;
+
+    font-size: 13px;
+    font-weight: 600;
+
+    transition:
+        background-color 0.15s ease;
+}
+
+.league-add-option:hover {
+    background-color: rgba(255, 204, 0, 0.08);
+}
+
+.league-add-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 25px;
+    height: 25px;
+    flex-shrink: 0;
+
+    border: 1px solid var(--gold-dark);
+    border-radius: 5px;
+
+    font-size: 17px;
+}
+
+
+/* ---------- No Connected Leagues ---------- */
+
+.league-add-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 8px;
+
+    min-height: 40px;
+
+    padding: 9px 14px;
+
+    background: transparent;
+
+    border: 1px solid var(--gold-dark);
+    border-radius: 7px;
+
+    color: var(--gold);
+
+    text-decoration: none;
+
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+
+    transition:
+        background-color 0.2s ease,
+        color 0.2s ease;
+}
+
+.league-add-button:hover {
+    background-color: var(--gold);
+    color: #111;
 }
 
 
@@ -344,12 +635,20 @@ body {
         padding-bottom: 14px;
     }
 
-    .league-selector {
+    .league-dropdown {
         order: 3;
 
         width: 100%;
+    }
+
+    .league-selector {
+        width: 100%;
 
         justify-content: center;
+    }
+
+    .league-dropdown-menu {
+        width: 100%;
     }
 
     .main-nav {

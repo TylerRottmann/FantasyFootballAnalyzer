@@ -3,7 +3,29 @@ from django.db import models
 
 
 class CustomUser(AbstractUser):
-    nickname = models.CharField(max_length=50, blank=True)
-    sleeper_username = models.CharField(max_length=50, blank=True)
-    email_notifications = models.BooleanField(default=False)
-    
+    email_notifications = models.BooleanField(
+        default=True
+    )
+
+    nickname = models.CharField(
+        max_length=150,
+        default="",
+    )
+
+    sleeper_username = models.CharField(
+        max_length=150,
+        default="",
+    )
+
+    yahoo_username = models.CharField(
+        max_length=150,
+        default="",
+    )
+
+    espn_username = models.CharField(
+        max_length=150,
+        default="",
+    )
+
+    def __str__(self):
+        return self.username
