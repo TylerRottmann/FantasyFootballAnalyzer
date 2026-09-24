@@ -1,0 +1,123 @@
+.adp-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 24px;
+}
+
+.adp-header {
+    margin-bottom: 28px;
+}
+
+.adp-header h1 {
+    margin: 0 0 8px;
+    font-size: 32px;
+}
+
+.adp-header p {
+    margin: 0;
+    color: #a8a8a8;
+}
+
+.adp-filters {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+}
+
+.adp-filters input,
+.adp-filters select {
+    padding: 11px 14px;
+    border: 1px solid #444;
+    border-radius: 6px;
+    background: #1c1c1c;
+    color: #fff;
+    min-width: 160px;
+}
+
+.adp-filters input {
+    min-width: 240px;
+}
+
+.adp-filters button {
+    padding: 11px 18px;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 700;
+    background: #f0b90b;
+    color: #111;
+}
+
+.clear-filters {
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    color: #bbb;
+    text-decoration: none;
+}
+
+.adp-table-container {
+    overflow-x: auto;
+    border: 1px solid #333;
+    border-radius: 8px;
+}
+
+.adp-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #171717;
+}
+
+.adp-table th {
+    text-align: left;
+    padding: 14px 16px;
+    background: #202020;
+    color: #aaa;
+    font-size: 13px;
+    text-transform: uppercase;
+}
+
+.adp-table td {
+    padding: 15px 16px;
+    border-top: 1px solid #2e2e2e;
+}
+
+.adp-table tbody tr:hover {
+    background: #1e1e1e;
+}
+
+.player-name {
+    font-weight: 700;
+}
+
+.position-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: #2a2a2a;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.adp-value {
+    color: #f0b90b;
+    font-weight: 700;
+}
+
+.no-results {
+    text-align: center;
+    padding: 40px !important;
+    color: #888;
+}
+
+@media (max-width: 700px) {
+    .adp-filters {
+        flex-direction: column;
+    }
+
+    .adp-filters input,
+    .adp-filters select {
+        width: 100%;
+    }
+}
