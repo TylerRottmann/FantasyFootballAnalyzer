@@ -14,6 +14,9 @@ def connect_league(request):
 
     if request.method == "POST":
         platform = request.POST.get("platform")
+        platform_username = request.POST.get(
+            "platform_username", ""
+        ).strip()
         league_identifier = request.POST.get(
             "league_identifier", ""
         ).strip()
@@ -22,7 +25,10 @@ def connect_league(request):
             try:
                 service = SleeperLeagueService(league_identifier)
 
-                result = service.import_league(request.user)
+                result = service.import_league(
+                    request.user,
+                    platform_username=platform_username,
+                )
 
                 connection = UserLeagueConnection.objects.get(
                     user=request.user,

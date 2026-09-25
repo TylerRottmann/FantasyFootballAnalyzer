@@ -1,0 +1,310 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Profile | Fantasy Football Analyzer{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/profile.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="profile-container">
+
+    <!-- Page Header -->
+    <div class="profile-header">
+
+        <h1 class="profile-title">Profile</h1>
+
+        <button type="button"
+                class="settings-button"
+                onclick="openSettings()">
+            ⚙ Settings
+        </button>
+
+    </div>
+
+
+    <!-- Account Information -->
+    <div class="profile-card">
+
+        <h2>Account Information</h2>
+
+        <form method="post">
+
+            {% csrf_token %}
+            <input type="hidden" name="form_type" value="profile">
+
+            <!-- Username -->
+            <div class="profile-field">
+
+                <label for="{{ profile_form.username.id_for_label }}">
+                    Username
+                </label>
+
+                {{ profile_form.username }}
+
+                <button type="button"
+                        class="edit-button"
+                        onclick="toggleEdit('{{ profile_form.username.id_for_label }}', this)">
+                    Edit
+                </button>
+
+            </div>
+
+
+            <!-- Email -->
+            <div class="profile-field">
+
+                <label for="{{ profile_form.email.id_for_label }}">
+                    Email
+                </label>
+
+                {{ profile_form.email }}
+
+                <button type="button"
+                        class="edit-button"
+                        onclick="toggleEdit('{{ profile_form.email.id_for_label }}', this)">
+                    Edit
+                </button>
+
+            </div>
+
+
+            <!-- Nickname -->
+            <div class="profile-field">
+
+                <label for="{{ profile_form.nickname.id_for_label }}">
+                    Nickname
+                </label>
+
+                {{ profile_form.nickname }}
+
+                <button type="button"
+                        class="edit-button"
+                        onclick="toggleEdit('{{ profile_form.nickname.id_for_label }}', this)">
+                    Edit
+                </button>
+
+            </div>
+
+
+            <!-- Sleeper Username -->
+            <div class="profile-field">
+
+                <label for="{{ profile_form.sleeper_username.id_for_label }}">
+                    Sleeper Username
+                </label>
+
+                {{ profile_form.sleeper_username }}
+
+                <button type="button"
+                        class="edit-button"
+                        onclick="toggleEdit('{{ profile_form.sleeper_username.id_for_label }}', this)">
+                    Edit
+                </button>
+
+            </div>
+
+
+            <button type="submit" class="save-button">
+                Save Changes
+            </button>
+
+        </form>
+
+    </div>
+
+
+    <!-- Teams -->
+    <div class="profile-card">
+
+        <h2>Teams</h2>
+
+        {% if connected_leagues %}
+
+            <div class="teams-list">
+
+                {% for connection in connected_leagues %}
+
+                    <div class="team-item {% if connection.league.id == active_league.id %}active{% endif %}">
+
+                        <div class="team-info">
+
+                            <div class="team-name">
+                                {{ connection.league.name }}
+                            </div>
+
+                            <div class="team-meta">
+                                {{ connection.league.season }}
+                                •
+                                {{ connection.get_platform_display }}
+                            </div>
+
+                        </div>
+
+
+                        {% if connection.league.id == active_league.id %}
+
+                            <span class="active-team-label">
+                                Current
+                            </span>
+
+                        {% else %}
+
+                            <a href="{% url 'select_league' connection.league.id %}"
+                               class="switch-team-button">
+                                Switch
+                            </a>
+
+                        {% endif %}
+
+                    </div>
+
+                {% endfor %}
+
+            </div>
+
+        {% else %}
+
+            <div class="teams-empty">
+                No fantasy teams connected yet.
+            </div>
+
+            <a href="{% url 'connect_league' %}"
+               class="connect-team-button">
+                Connect League
+            </a>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     SETTINGS MODAL
+     ========================================================= -->
+
+<div id="settingsModal" class="settings-modal">
+
+    <div class="settings-modal-content">
+
+        <div class="settings-modal-header">
+
+            <h2>Settings</h2>
+
+            <button type="button"
+                    class="close-button"
+                    onclick="closeSettings()">
+                &times;
+            </button>
+
+        </div>
+
+
+        <form method="post">
+
+            {% csrf_token %}
+            <input type="hidden" name="form_type" value="settings">
+
+            <div class="settings-row">
+
+                <label for="{{ settings_form.email_notifications.id_for_label }}">
+                    Email Notifications
+                </label>
+
+                {{ settings_form.email_notifications }}
+
+            </div>
+
+            <button type="submit" class="save-button">
+                Save Settings
+            </button>
+
+        </form>
+
+
+        <a href="{% url 'password_change' %}"
+           class="password-link">
+            Change Password
+        </a>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     PROFILE JAVASCRIPT
+     ========================================================= -->
+
+<script>
+
+    // Enables/disables editing for an account field.
+    function toggleEdit(fieldId, button) {
+
+        const field = document.getElementById(fieldId);
+
+        field.readOnly = !field.readOnly;
+
+        if (field.readOnly) {
+
+            button.textContent = "Edit";
+
+        } else {
+
+            button.textContent = "Cancel";
+            field.focus();
+
+        }
+
+    }
+
+
+    // Opens the settings modal.
+    function openSettings() {
+
+        document
+            .getElementById("settingsModal")
+            .classList.add("open");
+
+    }
+
+
+    // Closes the settings modal.
+    function closeSettings() {
+
+        document
+            .getElementById("settingsModal")
+            .classList.remove("open");
+
+    }
+
+
+    // Make profile fields read-only when the page first loads.
+    document.addEventListener("DOMContentLoaded", function () {
+
+        const profileFields = [
+            "{{ profile_form.username.id_for_label }}",
+            "{{ profile_form.email.id_for_label }}",
+            "{{ profile_form.nickname.id_for_label }}",
+            "{{ profile_form.sleeper_username.id_for_label }}"
+        ];
+
+        profileFields.forEach(function (fieldId) {
+
+            const field = document.getElementById(fieldId);
+
+            if (field) {
+                field.readOnly = true;
+            }
+
+        });
+
+    });
+
+</script>
+
+{% endblock %}

@@ -1,0 +1,364 @@
+/* =========================================================
+   PROFILE PAGE
+   ========================================================= */
+
+.profile-container {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.profile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+}
+
+.profile-title {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 700;
+}
+
+.settings-button {
+    padding: 9px 14px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+
+    background-color: var(--bg-card);
+    color: var(--text-secondary);
+
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+
+    cursor: pointer;
+}
+
+.settings-button:hover {
+    color: var(--gold);
+    border-color: var(--gold-dark);
+    background-color: var(--bg-hover);
+}
+
+
+/* ---------- Cards ---------- */
+
+.profile-card {
+    margin-bottom: 24px;
+    padding: 24px;
+
+    background-color: var(--bg-card);
+
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.profile-card h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+
+    font-size: 18px;
+}
+
+
+/* ---------- Profile Fields ---------- */
+
+.profile-field {
+    display: grid;
+    grid-template-columns: 160px 1fr auto;
+    align-items: center;
+
+    gap: 16px;
+
+    padding: 14px 0;
+
+    border-bottom: 1px solid var(--border);
+}
+
+.profile-field:last-of-type {
+    border-bottom: none;
+}
+
+.profile-field label {
+    color: var(--text-secondary);
+
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.profile-field input {
+    width: 100%;
+
+    padding: 9px 10px;
+
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+
+    border: 1px solid var(--border);
+    border-radius: 6px;
+
+    font-family: inherit;
+    font-size: 14px;
+}
+
+.profile-field input[readonly] {
+    border-color: transparent;
+    background-color: transparent;
+}
+
+.edit-button {
+    padding: 7px 12px;
+
+    background: transparent;
+    color: var(--gold);
+
+    border: 1px solid var(--gold-dark);
+    border-radius: 6px;
+
+    cursor: pointer;
+}
+
+.edit-button:hover {
+    background-color: var(--gold);
+    color: #111;
+}
+
+.save-button {
+    margin-top: 20px;
+
+    padding: 10px 16px;
+
+    background-color: var(--gold);
+    color: #111;
+
+    border: none;
+    border-radius: 7px;
+
+    font-family: inherit;
+    font-weight: 700;
+
+    cursor: pointer;
+}
+
+
+/* ---------- Teams ---------- */
+
+.teams-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.team-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 20px;
+
+    padding: 16px;
+
+    background-color: var(--bg-main);
+
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.team-item.active {
+    border-color: var(--gold-dark);
+}
+
+.team-info {
+    min-width: 0;
+}
+
+.team-name {
+    margin-bottom: 5px;
+
+    color: var(--text-primary);
+
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.team-meta {
+    color: var(--text-secondary);
+
+    font-size: 13px;
+}
+
+.active-team-label {
+    flex-shrink: 0;
+
+    padding: 6px 10px;
+
+    color: var(--gold);
+
+    border: 1px solid var(--gold-dark);
+    border-radius: 6px;
+
+    font-size: 12px;
+    font-weight: 700;
+
+    text-transform: uppercase;
+}
+
+.switch-team-button {
+    flex-shrink: 0;
+
+    padding: 7px 12px;
+
+    background: transparent;
+    color: var(--gold);
+
+    border: 1px solid var(--gold-dark);
+    border-radius: 6px;
+
+    font-size: 13px;
+    font-weight: 600;
+
+    text-decoration: none;
+}
+
+.switch-team-button:hover {
+    background-color: var(--gold);
+    color: #111;
+}
+
+.teams-empty {
+    padding: 24px 0;
+
+    color: var(--text-secondary);
+
+    text-align: center;
+}
+
+.connect-team-button {
+    display: block;
+
+    width: fit-content;
+
+    margin: 0 auto;
+
+    padding: 9px 14px;
+
+    background-color: var(--gold);
+    color: #111;
+
+    border-radius: 7px;
+
+    font-size: 14px;
+    font-weight: 700;
+
+    text-decoration: none;
+}
+
+.connect-team-button:hover {
+    background-color: var(--gold-dark);
+}
+
+
+/* ---------- Settings Modal ---------- */
+
+.settings-modal {
+    display: none;
+
+    position: fixed;
+    inset: 0;
+
+    z-index: 1000;
+
+    align-items: center;
+    justify-content: center;
+
+    padding: 20px;
+
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+.settings-modal.open {
+    display: flex;
+}
+
+.settings-modal-content {
+    width: 100%;
+    max-width: 420px;
+
+    padding: 24px;
+
+    background-color: var(--bg-card);
+
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.settings-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    margin-bottom: 20px;
+}
+
+.settings-modal-header h2 {
+    margin: 0;
+}
+
+.close-button {
+    background: transparent;
+    color: var(--text-secondary);
+
+    border: none;
+
+    font-size: 22px;
+
+    cursor: pointer;
+}
+
+.close-button:hover {
+    color: var(--text-primary);
+}
+
+.settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 20px;
+
+    margin-bottom: 20px;
+}
+
+.password-link {
+    display: inline-block;
+
+    margin-bottom: 20px;
+
+    color: var(--gold);
+
+    text-decoration: none;
+}
+
+.password-link:hover {
+    text-decoration: underline;
+}
+
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 600px) {
+
+    .profile-field {
+        grid-template-columns: 1fr auto;
+    }
+
+    .profile-field label {
+        grid-column: 1 / -1;
+    }
+
+    .team-item {
+        align-items: flex-start;
+    }
+
+}

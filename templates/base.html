@@ -13,6 +13,7 @@
 
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
     <link rel="stylesheet" href="{% static 'css/leagues.css' %}">
+    {% block extra_css %}{% endblock %}
 </head>
 
 <body>
@@ -35,7 +36,8 @@
         </a>
 
 
-        <!-- League Selector -->
+        <!-- ==================== LEAGUE SELECTOR ==================== -->
+
         {% if connected_leagues %}
 
             <details class="league-dropdown">
@@ -97,7 +99,6 @@
                     {% endfor %}
 
 
-                    <!-- Divider -->
                     <div class="league-dropdown-divider"></div>
 
 
@@ -140,31 +141,24 @@
         {% endif %}
 
 
-        <!-- User Controls -->
+        <!-- ==================== USER CONTROLS ==================== -->
+
         <div class="header-actions">
 
             {% if user.is_authenticated %}
 
-                <!-- Settings -->
-                <button
-                    type="button"
-                    class="header-button"
-                >
-                    ⚙ Settings
-                </button>
-
-
-                <!-- Account -->
                 <div class="account-area">
 
-                    <span class="username">
+                    <!-- Username / Profile -->
+                    <a
+                        href="{% url 'profile' %}"
+                        class="account-button"
+                    >
                         {{ user.username }}
-                    </span>
-
-                    <span class="online-indicator"></span>
+                    </a>
 
 
-                    <!-- Django Logout -->
+                    <!-- Sign Out -->
                     <form
                         action="{% url 'logout' %}"
                         method="post"
@@ -209,6 +203,7 @@
 
 
     <!-- ==================== MAIN NAVIGATION ==================== -->
+
     <nav class="main-nav">
 
         <a
@@ -225,13 +220,17 @@
             ☷ Weekly Rankings
         </a>
 
-
-        <a href="{% url 'adp_rankings' %}" class="nav-link">
+        <a
+            href="{% url 'adp_rankings' %}"
+            class="nav-link"
+        >
             ↗ ADP
         </a>
 
-
-        <a href="#" class="nav-link">
+        <a
+            href="#"
+            class="nav-link"
+        >
             ♙ Waiver Wire
         </a>
 
@@ -239,7 +238,6 @@
             href="#"
             class="nav-link"
         >
-        <a href="#" class="nav-link">
             ♜ League Power Rankings
         </a>
 
@@ -247,6 +245,7 @@
 
 
     <!-- ==================== PAGE CONTENT ==================== -->
+
     <main class="page-content">
 
         {% block content %}
