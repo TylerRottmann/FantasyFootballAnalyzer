@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+
+<link rel="stylesheet" href="{% static 'css/adp.css' %}">
+
+<div class="adp-page">
+
+    <div class="adp-header">
+        <div>
+            <h1>ADP Rankings</h1>
+            <p>
+                Explore fantasy football players and compare
+                Average Draft Position rankings.
+            </p>
+        </div>
+    </div>
+
+    <form method="get" class="adp-filters">
+
+        <input
+            type="text"
+            name="search"
+            value="{{ search }}"
+            placeholder="Search player..."
+        >
+
+        <select name="position">
+            <option value="">All Positions</option>
+
+            {% for pos in positions %}
+                <option
+                    value="{{ pos }}"
+                    {% if selected_position == pos %}selected{% endif %}
+                >
+                    {{ pos }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <select name="team">
+            <option value="">All Teams</option>
+
+            {% for team in teams %}
+                <option
+                    value="{{ team }}"
+                    {% if selected_team == team|stringformat:"s" %}selected{% endif %}
+                >
+                    Team {{ team }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <button type="submit">
+            Apply Filters
+        </button>
+
+        <a href="{% url 'adp_rankings' %}" class="clear-filters">
+            Clear
+        </a>
+
+    </form>
+
+    <div class="adp-table-container">
+
+        <table class="adp-table">
+
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Player</th>
+                    <th>Position</th>
+                    <th>Team</th>
+                    <th>Age</th>
+                    <th>ADP</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                {% for player in players %}
+
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+
+                    <td class="player-name">
+                        {{ player.full_name }}
+                    </td>
+
+                    <td>
+                        <span class="position-badge">
+                            {{ player.position|default:"—" }}
+                        </span>
+                    </td>
+
+                    <td>
+                        {{ player.team_id|default:"—" }}
+                    </td>
+
+                    <td>
+                        {{ player.age|default:"—" }}
+                    </td>
+
+                    <td class="adp-value">
+                        —
+                    </td>
+                </tr>
+
+                {% empty %}
+
+                <tr>
+                    <td colspan="6" class="no-results">
+                        No players found.
+                    </td>
+                </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+{% endblock %}
