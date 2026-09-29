@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Waiver Wire | Fantasy Football Analyzer{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/waivers.css' %}">{% endblock %}
+{% block content %}
+<section class="waiver-page">
+    <header class="waiver-header">
+        <h1>Waiver Wire Suggestions</h1>
+        {% if active_league %}
+        <p>{{ active_league.name }} · {{ active_league.season|default_if_none:"Season unavailable" }}</p>
+        <p>Players not rostered by any team in this league's latest import.</p>
+        <p class="waiver-meta">Last imported: {{ active_league.updated_at|date:"M j, Y, g:i a T" }}.
+            Reconnect your league to refresh availability. Waiver claim timing is not tracked.</p>
+        {% endif %}
+    </header>
+    {% if not active_league %}
+    <div class="waiver-notice"><h2>Connect a league to get started</h2>
+        <p>Import your league to see which players are available.</p>
+        <a href="{% url 'connect_league' %}">Connect a league</a></div>
+    {% elif not has_rosters %}
+    <div class="waiver-notice"><h2>No imported rosters yet</h2>
+        <p>Availability cannot be determined until this league has imported rosters.</p>
+        <a href="{% url 'connect_league' %}">Reconnect this league</a></div>
+    {% else %}
+    <div class="waiver-notice"><strong>Demo predictions</strong>
+        <p>Weekly and rest-of-season points are synthetic placeholders, not player forecasts.
+        Rankings use these demo values. The current player import covers QB, RB, WR, and TE.</p></div>
+    <form method="get" class="waiver-filters">
+        {% for field in filter_form %}
+        <div class="waiver-field">
+            {{ field.label_tag }}{{ field }}{{ field.errors }}
+        </div>
+        {% endfor %}
+        <div class="waiver-filter-actions"><button type="submit">Apply filters</button>
+            <a href="{% url 'waiver_wire' %}">Clear filters</a></div>
+    </form>
+    {% if filter_form.errors %}
+    <p role="alert">Please correct the filters above to see matching players.</p>
+    {% else %}
+    <p class="waiver-meta">{{ page_obj.paginator.count }} available player{{ page_obj.paginator.count|pluralize }} matching your filters.
+        Players with unknown ages are excluded when an age limit is applied.</p>
+    <div class="waiver-table-container" tabindex="0" role="region" aria-label="Available players">
+        <table class="waiver-table">
+            <thead><tr><th scope="col">Rank</th><th scope="col">Player</th><th scope="col">Position</th>
+                <th scope="col">NFL team</th><th scope="col">Age</th>
+                <th scope="col">This week <span>(demo pts)</span></th>
+                <th scope="col">Rest of season <span>(demo pts)</span></th></tr></thead>
+            <tbody>{% for row in page_obj %}
+                <tr><td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
+                    <td class="waiver-player">{{ row.player.full_name }}</td><td>{{ row.player.position }}</td>
+                    <td>{{ row.player.team.abbreviation|default:"—" }}</td>
+                    <td>{{ row.player.age|default_if_none:"—" }}</td>
+                    <td class="waiver-points">{{ row.prediction.this_week|floatformat:1 }}</td>
+                    <td class="waiver-points">{{ row.prediction.rest_of_season|floatformat:1 }}</td></tr>
+            {% empty %}<tr><td colspan="7" class="waiver-empty">No available players match these filters. Try clearing the filters.</td></tr>{% endfor %}</tbody>
+        </table>
+    </div>
+    {% if page_obj.has_other_pages %}
+    <nav class="waiver-pagination" aria-label="Player pages">
+        {% if page_obj.has_previous %}<a href="?{{ filter_query }}&amp;page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}<a href="?{{ filter_query }}&amp;page={{ page_obj.next_page_number }}">Next</a>{% endif %}
+    </nav>{% endif %}
+    {% endif %}
+    {% endif %}
+</section>
+{% endblock %}

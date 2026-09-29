@@ -208,7 +208,7 @@
 
         <a
             href="#"
-            class="nav-link active"
+            class="nav-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}"
         >
             ⚡ Start / Sit
         </a>
@@ -228,8 +228,8 @@
         </a>
 
         <a
-            href="#"
-            class="nav-link"
+            href="{% url 'waiver_wire' %}"
+            class="nav-link {% if request.resolver_match.url_name == 'waiver_wire' %}active{% endif %}"
         >
             ♙ Waiver Wire
         </a>
