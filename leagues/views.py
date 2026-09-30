@@ -4,6 +4,11 @@ from django.shortcuts import render
 from .integrations.sleeper import SleeperLeagueService
 from .models import FantasyRoster, UserLeagueConnection
 from django.shortcuts import redirect
+from django.contrib import messages
+
+import secrets
+
+from leagues.integrations.yahoo import YahooLeagueService
 
 
 
@@ -86,3 +91,48 @@ def select_league(request, league_id):
     request.session["active_league_id"] = connection.league.id
 
     return redirect(request.META.get("HTTP_REFERER", "/"))
+
+@login_required
+def yahoo_connect(request):
+    state = secrets.token_urlsafe(32)
+
+    request.session["yahoo_oauth_state"] = state
+
+    authorization_url = (
+        YahooLeagueService.build_authorization_url(state)
+    )
+
+    return redirect(authorization_url)
+
+@login_required
+def yahoo_callback(request):
+    code = request.GET.get("code")
+    state = request.GET.get("state")
+
+    expected_state = request.session.pop(
+        "yahoo_oauth_state",
+        None,
+    )
+
+    if not state or state != expected_state:
+        messages.error(
+            request,
+            "Yahoo authorization failed: invalid state.",
+        )
+        return redirect("/")
+
+    if not code:
+        error = request.GET.get(
+            "error",
+            "unknown_error",
+        )
+
+        messages.error(
+            request,
+            f"Yahoo authorization failed: {error}.",
+        )
+
+        return redirect("/")
+
+    # Token exchange will go here next.
+    return redirect("/")

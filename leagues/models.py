@@ -257,3 +257,126 @@ class UserLeagueConnection(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.league.name}"
+
+class LeaguePlatformIdentity(models.Model):
+    league = models.ForeignKey(
+        FantasyLeague,
+        on_delete=models.CASCADE,
+        related_name="platform_identities",
+    )
+
+    platform = models.CharField(
+        max_length=20,
+    )
+
+    external_id = models.CharField(
+        max_length=255,
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["platform", "external_id"],
+                name="unique_platform_league_external_id",
+            ),
+            models.UniqueConstraint(
+                fields=["league", "platform"],
+                name="unique_league_platform",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.platform}: {self.external_id}"
+
+
+class RosterPlatformIdentity(models.Model):
+    roster = models.ForeignKey(
+        FantasyRoster,
+        on_delete=models.CASCADE,
+        related_name="platform_identities",
+    )
+
+    platform = models.CharField(
+        max_length=20,
+    )
+
+    external_id = models.CharField(
+        max_length=255,
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["platform", "external_id"],
+                name="unique_platform_roster_external_id",
+            ),
+            models.UniqueConstraint(
+                fields=["roster", "platform"],
+                name="unique_roster_platform",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.platform}: {self.external_id}"
+
+
+class PlayerPlatformIdentity(models.Model):
+    player = models.ForeignKey(
+        Player,
+        on_delete=models.CASCADE,
+        related_name="platform_identities",
+    )
+
+    platform = models.CharField(
+        max_length=20,
+    )
+
+    external_id = models.CharField(
+        max_length=255,
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["platform", "external_id"],
+                name="unique_platform_player_external_id",
+            ),
+            models.UniqueConstraint(
+                fields=["player", "platform"],
+                name="unique_player_platform",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.platform}: {self.external_id}"
+
+class YahooAccount(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="yahoo_account",
+    )
+
+    access_token = models.TextField()
+
+    refresh_token = models.TextField()
+
+    expires_at = models.DateTimeField()
+
+    yahoo_user_id = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    def __str__(self):
+        return f"Yahoo account for {self.user.username}"
+
