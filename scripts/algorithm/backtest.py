@@ -3,7 +3,16 @@ import os
 import psycopg
 from dotenv import load_dotenv
 
-from predictor import predict_fantasy_points
+import django
+
+os.environ.setdefault(
+    "DJANGO_SETTINGS_MODULE",
+    "FantasyFootballAnalyzer.settings",
+)
+
+django.setup()
+
+from scripts.algorithm.predictor import predict_player
 
 
 load_dotenv()
@@ -148,22 +157,23 @@ def backtest_player(player_id, season, position):
             recent_games.append(actual_points)
             continue
 
-        # Use only the previous games.
-        recent_for_prediction = recent_games[-RECENT_GAMES:]
-
-        opponent_points_allowed = get_opponent_matchup(
-            opponent,
-            season,
-            week,
-            position,
+        prediction = predict_player(
+            player_id=player_id,
+            season=season,
+            week=week,
         )
 
-        projected = predict_fantasy_points(
-            recent_for_prediction,
-            opponent_points_allowed,
-        )
+        if prediction is None:
+            continue
 
-        difference = float(abs(projected - actual_points))
+        projected = prediction["projected_fantasy_points"]
+
+        if projected is None:
+            continue
+
+        difference = abs(
+            float(projected) - float(actual_points)
+        )
 
         success = difference <= SUCCESS_THRESHOLD
 

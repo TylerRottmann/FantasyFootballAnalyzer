@@ -1,30 +1,46 @@
-def predict_fantasy_points(
-    recent_games,
-    opponent_points_allowed,
-):
+# scripts/algorithm/predictor.py
+
+from leagues.models import Player
+from scripts.algorithm.qb.qb_predictor import predict_qb
+
+
+def predict_placeholder(player, season, week):
     """
-    Predict a player's fantasy points for the upcoming game.
-
-    recent_games:
-        List of the player's previous fantasy-point totals.
-
-    opponent_points_allowed:
-        Average fantasy points the upcoming opponent has allowed
-        to this player's position.
+    Temporary prediction logic for positions that do not
+    have a dedicated model yet.
     """
 
-    if not recent_games:
+    return {
+        "player_id": player.id,
+        "position": player.position,
+        "season": season,
+        "week": week,
+        "projected_fantasy_points": None,
+        "status": "placeholder",
+    }
+
+
+PREDICTORS = {
+    "QB": predict_qb,
+}
+
+
+def predict_player(player_id, season, week):
+    """
+    Main entry point for all fantasy player predictions.
+
+    The frontend/API should call this function rather than
+    calling a position-specific predictor directly.
+    """
+
+    player = Player.objects.filter(id=player_id).first()
+
+    if player is None:
         return None
 
-    # Use the player's recent average as our baseline.
-    player_average = sum(recent_games) / len(recent_games)
+    predictor = PREDICTORS.get(player.position)
 
-    # Start with the player's own production.
-    projection = player_average
+    if predictor is not None:
+        return predictor(player, season, week)
 
-    # If matchup information is available, adjust the projection
-    # based on how many points the opponent typically allows.
-    if opponent_points_allowed is not None:
-        projection = (player_average + opponent_points_allowed) / 2
-
-    return projection
+    return predict_placeholder(player, season, week)
