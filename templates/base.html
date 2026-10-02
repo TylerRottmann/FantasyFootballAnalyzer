@@ -222,7 +222,7 @@
 
         <a
             href="{% url 'adp_rankings' %}"
-            class="nav-link"
+            class="nav-link {% if request.resolver_match.url_name == 'adp_rankings' %}active{% endif %}"
         >
             ↗ ADP
         </a>
