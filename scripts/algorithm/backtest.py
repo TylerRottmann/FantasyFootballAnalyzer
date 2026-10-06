@@ -33,6 +33,7 @@ POSITIONS = ["QB", "RB", "WR", "TE"]
 
 RECENT_GAMES = 4
 SUCCESS_THRESHOLD = 3
+ERROR_THRESHOLDS = [2, 3, 5, 7]
 
 
 def get_top_players(season, position):
@@ -175,15 +176,12 @@ def backtest_player(player_id, season, position):
             float(projected) - float(actual_points)
         )
 
-        success = difference <= SUCCESS_THRESHOLD
-
         results.append({
             "week": week,
             "opponent": opponent,
             "projected": projected,
             "actual": actual_points,
             "difference": difference,
-            "success": success,
         })
 
         # Only add the actual result AFTER
@@ -195,13 +193,16 @@ def backtest_player(player_id, season, position):
 def main():
 
     total_predictions = 0
-    successful_predictions = 0
+    #successful_predictions = 0
 
     position_stats = {
         position: {
             "predictions": 0,
-            "successes": 0,
             "absolute_error": 0.0,
+            "within_threshold": {
+                threshold: 0
+                for threshold in ERROR_THRESHOLDS
+            },
         }
         for position in POSITIONS
     }
@@ -209,8 +210,11 @@ def main():
     season_stats = {
         season: {
             "predictions": 0,
-            "successes": 0,
             "absolute_error": 0.0,
+            "within_threshold": {
+                threshold: 0
+                for threshold in ERROR_THRESHOLDS
+            },
         }
         for season in SEASONS
     }
@@ -248,47 +252,54 @@ def main():
 
                     difference = result["difference"]
 
-                    if result["success"]:
-                        successful_predictions += 1
+                    for threshold in ERROR_THRESHOLDS:
+                        if difference <= threshold:
+                            position_stats[position]["within_threshold"][threshold] += 1
+                            season_stats[season]["within_threshold"][threshold] += 1
+
+
 
                     # Position statistics
                     position_stats[position]["predictions"] += 1
                     position_stats[position]["absolute_error"] += difference
 
-                    if result["success"]:
-                        position_stats[position]["successes"] += 1
+
 
                     # Season statistics
                     season_stats[season]["predictions"] += 1
                     season_stats[season]["absolute_error"] += difference
 
-                    if result["success"]:
-                        season_stats[season]["successes"] += 1
-
     print()
     print("========== OVERALL RESULTS ==========")
 
     print(f"Total predictions: {total_predictions}")
-    print(f"Successful predictions: {successful_predictions}")
 
     if total_predictions > 0:
 
-        success_rate = (
-            successful_predictions /
-            total_predictions
-        ) * 100
-
         average_error = (
-            sum(
-                position_stats[position]["absolute_error"]
-                for position in POSITIONS
-            ) /
-            total_predictions
+                sum(
+                    position_stats[position]["absolute_error"]
+                    for position in POSITIONS
+                )
+                / total_predictions
         )
 
-        print(f"Success rate: {success_rate:.2f}%")
         print(f"Average absolute error: {average_error:.2f}")
-        print("Target: 70.00%")
+
+        for threshold in ERROR_THRESHOLDS:
+            count = sum(
+                position_stats[position]["within_threshold"][threshold]
+                for position in POSITIONS
+            )
+
+            percentage = (
+                                 count / total_predictions
+                         ) * 100
+
+            print(
+                f"Within {threshold} points: "
+                f"{percentage:.2f}%"
+            )
 
     print()
     print("========== BY POSITION ==========")
@@ -300,49 +311,27 @@ def main():
         if stats["predictions"] == 0:
             continue
 
-        success_rate = (
-            stats["successes"] /
-            stats["predictions"]
-        ) * 100
-
         average_error = (
-            stats["absolute_error"] /
-            stats["predictions"]
+                stats["absolute_error"]
+                / stats["predictions"]
         )
 
-        print(
-            f"{position}: "
-            f"{success_rate:.2f}% success | "
-            f"{average_error:.2f} avg error | "
-            f"{stats['predictions']} predictions"
-        )
+        print()
+        print(f"{position}:")
+        print(f"  Predictions: {stats['predictions']}")
+        print(f"  Average absolute error: {average_error:.2f}")
 
-    print()
-    print("========== BY SEASON ==========")
+        for threshold in ERROR_THRESHOLDS:
+            percentage = (
+                                 stats["within_threshold"][threshold]
+                                 / stats["predictions"]
+                         ) * 100
 
-    for season in SEASONS:
+            print(
+                f"  Within {threshold} points: "
+                f"{percentage:.2f}%"
+            )
 
-        stats = season_stats[season]
-
-        if stats["predictions"] == 0:
-            continue
-
-        success_rate = (
-            stats["successes"] /
-            stats["predictions"]
-        ) * 100
-
-        average_error = (
-            stats["absolute_error"] /
-            stats["predictions"]
-        )
-
-        print(
-            f"{season}: "
-            f"{success_rate:.2f}% success | "
-            f"{average_error:.2f} avg error | "
-            f"{stats['predictions']} predictions"
-        )
 
 
 if __name__ == "__main__":
