@@ -5,8 +5,6 @@ from django.db import models
 class FantasyLeague(models.Model):
     id = models.BigAutoField(primary_key=True)
 
-    # Existing Sprint 1 field.
-    # Keep this so Brayden's importer continues to work.
     sleeper_league_id = models.CharField(
         max_length=100,
         unique=True,
@@ -21,7 +19,6 @@ class FantasyLeague(models.Model):
         blank=True,
     )
 
-    # League scoring/settings
     ppr = models.DecimalField(
         max_digits=5,
         decimal_places=2,
@@ -36,9 +33,17 @@ class FantasyLeague(models.Model):
         blank=True,
     )
 
+    scoring_settings = models.JSONField(
+        default=dict,
+    )
+
     starter_count = models.IntegerField(
         null=True,
         blank=True,
+    )
+
+    roster_positions = models.JSONField(
+        default=list,
     )
 
     created_at = models.DateTimeField()
@@ -47,9 +52,6 @@ class FantasyLeague(models.Model):
     class Meta:
         managed = False
         db_table = "fantasy_leagues"
-
-    def __str__(self):
-        return f"{self.name} ({self.season})"
 
 
 class FantasyRoster(models.Model):
@@ -201,6 +203,21 @@ class FantasyRosterPlayer(models.Model):
         on_delete=models.DO_NOTHING,
         db_column="player_id",
         related_name="roster_entries",
+        null=True,
+        blank=True,
+    )
+
+    team = models.ForeignKey(
+        "analyzer.Teams",
+        on_delete=models.DO_NOTHING,
+        db_column="team_id",
+        related_name="defense_roster_entries",
+        null=True,
+        blank=True,
+    )
+
+    roster_slot = models.CharField(
+        max_length=20
     )
 
     created_at = models.DateTimeField()
@@ -208,9 +225,6 @@ class FantasyRosterPlayer(models.Model):
     class Meta:
         managed = False
         db_table = "fantasy_roster_players"
-
-    def __str__(self):
-        return f"{self.roster} - {self.player}"
 
 
 class UserLeagueConnection(models.Model):
@@ -380,3 +394,70 @@ class YahooAccount(models.Model):
     def __str__(self):
         return f"Yahoo account for {self.user.username}"
 
+
+
+class FantasyProjection(models.Model):
+    id = models.BigAutoField(primary_key=True)
+
+    player = models.ForeignKey(
+        Player,
+        on_delete=models.CASCADE,
+        related_name="fantasy_projections",
+    )
+
+    season = models.IntegerField()
+
+    week = models.IntegerField()
+
+    projected_fantasy_points = models.FloatField()
+
+    status = models.CharField(
+        max_length=20,
+        default="projected",
+    )
+
+    model_version = models.CharField(
+        max_length=50,
+        default="v1",
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+        db_table = "fantasy_projections"
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "player",
+                    "season",
+                    "week",
+                    "model_version",
+                ],
+                name="unique_fantasy_projection",
+            ),
+        ]
+
+        indexes = [
+            models.Index(
+                fields=[
+                    "season",
+                    "week",
+                ],
+                name="projection_lookup_idx",
+            ),
+            models.Index(
+                fields=[
+                    "player",
+                    "season",
+                    "week",
+                ],
+                name="player_projection_idx",
+            ),
+        ]

@@ -10,7 +10,6 @@ def build_model_row(features):
     Build the feature vector in the exact same order
     used when training the WR model.
     """
-
     row = []
 
     for feature_name in WR_FEATURE_NAMES:
@@ -31,19 +30,22 @@ def predict_wr(player, season, week):
     machine-learning model.
     """
 
-    # --------------------------------------------------------
-    # BUILD PRE-GAME FEATURES
-    # --------------------------------------------------------
-
     features = build_wr_features(
         player=player,
         season=season,
         week=week,
     )
 
-    # --------------------------------------------------------
-    # LOAD TRAINED MODEL
-    # --------------------------------------------------------
+    if features.get("game_status") == "BYE":
+        return {
+            "player_id": player.id,
+            "position": "WR",
+            "season": season,
+            "week": week,
+            "projected_fantasy_points": 0,
+            "status": "bye",
+            "features": features,
+        }
 
     model = load_model()
 
@@ -57,10 +59,6 @@ def predict_wr(player, season, week):
             "status": "model_not_found",
         }
 
-    # --------------------------------------------------------
-    # BUILD MODEL INPUT + PREDICT
-    # --------------------------------------------------------
-
     X = build_model_row(features)
 
     projected_fantasy_points = float(
@@ -72,13 +70,10 @@ def predict_wr(player, season, week):
         "position": "WR",
         "season": season,
         "week": week,
-
         "projected_fantasy_points": round(
             projected_fantasy_points,
             2,
         ),
-
         "status": "ml_model",
-
         "features": features,
     }

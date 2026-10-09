@@ -41,9 +41,16 @@ def predict_qb(player, season, week):
         week=week,
     )
 
-    # --------------------------------------------------------
-    # LOAD TRAINED MODEL
-    # --------------------------------------------------------
+    if features.get("game_status") == "BYE":
+        return {
+            "player_id": player.id,
+            "position": "QB",
+            "season": season,
+            "week": week,
+            "projected_fantasy_points": 0,
+            "status": "bye",
+            "features": features,
+        }
 
     model = load_model()
 

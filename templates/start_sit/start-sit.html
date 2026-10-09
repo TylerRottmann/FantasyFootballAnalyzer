@@ -1,0 +1,1244 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block extra_css %}
+
+<link
+    rel="stylesheet"
+    href="{% static 'css/start-sit.css' %}"
+>
+
+{% endblock %}
+
+
+{% block content %}
+
+<div class="start-sit-page">
+
+
+    <!-- =========================================================
+         PAGE HEADER
+         ========================================================= -->
+
+    <div class="start-sit-header">
+
+        <!-- LEFT SIDE -->
+
+        <div class="start-sit-header-left">
+
+            <h1>Start / Sit</h1>
+
+            <p>
+                Optimize your lineup for
+                <strong>{{ league.name }}</strong>.
+            </p>
+
+            {% include "start_sit/league_settings.html" %}
+
+        </div>
+
+
+        <!-- RIGHT SIDE -->
+
+        <div class="week-controls">
+
+            <!-- RESYNC LEAGUE -->
+
+            <form
+                method="POST"
+                action="{% url 'resync_league' %}"
+                class="resync-form"
+            >
+
+                {% csrf_token %}
+
+                <button
+                    type="submit"
+                    class="resync-button"
+                >
+                    <i class="bi bi-arrow-repeat"></i>
+                    Resync League
+                </button>
+
+            </form>
+
+
+            <!-- WEEK SELECTOR -->
+
+            <form
+                method="GET"
+                class="week-selector-form"
+            >
+
+                <select
+                    id="week"
+                    name="week"
+                    class="week-selector"
+                    onchange="this.form.submit()"
+                >
+
+                    {% for week_number in weeks %}
+
+                        <option
+                            value="{{ week_number }}"
+                            {% if week_number == week %}
+                                selected
+                            {% endif %}
+                        >
+                            Week {{ week_number }}
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </form>
+
+        </div>
+
+    </div>
+
+
+    <!-- =========================================================
+         ERROR MESSAGE
+         ========================================================= -->
+
+    {% if error %}
+
+        <div class="start-sit-message error-message">
+
+            <span class="message-icon">
+                !
+            </span>
+
+            <span>
+                {{ error }}
+            </span>
+
+        </div>
+
+    {% endif %}
+
+
+    {% if not error %}
+    {% if projections_required %}
+        <div class="start-sit-message sync-warning">
+            <div class="message-icon">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <div class="sync-warning-content">
+                <h3>Projections Not Available</h3>
+                <p>
+                    {% if historical_mode %}
+                    Historical projections are not available for Week {{ week }}. The lineup actually played is shown, but the algorithm comparison is unavailable.
+                    {% else %}
+                    Projections have not been generated for
+                    Week {{ week }} yet. Your current roster is still shown
+                    below; lineup recommendations will appear when projections
+                    are available.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    {% endif %}
+    {% if historical_error %}
+        <div class="start-sit-message sync-warning"><div class="sync-warning-content"><p>{{ historical_error }}</p></div></div>
+    {% endif %}
+
+        <!-- =====================================================
+             CURRENT VS OPTIMIZED
+             ===================================================== -->
+
+        <div class="lineup-layout{% if projections_required %} lineup-layout-single{% endif %}">
+
+
+                <!-- =================================================
+                     CURRENT LINEUP
+                     ================================================= -->
+
+                <section class="lineup-card">
+
+
+                    <!-- HEADER -->
+
+                    <div class="lineup-card-header">
+
+                        <div>
+
+                            <h2>
+                                {% if historical_mode %}Lineup You Played{% else %}
+                                Current Lineup
+                                {% endif %}
+                            </h2>
+
+                            <p>
+                                {% if historical_mode %}Your actual starters in Week {{ week }}{% else %}
+                                Your current starters
+                                {% endif %}
+                            </p>
+
+                        </div>
+
+
+                        <div class="lineup-header-right">
+
+                            <div class="lineup-total">
+
+                                {{ current_total|floatformat:1 }}
+
+                                <span>
+                                    {% if historical_mode %}ACT{% else %}PTS{% endif %}
+                                </span>
+
+                            </div>
+                            {% if historical_mode %}<div class="historical-projected-total">PROJ {{ current_projected_total|floatformat:1 }}</div>{% endif %}
+
+                            <div class="lineup-label current-label">
+                                {% if historical_mode %}ACTUAL{% else %}CURRENT{% endif %}
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- =================================================
+                         STARTERS
+                         ================================================= -->
+
+                    <div class="lineup-section">
+
+                        <div class="lineup-section-title">
+                            Starters
+                        </div>
+
+
+                        <div class="lineup-players">
+
+                            {% for entry in current_lineup %}
+
+                                {% if entry.item %}
+
+                                    {% with item=entry.item %}
+
+                                        <div class="player-card">
+
+
+                                            <!-- POSITION SLOT -->
+
+                                            <div class="player-slot">
+
+                                                {% if entry.slot == "SUPER_FLEX" %}
+                                                    SFLEX
+                                                {% else %}
+                                                    {{ entry.slot }}
+                                                {% endif %}
+
+                                            </div>
+
+
+                                            <!-- PLAYER / TEAM IMAGE -->
+
+                                            <div class="player-image-wrapper">
+
+                                                {% if item.player %}
+
+                                                    {% if item.player.headshot_url %}
+
+                                                        <img
+                                                            src="{{ item.player.headshot_url }}"
+                                                            alt="{{ item.player.full_name }}"
+                                                            class="player-headshot"
+                                                        >
+
+                                                    {% else %}
+
+                                                        <div class="player-headshot-placeholder">
+                                                            🏈
+                                                        </div>
+
+                                                    {% endif %}
+
+                                                {% elif item.team %}
+
+                                                    <img
+                                                        src="https://a.espncdn.com/i/teamlogos/nfl/500/{{ item.team.abbreviation|lower }}.png"
+                                                        alt="{{ item.team.name }}"
+                                                        class="player-headshot"
+                                                        onerror="this.style.display='none';"
+                                                    >
+
+                                                {% else %}
+
+                                                    <div class="player-headshot-placeholder">
+                                                        🏈
+                                                    </div>
+
+                                                {% endif %}
+
+                                            </div>
+
+
+                                            <!-- PLAYER INFORMATION -->
+
+                                            <div class="player-information">
+
+                                                <div class="player-name">
+
+                                                    {% if item.player %}
+
+                                                        {{ item.player.full_name }}
+
+                                                    {% elif item.team %}
+
+                                                        {{ item.team.name }} D/ST
+
+                                                    {% else %}
+
+                                                        D/ST
+
+                                                    {% endif %}
+
+                                                </div>
+
+
+                                                <div class="player-meta">
+
+                                                    <span class="player-position">
+
+                                                        {% if item.player %}
+
+                                                            {{ item.player.position }}
+
+                                                        {% else %}
+
+                                                            DEF
+
+                                                        {% endif %}
+
+                                                    </span>
+
+
+                                                    {% if item.team %}
+
+                                                        <span class="team-display">
+
+                                                            <img
+                                                                src="https://a.espncdn.com/i/teamlogos/nfl/500/{{ item.team.abbreviation|lower }}.png"
+                                                                alt="{{ item.team.abbreviation }}"
+                                                                class="team-logo"
+                                                                onerror="this.style.display='none';"
+                                                            >
+
+                                                            <span>
+                                                                {{ item.team.abbreviation }}
+                                                            </span>
+
+                                                        </span>
+
+                                                    {% endif %}
+
+                                                </div>
+
+                                            </div>
+
+
+                                            <!-- MATCHUP -->
+
+                                            <div class="player-matchup">
+
+                                                {% if item.matchup %}
+
+                                                    {% if item.matchup.is_home %}
+
+                                                        <span class="matchup-symbol home">
+                                                            VS
+                                                        </span>
+
+                                                    {% else %}
+
+                                                        <span class="matchup-symbol away">
+                                                            @
+                                                        </span>
+
+                                                    {% endif %}
+
+
+                                                    <span class="opponent-abbreviation">
+                                                        {{ item.matchup.opponent.abbreviation }}
+                                                    </span>
+
+
+                                                    <img
+                                                        src="https://a.espncdn.com/i/teamlogos/nfl/500/{{ item.matchup.opponent.abbreviation|lower }}.png"
+                                                        alt="{{ item.matchup.opponent.abbreviation }}"
+                                                        class="opponent-logo"
+                                                        onerror="this.style.display='none';"
+                                                    >
+
+                                                {% else %}
+
+                                                    <span class="matchup-unavailable">
+                                                        BYE
+                                                    </span>
+
+                                                {% endif %}
+
+                                            </div>
+
+
+                                            <!-- PROJECTION / ACTUAL -->
+
+                                            <div class="player-projection{% if historical_mode %} historical-player-projection{% endif %}">
+
+                                                {% if historical_mode %}
+                                                    <div class="historical-player-scores">
+                                                        <span><b>{% if item.actual_points != None %}{{ item.actual_points|floatformat:1 }}{% else %}—{% endif %}</b><small>ACT</small></span>
+                                                        <span><b>{% if item.prediction and item.prediction.projected_fantasy_points is not None %}{{ item.prediction.projected_fantasy_points|floatformat:1 }}{% else %}—{% endif %}</b><small>PROJ</small></span>
+                                                    </div>
+                                                {% elif item.prediction %}
+
+                                                    {% if item.prediction.projected_fantasy_points is not None %}
+
+                                                        <div class="projection-value">
+                                                            <button
+                                                                type="button"
+                                                                class="projection-value projection-value-button"
+                                                                onclick="openProjectionExplanation(this)"
+                                                                data-player-name="{{ item.player.full_name }}"
+                                                                data-details-url="{% url 'projection_details' item.player.id %}?week={{ week }}"
+                                                                data-player-position="{{ item.player.position }}"
+                                                                data-projection-points="{{ item.prediction.projected_fantasy_points|floatformat:1 }}"
+                                                                data-projection-status="{{ item.prediction.status }}"
+                                                                data-model-version="{{ item.prediction.model_version }}"
+                                                                data-projection-season="{{ item.prediction.season }}"
+                                                                data-projection-week="{{ item.prediction.week }}"
+                                                                aria-label="Explain {{ item.player.full_name }}'s projected points"
+                                                            >{{ item.prediction.projected_fantasy_points|floatformat:1 }}</button>
+                                                        </div>
+
+                                                    {% else %}
+
+                                                        <div class="projection-value">
+                                                            —
+                                                        </div>
+
+                                                    {% endif %}
+
+                                                {% else %}
+
+                                                    <div class="projection-value">
+                                                        —
+                                                    </div>
+
+                                                {% endif %}
+
+
+                                                {% if not historical_mode %}<div class="projection-label">
+                                                    PROJ.
+                                                </div>{% endif %}
+
+                                            </div>
+
+                                        </div>
+
+                                    {% endwith %}
+
+
+                                {% else %}
+
+                                    <div class="player-card empty-position">
+
+                                        <div class="player-slot">
+
+                                            {% if entry.slot == "SUPER_FLEX" %}
+                                                SFLEX
+                                            {% else %}
+                                                {{ entry.slot }}
+                                            {% endif %}
+
+                                        </div>
+
+                                        <div class="empty-player">
+                                            No player
+                                        </div>
+
+                                    </div>
+
+                                {% endif %}
+
+
+                            {% empty %}
+
+                                <div class="empty-lineup">
+                                    No current starters found.
+                                </div>
+
+                            {% endfor %}
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- =================================================
+                         CURRENT BENCH
+                         ================================================= -->
+
+                    <div class="lineup-section bench-section">
+
+                        <div class="lineup-section-title">
+                            Bench
+                        </div>
+
+
+                        <div class="bench-players">
+
+                            {% for item in bench %}
+
+                                <div class="bench-player">
+
+
+                                    <!-- PLAYER / TEAM IMAGE -->
+
+                                    <div class="bench-player-image">
+
+                                        {% if item.player %}
+
+                                            {% if item.player.headshot_url %}
+
+                                                <img
+                                                    src="{{ item.player.headshot_url }}"
+                                                    alt="{{ item.player.full_name }}"
+                                                >
+
+                                            {% else %}
+
+                                                <span>
+                                                    🏈
+                                                </span>
+
+                                            {% endif %}
+
+                                        {% elif item.team %}
+
+                                            <img
+                                                src="https://a.espncdn.com/i/teamlogos/nfl/500/{{ item.team.abbreviation|lower }}.png"
+                                                alt="{{ item.team.name }}"
+                                                onerror="this.style.display='none';"
+                                            >
+
+                                        {% else %}
+
+                                            <span>
+                                                🏈
+                                            </span>
+
+                                        {% endif %}
+
+                                    </div>
+
+
+                                    <!-- PLAYER -->
+
+                                    <div class="bench-player-info">
+
+                                        <div class="bench-player-name">
+
+                                            {% if item.player %}
+
+                                                {{ item.player.full_name }}
+
+                                            {% elif item.team %}
+
+                                                {{ item.team.name }} D/ST
+
+                                            {% else %}
+
+                                                D/ST
+
+                                            {% endif %}
+
+                                        </div>
+
+
+                                        <div class="bench-player-meta">
+
+                                            <span>
+
+                                                {% if item.player %}
+
+                                                    {{ item.player.position }}
+
+                                                {% else %}
+
+                                                    DEF
+
+                                                {% endif %}
+
+                                            </span>
+
+
+                                            {% if item.team %}
+
+                                                <span class="bench-team">
+
+                                                    <img
+                                                        src="https://a.espncdn.com/i/teamlogos/nfl/500/{{ item.team.abbreviation|lower }}.png"
+                                                        alt="{{ item.team.abbreviation }}"
+                                                        class="bench-team-logo"
+                                                        onerror="this.style.display='none';"
+                                                    >
+
+                                                    {{ item.team.abbreviation }}
+
+                                                </span>
+
+                                            {% endif %}
+
+                                        </div>
+
+                                    </div>
+
+
+                                    <!-- MATCHUP -->
+
+                                    <div class="bench-matchup">
+
+                                        {% if item.matchup %}
+
+                                            {% if item.matchup.is_home %}
+
+                                                <span class="matchup-symbol home">
+                                                    VS
+                                                </span>
+
+                                            {% else %}
+
+                                                <span class="matchup-symbol away">
+                                                    @
+                                                </span>
+
+                                            {% endif %}
+
+                                            {{ item.matchup.opponent.abbreviation }}
+
+                                        {% else %}
+
+                                            <span class="matchup-unavailable">
+                                                BYE
+                                            </span>
+
+                                        {% endif %}
+
+                                    </div>
+
+
+                                    <!-- PROJECTION -->
+
+                                    <div class="bench-player-projection">
+
+                                        {% if historical_mode %}
+                                            <span class="historical-bench-scores"><b>{% if item.actual_points != None %}{{ item.actual_points|floatformat:1 }}{% else %}—{% endif %}</b><small> ACT</small><b>{% if item.prediction and item.prediction.projected_fantasy_points is not None %}{{ item.prediction.projected_fantasy_points|floatformat:1 }}{% else %}—{% endif %}</b><small> PROJ</small></span>
+                                        {% elif item.prediction %}
+
+                                            {% if item.prediction.projected_fantasy_points is not None %}
+
+                                                <button
+                                                    type="button"
+                                                    class="projection-value-button bench-projection-value-button"
+                                                    onclick="openProjectionExplanation(this)"
+                                                    data-player-name="{{ item.player.full_name }}"
+                                                    data-details-url="{% url 'projection_details' item.player.id %}?week={{ week }}"
+                                                    data-player-position="{{ item.player.position }}"
+                                                    data-projection-points="{{ item.prediction.projected_fantasy_points|floatformat:1 }}"
+                                                    data-projection-status="{{ item.prediction.status }}"
+                                                    data-model-version="{{ item.prediction.model_version }}"
+                                                    data-projection-season="{{ item.prediction.season }}"
+                                                    data-projection-week="{{ item.prediction.week }}"
+                                                    aria-label="Explain {{ item.player.full_name }}'s projected points"
+                                                >{{ item.prediction.projected_fantasy_points|floatformat:1 }}</button>
+
+                                            {% else %}
+
+                                                —
+
+                                            {% endif %}
+
+                                        {% else %}
+
+                                            —
+
+                                        {% endif %}
+
+                                    </div>
+
+                                </div>
+
+
+                            {% empty %}
+
+                                <div class="empty-bench">
+                                    No bench players found.
+                                </div>
+
+                            {% endfor %}
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+
+
+                {% if projections_available %}
+                <!-- =================================================
+                     OPTIMIZED LINEUP
+                     ================================================= -->
+
+                <section class="lineup-card optimized-card">
+
+
+                    <!-- HEADER -->
+
+                    <div class="lineup-card-header">
+
+                        <div>
+
+                            <h2>
+                                {% if historical_mode %}Our Lineup{% else %}
+                                Optimized Lineup
+                                {% endif %}
+                            </h2>
+
+                            <p>
+                                {% if historical_mode %}Our recommended starters for Week {{ week }}{% if algorithm_projection_gaps %} · Unprojected players count as 0{% endif %}{% else %}
+                                Highest projected lineup
+                                {% endif %}
+                            </p>
+
+                        </div>
+
+
+                        <div class="lineup-header-right">
+
+                            <div class="lineup-total optimized-total">
+
+                                {% if historical_mode %}{{ optimized_actual_total|floatformat:1 }}{% else %}{{ optimized_total|floatformat:1 }}{% endif %}
+
+                                <span>
+                                    {% if historical_mode %}ACT{% else %}PTS{% endif %}
+                                </span>
+
+                            </div>
+                            {% if historical_mode %}<div class="historical-projected-total">PROJ {{ optimized_total|floatformat:1 }}</div>{% endif %}
+
+                            <div class="lineup-label optimized-label">
+                                {% if historical_mode %}ACTUAL{% else %}RECOMMENDED{% endif %}
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- =================================================
+                         OPTIMIZED STARTERS
+                         ================================================= -->
+
+                    <div class="lineup-section">
+
+                        <div class="lineup-section-title">
+                            Starters
+                        </div>
+
+
+                        <div class="lineup-players">
+
+                            {% for entry in optimized_lineup %}
+
+                                {% if entry.item %}
+
+                                    {% with item=entry.item %}
+
+                                        <div class="player-card optimized-player-card">
+
+
+                                            <!-- POSITION SLOT -->
+
+                                            <div class="player-slot">
+
+                                                {% if entry.slot == "SUPER_FLEX" %}
+                                                    SFLEX
+                                                {% else %}
+                                                    {{ entry.slot }}
+                                                {% endif %}
+
+                                            </div>
+
+
+                                            <!-- PLAYER / TEAM IMAGE -->
+
+                                            <div class="player-image-wrapper">
+
+                                                {% if item.player %}
+
+                                                    {% if item.player.headshot_url %}
+
+                                                        <img
+                                                            src="{{ item.player.headshot_url }}"
+                                                            alt="{{ item.player.full_name }}"
+                                                            class="player-headshot"
+                                                        >
+
+                                                    {% else %}
+
+                                                        <div class="player-headshot-placeholder">
+                                                            🏈
+                                                        </div>
+
+                                                    {% endif %}
+
+                                                {% elif item.team %}
+
+                                                    <img
+                                                        src="https://a.espncdn.com/i/teamlogos/nfl/500/{{ item.team.abbreviation|lower }}.png"
+                                                        alt="{{ item.team.name }}"
+                                                        class="player-headshot"
+                                                        onerror="this.style.display='none';"
+                                                    >
+
+                                                {% else %}
+
+                                                    <div class="player-headshot-placeholder">
+                                                        🏈
+                                                    </div>
+
+                                                {% endif %}
+
+                                            </div>
+
+
+                                            <!-- PLAYER INFORMATION -->
+
+                                            <div class="player-information">
+
+                                                <div class="player-name">
+
+                                                    {% if item.player %}
+
+                                                        {{ item.player.full_name }}
+
+                                                    {% elif item.team %}
+
+                                                        {{ item.team.name }} D/ST
+
+                                                    {% else %}
+
+                                                        D/ST
+
+                                                    {% endif %}
+
+                                                </div>
+
+
+                                                <div class="player-meta">
+
+                                                    <span class="player-position">
+
+                                                        {% if item.player %}
+
+                                                            {{ item.player.position }}
+
+                                                        {% else %}
+
+                                                            DEF
+
+                                                        {% endif %}
+
+                                                    </span>
+
+
+                                                    {% if item.team %}
+
+                                                        <span class="team-display">
+
+                                                            <img
+                                                                src="https://a.espncdn.com/i/teamlogos/nfl/500/{{ item.team.abbreviation|lower }}.png"
+                                                                alt="{{ item.team.abbreviation }}"
+                                                                class="team-logo"
+                                                                onerror="this.style.display='none';"
+                                                            >
+
+                                                            <span>
+                                                                {{ item.team.abbreviation }}
+                                                            </span>
+
+                                                        </span>
+
+                                                    {% endif %}
+
+                                                </div>
+
+                                            </div>
+
+
+                                            <!-- MATCHUP -->
+
+                                            <div class="player-matchup">
+
+                                                {% if item.matchup %}
+
+                                                    {% if item.matchup.is_home %}
+
+                                                        <span class="matchup-symbol home">
+                                                            VS
+                                                        </span>
+
+                                                    {% else %}
+
+                                                        <span class="matchup-symbol away">
+                                                            @
+                                                        </span>
+
+                                                    {% endif %}
+
+
+                                                    <span class="opponent-abbreviation">
+                                                        {{ item.matchup.opponent.abbreviation }}
+                                                    </span>
+
+
+                                                    <img
+                                                        src="https://a.espncdn.com/i/teamlogos/nfl/500/{{ item.matchup.opponent.abbreviation|lower }}.png"
+                                                        alt="{{ item.matchup.opponent.abbreviation }}"
+                                                        class="opponent-logo"
+                                                        onerror="this.style.display='none';"
+                                                    >
+
+                                                {% else %}
+
+                                                    <span class="matchup-unavailable">
+                                                        BYE
+                                                    </span>
+
+                                                {% endif %}
+
+                                            </div>
+
+
+                                            <!-- PROJECTION / ACTUAL -->
+
+                                            <div class="player-projection{% if historical_mode %} historical-player-projection{% endif %}">
+
+                                                {% if historical_mode %}
+                                                    <div class="historical-player-scores">
+                                                        <span><b>{% if item.actual_points != None %}{{ item.actual_points|floatformat:1 }}{% else %}—{% endif %}</b><small>ACT</small></span>
+                                                        <span><b>{% if item.prediction and item.prediction.projected_fantasy_points is not None %}{{ item.prediction.projected_fantasy_points|floatformat:1 }}{% else %}—{% endif %}</b><small>PROJ</small></span>
+                                                    </div>
+                                                {% elif item.prediction %}
+
+                                                    {% if item.prediction.projected_fantasy_points is not None %}
+
+                                                        <div class="projection-value">
+                                                            <button
+                                                                type="button"
+                                                                class="projection-value projection-value-button"
+                                                                onclick="openProjectionExplanation(this)"
+                                                                data-player-name="{{ item.player.full_name }}"
+                                                                data-details-url="{% url 'projection_details' item.player.id %}?week={{ week }}"
+                                                                data-player-position="{{ item.player.position }}"
+                                                                data-projection-points="{{ item.prediction.projected_fantasy_points|floatformat:1 }}"
+                                                                data-projection-status="{{ item.prediction.status }}"
+                                                                data-model-version="{{ item.prediction.model_version }}"
+                                                                data-projection-season="{{ item.prediction.season }}"
+                                                                data-projection-week="{{ item.prediction.week }}"
+                                                                aria-label="Explain {{ item.player.full_name }}'s projected points"
+                                                            >{{ item.prediction.projected_fantasy_points|floatformat:1 }}</button>
+                                                        </div>
+
+                                                    {% else %}
+
+                                                        <div class="projection-value">
+                                                            —
+                                                        </div>
+
+                                                    {% endif %}
+
+                                                {% else %}
+
+                                                    <div class="projection-value">
+                                                        —
+                                                    </div>
+
+                                                {% endif %}
+
+
+                                                {% if not historical_mode %}<div class="projection-label">
+                                                    PROJ.
+                                                </div>{% endif %}
+
+                                            </div>
+
+                                        </div>
+
+                                    {% endwith %}
+
+
+                                {% else %}
+
+                                    <div class="player-card empty-position">
+
+                                        <div class="player-slot">
+
+                                            {% if entry.slot == "SUPER_FLEX" %}
+                                                SFLEX
+                                            {% else %}
+                                                {{ entry.slot }}
+                                            {% endif %}
+
+                                        </div>
+
+                                        <div class="empty-player">
+                                            No eligible player
+                                        </div>
+
+                                    </div>
+
+                                {% endif %}
+
+
+                            {% empty %}
+
+                                <div class="empty-lineup">
+                                    No optimized lineup available.
+                                </div>
+
+                            {% endfor %}
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- =================================================
+                         OPTIMIZED BENCH
+                         ================================================= -->
+
+                    <div class="lineup-section bench-section">
+
+                        <div class="lineup-section-title">
+                            Bench
+                        </div>
+
+
+                        <div class="bench-players">
+
+                            {% for item in optimized_bench %}
+
+                                <div class="bench-player">
+
+
+                                    <!-- PLAYER / TEAM IMAGE -->
+
+                                    <div class="bench-player-image">
+
+                                        {% if item.player %}
+
+                                            {% if item.player.headshot_url %}
+
+                                                <img
+                                                    src="{{ item.player.headshot_url }}"
+                                                    alt="{{ item.player.full_name }}"
+                                                >
+
+                                            {% else %}
+
+                                                <span>
+                                                    🏈
+                                                </span>
+
+                                            {% endif %}
+
+                                        {% elif item.team %}
+
+                                            <img
+                                                src="https://a.espncdn.com/i/teamlogos/nfl/500/{{ item.team.abbreviation|lower }}.png"
+                                                alt="{{ item.team.name }}"
+                                                onerror="this.style.display='none';"
+                                            >
+
+                                        {% else %}
+
+                                            <span>
+                                                🏈
+                                            </span>
+
+                                        {% endif %}
+
+                                    </div>
+
+
+                                    <!-- PLAYER -->
+
+                                    <div class="bench-player-info">
+
+                                        <div class="bench-player-name">
+
+                                            {% if item.player %}
+
+                                                {{ item.player.full_name }}
+
+                                            {% elif item.team %}
+
+                                                {{ item.team.name }} D/ST
+
+                                            {% else %}
+
+                                                D/ST
+
+                                            {% endif %}
+
+                                        </div>
+
+
+                                        <div class="bench-player-meta">
+
+                                            <span>
+
+                                                {% if item.player %}
+
+                                                    {{ item.player.position }}
+
+                                                {% else %}
+
+                                                    DEF
+
+                                                {% endif %}
+
+                                            </span>
+
+
+                                            {% if item.team %}
+
+                                                <span class="bench-team">
+
+                                                    <img
+                                                        src="https://a.espncdn.com/i/teamlogos/nfl/500/{{ item.team.abbreviation|lower }}.png"
+                                                        alt="{{ item.team.abbreviation }}"
+                                                        class="bench-team-logo"
+                                                        onerror="this.style.display='none';"
+                                                    >
+
+                                                    {{ item.team.abbreviation }}
+
+                                                </span>
+
+                                            {% endif %}
+
+                                        </div>
+
+                                    </div>
+
+
+                                    <!-- MATCHUP -->
+
+                                    <div class="bench-matchup">
+
+                                        {% if item.matchup %}
+
+                                            {% if item.matchup.is_home %}
+
+                                                <span class="matchup-symbol home">
+                                                    VS
+                                                </span>
+
+                                            {% else %}
+
+                                                <span class="matchup-symbol away">
+                                                    @
+                                                </span>
+
+                                            {% endif %}
+
+                                            {{ item.matchup.opponent.abbreviation }}
+
+                                        {% else %}
+
+                                            <span class="matchup-unavailable">
+                                                BYE
+                                            </span>
+
+                                        {% endif %}
+
+                                    </div>
+
+
+                                    <!-- PROJECTION -->
+
+                                    <div class="bench-player-projection">
+
+                                        {% if historical_mode %}
+                                            <span class="historical-bench-scores"><b>{% if item.actual_points != None %}{{ item.actual_points|floatformat:1 }}{% else %}—{% endif %}</b><small> ACT</small><b>{% if item.prediction and item.prediction.projected_fantasy_points is not None %}{{ item.prediction.projected_fantasy_points|floatformat:1 }}{% else %}—{% endif %}</b><small> PROJ</small></span>
+                                        {% elif item.prediction %}
+
+                                            {% if item.prediction.projected_fantasy_points is not None %}
+
+                                                <button
+                                                    type="button"
+                                                    class="projection-value-button bench-projection-value-button"
+                                                    onclick="openProjectionExplanation(this)"
+                                                    data-player-name="{{ item.player.full_name }}"
+                                                    data-details-url="{% url 'projection_details' item.player.id %}?week={{ week }}"
+                                                    data-player-position="{{ item.player.position }}"
+                                                    data-projection-points="{{ item.prediction.projected_fantasy_points|floatformat:1 }}"
+                                                    data-projection-status="{{ item.prediction.status }}"
+                                                    data-model-version="{{ item.prediction.model_version }}"
+                                                    data-projection-season="{{ item.prediction.season }}"
+                                                    data-projection-week="{{ item.prediction.week }}"
+                                                    aria-label="Explain {{ item.player.full_name }}'s projected points"
+                                                >{{ item.prediction.projected_fantasy_points|floatformat:1 }}</button>
+
+                                            {% else %}
+
+                                                —
+
+                                            {% endif %}
+
+                                        {% else %}
+
+                                            —
+
+                                        {% endif %}
+
+                                    </div>
+
+                                </div>
+
+
+                            {% empty %}
+
+                                <div class="empty-bench">
+                                    No optimized bench players.
+                                </div>
+
+                            {% endfor %}
+
+                        </div>
+
+                    </div>
+
+
+                </section>
+                {% endif %}
+
+            </div>
+
+    {% endif %}
+
+{% include "start_sit/projection_explanation_modal.html" %}
+
+</div>
+
+{% endblock %}

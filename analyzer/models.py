@@ -400,3 +400,49 @@ class Teams(models.Model):
     class Meta:
         managed = False
         db_table = 'teams'
+
+
+class NFLGame(models.Model):
+    id = models.BigAutoField(primary_key=True)
+
+    season = models.IntegerField()
+    week = models.IntegerField()
+    game_type = models.CharField(max_length=10)
+
+    game_date = models.DateField()
+    game_time = models.TimeField(null=True, blank=True)
+
+    away_team = models.ForeignKey(
+        Teams,
+        on_delete=models.DO_NOTHING,
+        related_name="away_games",
+        db_column="away_team_id",
+    )
+
+    home_team = models.ForeignKey(
+        Teams,
+        on_delete=models.DO_NOTHING,
+        related_name="home_games",
+        db_column="home_team_id",
+    )
+
+    class Meta:
+        db_table = "nfl_games"
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "season",
+                    "week",
+                    "away_team",
+                    "home_team",
+                ],
+                name="unique_nfl_game",
+            )
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.season} Week {self.week}: "
+            f"{self.away_team.abbreviation} @ "
+            f"{self.home_team.abbreviation}"
+        )

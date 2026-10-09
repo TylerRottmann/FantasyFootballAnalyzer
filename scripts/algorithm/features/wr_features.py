@@ -212,9 +212,11 @@ def build_wr_features(player, season, week):
     opponent_team_id = None
     is_home = None
     opponent_team = None
+    game_status = "BYE"
 
     if game_context is not None:
 
+        game_status = game_context["game_status"]
         team_id = game_context["team_id"]
         opponent_team_id = game_context["opponent_team_id"]
         is_home = game_context["is_home"]
@@ -255,6 +257,7 @@ def build_wr_features(player, season, week):
         # GAME CONTEXT
         # ----------------------------------------------------
 
+        "game_status": game_status,
         "team_id": team_id,
         "opponent_team": opponent_team,
         "opponent_team_id": opponent_team_id,

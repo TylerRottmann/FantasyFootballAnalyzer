@@ -1,0 +1,615 @@
+{% load static %}
+
+<link
+    rel="stylesheet"
+    href="{% static 'css/league-settings.css' %}"
+>
+
+
+<!-- =========================================================
+     LEAGUE SETTINGS BUTTON
+     ========================================================= -->
+
+<button
+    type="button"
+    class="league-settings-trigger"
+    onclick="openLeagueSettingsModal()"
+>
+    <i class="bi bi-info-circle"></i>
+    <span>League Settings</span>
+</button>
+
+
+<!-- =========================================================
+     LEAGUE SETTINGS MODAL
+     ========================================================= -->
+
+<div
+    id="leagueSettingsModal"
+    class="league-settings-modal"
+    aria-hidden="true"
+>
+
+    <!-- BACKDROP -->
+
+    <div
+        class="league-settings-overlay"
+        onclick="closeLeagueSettingsModal()"
+    ></div>
+
+
+    <!-- MODAL -->
+
+    <div
+        class="league-settings-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="leagueSettingsTitle"
+    >
+
+        <!-- HEADER -->
+
+        <div class="league-settings-header">
+
+            <div>
+
+                <h2 id="leagueSettingsTitle">
+                    League Settings
+                </h2>
+
+                <p>
+                    {{ league.name }}
+                </p>
+
+            </div>
+
+
+            <button
+                type="button"
+                class="league-settings-close"
+                onclick="closeLeagueSettingsModal()"
+                aria-label="Close league settings"
+            >
+                &times;
+            </button>
+
+        </div>
+
+
+        <!-- CONTENT -->
+
+        <div class="league-settings-content">
+
+
+            <!-- SCORING FORMAT -->
+
+            <section class="league-settings-section">
+
+                <h3>
+                    Scoring Format
+                </h3>
+
+                <div class="league-settings-grid">
+
+                    <div class="league-setting-item">
+
+                        <span class="league-setting-label">
+                            Points Per Reception
+                        </span>
+
+                        <span class="league-setting-value">
+                            {{ league.ppr|floatformat:2 }}
+                        </span>
+
+                    </div>
+
+
+                    <div class="league-setting-item">
+
+                        <span class="league-setting-label">
+                            TE Premium
+                        </span>
+
+                        <span class="league-setting-value">
+                            {{ league.te_premium|floatformat:2 }}
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- PASSING -->
+
+            <section class="league-settings-section">
+
+                <h3>
+                    Passing
+                </h3>
+
+                <div class="league-settings-grid">
+
+                    {% if league.scoring_settings.pass_td is not None %}
+
+                        <div class="league-setting-item">
+
+                            <span class="league-setting-label">
+                                Passing TD
+                            </span>
+
+                            <span class="league-setting-value">
+                                {{ league.scoring_settings.pass_td }}
+                            </span>
+
+                        </div>
+
+                    {% endif %}
+
+
+                    {% if league.scoring_settings.pass_yd is not None %}
+
+                        <div class="league-setting-item">
+
+                            <span class="league-setting-label">
+                                Passing Yards
+                            </span>
+
+                            <span class="league-setting-value">
+                                {{ league.scoring_settings.pass_yd }}
+                            </span>
+
+                        </div>
+
+                    {% endif %}
+
+
+                    {% if league.scoring_settings.pass_int is not None %}
+
+                        <div class="league-setting-item">
+
+                            <span class="league-setting-label">
+                                Interception
+                            </span>
+
+                            <span class="league-setting-value">
+                                {{ league.scoring_settings.pass_int }}
+                            </span>
+
+                        </div>
+
+                    {% endif %}
+
+
+                    {% if league.scoring_settings.pass_2pt is not None %}
+
+                        <div class="league-setting-item">
+
+                            <span class="league-setting-label">
+                                Passing 2-Point Conversion
+                            </span>
+
+                            <span class="league-setting-value">
+                                {{ league.scoring_settings.pass_2pt }}
+                            </span>
+
+                        </div>
+
+                    {% endif %}
+
+                </div>
+
+            </section>
+
+
+            <!-- RUSHING -->
+
+            <section class="league-settings-section">
+
+                <h3>
+                    Rushing
+                </h3>
+
+                <div class="league-settings-grid">
+
+                    {% if league.scoring_settings.rush_td is not None %}
+
+                        <div class="league-setting-item">
+
+                            <span class="league-setting-label">
+                                Rushing TD
+                            </span>
+
+                            <span class="league-setting-value">
+                                {{ league.scoring_settings.rush_td }}
+                            </span>
+
+                        </div>
+
+                    {% endif %}
+
+
+                    {% if league.scoring_settings.rush_yd is not None %}
+
+                        <div class="league-setting-item">
+
+                            <span class="league-setting-label">
+                                Rushing Yards
+                            </span>
+
+                            <span class="league-setting-value">
+                                {{ league.scoring_settings.rush_yd }}
+                            </span>
+
+                        </div>
+
+                    {% endif %}
+
+
+                    {% if league.scoring_settings.rush_2pt is not None %}
+
+                        <div class="league-setting-item">
+
+                            <span class="league-setting-label">
+                                Rushing 2-Point Conversion
+                            </span>
+
+                            <span class="league-setting-value">
+                                {{ league.scoring_settings.rush_2pt }}
+                            </span>
+
+                        </div>
+
+                    {% endif %}
+
+                </div>
+
+            </section>
+
+
+            <!-- RECEIVING -->
+
+            <section class="league-settings-section">
+
+                <h3>
+                    Receiving
+                </h3>
+
+                <div class="league-settings-grid">
+
+                    {% if league.scoring_settings.rec is not None %}
+
+                        <div class="league-setting-item">
+
+                            <span class="league-setting-label">
+                                Reception
+                            </span>
+
+                            <span class="league-setting-value">
+                                {{ league.scoring_settings.rec }}
+                            </span>
+
+                        </div>
+
+                    {% endif %}
+
+
+                    {% if league.scoring_settings.rec_td is not None %}
+
+                        <div class="league-setting-item">
+
+                            <span class="league-setting-label">
+                                Receiving TD
+                            </span>
+
+                            <span class="league-setting-value">
+                                {{ league.scoring_settings.rec_td }}
+                            </span>
+
+                        </div>
+
+                    {% endif %}
+
+
+                    {% if league.scoring_settings.rec_yd is not None %}
+
+                        <div class="league-setting-item">
+
+                            <span class="league-setting-label">
+                                Receiving Yards
+                            </span>
+
+                            <span class="league-setting-value">
+                                {{ league.scoring_settings.rec_yd }}
+                            </span>
+
+                        </div>
+
+                    {% endif %}
+
+
+                    {% if league.scoring_settings.rec_2pt is not None %}
+
+                        <div class="league-setting-item">
+
+                            <span class="league-setting-label">
+                                Receiving 2-Point Conversion
+                            </span>
+
+                            <span class="league-setting-value">
+                                {{ league.scoring_settings.rec_2pt }}
+                            </span>
+
+                        </div>
+
+                    {% endif %}
+
+                </div>
+
+            </section>
+
+
+            <!-- TURNOVERS -->
+
+            <section class="league-settings-section">
+
+                <h3>
+                    Turnovers
+                </h3>
+
+                <div class="league-settings-grid">
+
+                    {% if league.scoring_settings.fum_lost is not None %}
+
+                        <div class="league-setting-item">
+
+                            <span class="league-setting-label">
+                                Fumble Lost
+                            </span>
+
+                            <span class="league-setting-value">
+                                {{ league.scoring_settings.fum_lost }}
+                            </span>
+
+                        </div>
+
+                    {% endif %}
+
+                </div>
+
+            </section>
+
+
+            <!-- KICKING -->
+
+            <section class="league-settings-section">
+
+                <h3>
+                    Kicking
+                </h3>
+
+                <div class="league-settings-grid">
+
+                    {% if league.scoring_settings.fgm_0_19 is not None %}
+
+                        <div class="league-setting-item">
+
+                            <span class="league-setting-label">
+                                Field Goal 0–19 Yards
+                            </span>
+
+                            <span class="league-setting-value">
+                                {{ league.scoring_settings.fgm_0_19 }}
+                            </span>
+
+                        </div>
+
+                    {% endif %}
+
+
+                    {% if league.scoring_settings.fgm_20_29 is not None %}
+
+                        <div class="league-setting-item">
+
+                            <span class="league-setting-label">
+                                Field Goal 20–29 Yards
+                            </span>
+
+                            <span class="league-setting-value">
+                                {{ league.scoring_settings.fgm_20_29 }}
+                            </span>
+
+                        </div>
+
+                    {% endif %}
+
+
+                    {% if league.scoring_settings.fgm_30_39 is not None %}
+
+                        <div class="league-setting-item">
+
+                            <span class="league-setting-label">
+                                Field Goal 30–39 Yards
+                            </span>
+
+                            <span class="league-setting-value">
+                                {{ league.scoring_settings.fgm_30_39 }}
+                            </span>
+
+                        </div>
+
+                    {% endif %}
+
+
+                    {% if league.scoring_settings.fgm_40_49 is not None %}
+
+                        <div class="league-setting-item">
+
+                            <span class="league-setting-label">
+                                Field Goal 40–49 Yards
+                            </span>
+
+                            <span class="league-setting-value">
+                                {{ league.scoring_settings.fgm_40_49 }}
+                            </span>
+
+                        </div>
+
+                    {% endif %}
+
+
+                    {% if league.scoring_settings.fgm_50p is not None %}
+
+                        <div class="league-setting-item">
+
+                            <span class="league-setting-label">
+                                Field Goal 50+ Yards
+                            </span>
+
+                            <span class="league-setting-value">
+                                {{ league.scoring_settings.fgm_50p }}
+                            </span>
+
+                        </div>
+
+                    {% endif %}
+
+                </div>
+
+            </section>
+
+
+            <!-- DEFENSE -->
+
+            <section class="league-settings-section">
+
+                <h3>
+                    Defense / Special Teams
+                </h3>
+
+                <div class="league-settings-grid">
+
+                    {% if league.scoring_settings.def_td is not None %}
+
+                        <div class="league-setting-item">
+
+                            <span class="league-setting-label">
+                                Defensive TD
+                            </span>
+
+                            <span class="league-setting-value">
+                                {{ league.scoring_settings.def_td }}
+                            </span>
+
+                        </div>
+
+                    {% endif %}
+
+
+                    {% if league.scoring_settings.sack is not None %}
+
+                        <div class="league-setting-item">
+
+                            <span class="league-setting-label">
+                                Sack
+                            </span>
+
+                            <span class="league-setting-value">
+                                {{ league.scoring_settings.sack }}
+                            </span>
+
+                        </div>
+
+                    {% endif %}
+
+
+                    {% if league.scoring_settings.int is not None %}
+
+                        <div class="league-setting-item">
+
+                            <span class="league-setting-label">
+                                Interception
+                            </span>
+
+                            <span class="league-setting-value">
+                                {{ league.scoring_settings.int }}
+                            </span>
+
+                        </div>
+
+                    {% endif %}
+
+                </div>
+
+            </section>
+
+
+        </div>
+        <!-- END league-settings-content -->
+
+
+    </div>
+    <!-- END league-settings-dialog -->
+
+
+</div>
+<!-- END league-settings-modal -->
+
+
+<script>
+
+    function openLeagueSettingsModal() {
+
+        const modal =
+            document.getElementById(
+                "leagueSettingsModal"
+            );
+
+        modal.classList.add("is-open");
+
+        modal.setAttribute(
+            "aria-hidden",
+            "false"
+        );
+
+        document.body.classList.add(
+            "league-settings-open"
+        );
+    }
+
+
+    function closeLeagueSettingsModal() {
+
+        const modal =
+            document.getElementById(
+                "leagueSettingsModal"
+            );
+
+        modal.classList.remove("is-open");
+
+        modal.setAttribute(
+            "aria-hidden",
+            "true"
+        );
+
+        document.body.classList.remove(
+            "league-settings-open"
+        );
+    }
+
+
+    document.addEventListener(
+        "keydown",
+        function(event) {
+
+            if (event.key === "Escape") {
+
+                closeLeagueSettingsModal();
+
+            }
+
+        }
+    );
+
+</script>
