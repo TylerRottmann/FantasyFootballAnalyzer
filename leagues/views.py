@@ -13,6 +13,7 @@ from analyzer.models import NFLGame, PlayerWeeklyStats, Teams, TeamWeeklyStats
 
 from .integrations.sleeper import SleeperLeagueService
 from .integrations.yahoo import YahooLeagueService
+from .integrations.espn import ESPNLeagueService
 from .models import (
     FantasyLeague,
     FantasyRoster,
@@ -40,6 +41,7 @@ def connect_league(request):
 
     if request.method == "POST":
         platform = request.POST.get("platform")
+        context["selected_platform"] = platform
 
         platform_username = request.POST.get(
             "platform_username", ""
@@ -78,6 +80,26 @@ def connect_league(request):
                         result["league"].id
                     )
                     return redirect("start_sit")
+
+            except Exception as exc:
+                context["error"] = str(exc)
+
+        elif platform == "espn":
+            season = request.POST.get("season", "").strip()
+
+            try:
+                service = ESPNLeagueService(
+                    league_identifier,
+                    season,
+                )
+
+                result = service.get_league_data()
+
+                context["success"] = (
+                    f"ESPN league '{result['name']}' was found successfully. "
+                    f"Season: {result['season']}. "
+                    f"Teams found: {len(result['teams'])}."
+                )
 
             except Exception as exc:
                 context["error"] = str(exc)
