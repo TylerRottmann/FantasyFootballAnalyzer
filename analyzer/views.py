@@ -4,22 +4,23 @@ from django.urls import reverse_lazy
 from django.views.generic import CreateView
 
 from .forms import CustomUserCreationForm, ProfileForm, SettingsForm
-from .models import Players
+from .models import Players, Teams
 
 def home(request):
     return render(request, "home.html")
 
 
-
 def adp_rankings(request):
-    players = Players.objects.exclude(
-        full_name__isnull=True
-    ).exclude(
-        full_name=""
+    players = (
+        Players.objects
+        .select_related("team")
+        .exclude(full_name__isnull=True)
+        .exclude(full_name="")
     )
 
     position = request.GET.get("position", "")
     team = request.GET.get("team", "")
+    age = request.GET.get("age", "")
     search = request.GET.get("search", "")
 
     if position:
@@ -27,6 +28,9 @@ def adp_rankings(request):
 
     if team:
         players = players.filter(team_id=team)
+
+    if age:
+        players = players.filter(age=age)
 
     if search:
         players = players.filter(full_name__icontains=search)
@@ -43,24 +47,31 @@ def adp_rankings(request):
     )
 
     teams = (
+        Teams.objects
+        .filter(is_active=True)
+        .order_by("abbreviation")
+    )
+
+    ages = (
         Players.objects
-        .exclude(team_id__isnull=True)
-        .values_list("team_id", flat=True)
+        .exclude(age__isnull=True)
+        .values_list("age", flat=True)
         .distinct()
-        .order_by("team_id")
+        .order_by("age")
     )
 
     context = {
         "players": players,
         "positions": positions,
         "teams": teams,
+        "ages": ages,
         "selected_position": position,
         "selected_team": team,
+        "selected_age": age,
         "search": search,
     }
 
     return render(request, "adp.html", context)
-
 
 class SignUpView(CreateView):
     form_class = CustomUserCreationForm
