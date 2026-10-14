@@ -1,0 +1,902 @@
+/* =========================================================
+   START / SIT PAGE
+   ========================================================= */
+
+.start-sit-page {
+    width: 100%;
+}
+
+
+/* =========================================================
+   PAGE HEADER
+   ========================================================= */
+
+.start-sit-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 28px;
+}
+
+.start-sit-header h1 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 30px;
+    font-weight: 800;
+}
+
+.start-sit-header p {
+    margin: 7px 0 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.start-sit-header strong {
+    color: var(--gold);
+}
+
+
+/* =========================================================
+   WEEK SELECTOR
+   ========================================================= */
+
+.week-selector-form {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.week-selector-form label {
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.week-selector {
+    min-width: 125px;
+    padding: 10px 13px;
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+}
+
+.week-selector:hover,
+.week-selector:focus {
+    border-color: var(--gold-dark);
+}
+
+
+/* =========================================================
+   ERROR / STATUS
+   ========================================================= */
+
+.start-sit-message {
+    margin-bottom: 20px;
+}
+
+
+/* =========================================================
+   CURRENT VS OPTIMIZED
+   ========================================================= */
+
+.lineup-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+}
+
+.lineup-layout-single {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+
+/* =========================================================
+   LINEUP CARD
+   ========================================================= */
+
+.lineup-card {
+    min-width: 0;
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+
+/* =========================================================
+   OPTIMIZED CARD
+   ========================================================= */
+
+.optimized-card {
+    border-color: rgba(255, 204, 0, 0.28);
+}
+
+
+/* =========================================================
+   LINEUP HEADER
+   ========================================================= */
+
+.lineup-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 22px;
+    border-bottom: 1px solid var(--border);
+}
+
+.lineup-card-header h2 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 19px;
+    font-weight: 750;
+}
+
+.lineup-card-header p {
+    margin: 5px 0 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+
+/* =========================================================
+   HEADER TOTAL
+   ========================================================= */
+
+.lineup-header-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 7px;
+    flex-shrink: 0;
+}
+
+.lineup-total {
+    color: var(--text-primary);
+    font-size: 25px;
+    font-weight: 850;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.lineup-total span {
+    margin-left: 3px;
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+}
+
+.optimized-total {
+    color: var(--gold);
+}
+
+
+/* =========================================================
+   LINEUP LABELS
+   ========================================================= */
+
+.lineup-label {
+    padding: 5px 9px;
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+}
+
+.current-label {
+    color: var(--text-secondary);
+    background-color: rgba(167, 173, 183, 0.08);
+    border: 1px solid var(--border);
+}
+
+.optimized-label {
+    color: var(--gold);
+    background-color: rgba(255, 204, 0, 0.08);
+    border: 1px solid rgba(255, 204, 0, 0.25);
+}
+
+
+/* =========================================================
+   LINEUP SECTION
+   ========================================================= */
+
+.lineup-section {
+    padding: 0 10px;
+}
+
+.lineup-section-title {
+    padding: 14px 12px 8px;
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+
+/* =========================================================
+   STARTER PLAYER LIST
+   ========================================================= */
+
+.lineup-players {
+    padding-bottom: 8px;
+}
+
+
+/* =========================================================
+   STARTER PLAYER CARD
+   ========================================================= */
+
+.player-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    min-height: 76px;
+
+    padding: 10px 12px;
+
+    border-bottom: 1px solid var(--border);
+
+    transition:
+        background-color 0.15s ease;
+}
+
+.player-card:last-child {
+    border-bottom: none;
+}
+
+.player-card:hover {
+    background-color: var(--bg-hover);
+}
+
+.optimized-player-card:hover {
+    background-color: rgba(255, 204, 0, 0.045);
+}
+
+
+/* =========================================================
+   SLOT
+   ========================================================= */
+
+.player-slot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 48px;
+    min-width: 48px;
+
+    color: var(--gold);
+
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+}
+
+
+/* =========================================================
+   PLAYER IMAGE
+   ========================================================= */
+
+.player-image-wrapper {
+    width: 54px;
+    height: 54px;
+
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+
+    overflow: hidden;
+
+    background-color: var(--bg-hover);
+
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.player-headshot {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.player-headshot-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 100%;
+    height: 100%;
+
+    font-size: 20px;
+}
+
+
+/* =========================================================
+   PLAYER INFORMATION
+   ========================================================= */
+
+.player-information {
+    flex: 1;
+    min-width: 0;
+}
+
+.player-name {
+    overflow: hidden;
+
+    color: var(--text-primary);
+
+    font-size: 14px;
+    font-weight: 700;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.player-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    margin-top: 5px;
+
+    color: var(--text-secondary);
+
+    font-size: 11px;
+}
+
+.player-position {
+    font-weight: 700;
+}
+
+
+/* =========================================================
+   TEAM DISPLAY
+   ========================================================= */
+
+.team-display {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+
+    color: var(--text-secondary);
+}
+
+.team-logo {
+    width: 19px;
+    height: 19px;
+
+    object-fit: contain;
+}
+
+
+/* =========================================================
+   MATCHUP
+   ========================================================= */
+
+.player-matchup {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 5px;
+
+    min-width: 70px;
+
+    color: var(--text-secondary);
+
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.opponent-logo {
+    width: 19px;
+    height: 19px;
+
+    object-fit: contain;
+
+    opacity: 0.9;
+}
+
+.opponent-abbreviation {
+    color: var(--text-primary);
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.matchup-symbol {
+    min-width: 20px;
+
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 0.4px;
+}
+
+.matchup-symbol.home {
+    color: var(--gold);
+}
+
+.matchup-symbol.away {
+    color: var(--text-secondary);
+}
+
+.matchup-unavailable {
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-weight: 700;
+}
+
+
+/* =========================================================
+   PROJECTION
+   ========================================================= */
+
+.player-projection {
+    min-width: 58px;
+
+    text-align: right;
+}
+
+.projection-value {
+    color: var(--gold);
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.projection-label {
+    margin-top: 2px;
+
+    color: var(--text-secondary);
+
+    font-size: 9px;
+    font-weight: 700;
+
+    letter-spacing: 0.7px;
+}
+
+
+/* =========================================================
+   EMPTY POSITION
+   ========================================================= */
+
+.empty-position {
+    display: flex;
+    align-items: center;
+
+    min-height: 58px;
+
+    padding: 8px 12px;
+
+    border-bottom: 1px solid var(--border);
+
+    color: var(--text-secondary);
+
+    font-size: 12px;
+}
+
+.empty-position .player-slot {
+    margin-right: 12px;
+}
+
+.empty-player {
+    color: var(--text-secondary);
+}
+
+
+/* =========================================================
+   BENCH
+   ========================================================= */
+
+.bench-section {
+    margin-top: 10px;
+
+    padding: 0 10px 12px;
+
+    border-top: 1px solid var(--border);
+}
+
+
+/* =========================================================
+   BENCH PLAYER LIST
+   ========================================================= */
+
+.bench-players {
+    display: flex;
+    flex-direction: column;
+
+    padding-bottom: 0;
+}
+
+
+/* =========================================================
+   BENCH PLAYER
+   ========================================================= */
+
+.bench-player {
+    display: flex;
+    align-items: center;
+
+    gap: 12px;
+
+    min-height: 64px;
+
+    padding: 9px 12px;
+
+    border-bottom: 1px solid var(--border);
+
+    transition:
+        background-color 0.15s ease;
+}
+
+.bench-player:last-child {
+    border-bottom: none;
+}
+
+.bench-player:hover {
+    background-color: var(--bg-hover);
+}
+
+
+/* =========================================================
+   BENCH PLAYER IMAGE
+   ========================================================= */
+
+.bench-player-image {
+    width: 44px;
+    height: 44px;
+
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+
+    overflow: hidden;
+
+    background-color: var(--bg-hover);
+
+    border: 1px solid var(--border);
+    border-radius: 7px;
+}
+
+.bench-player-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.bench-player-image span {
+    font-size: 17px;
+}
+
+
+/* =========================================================
+   BENCH PLAYER INFORMATION
+   ========================================================= */
+
+.bench-player-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.bench-player-name {
+    overflow: hidden;
+
+    color: var(--text-primary);
+
+    font-size: 13px;
+    font-weight: 700;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bench-player-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    margin-top: 4px;
+
+    color: var(--text-secondary);
+
+    font-size: 10px;
+}
+
+
+/* =========================================================
+   BENCH TEAM
+   ========================================================= */
+
+.bench-team {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.bench-team-logo {
+    width: 16px;
+    height: 16px;
+
+    object-fit: contain;
+}
+
+
+/* =========================================================
+   BENCH MATCHUP
+   ========================================================= */
+
+.bench-matchup {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+
+    gap: 5px;
+
+    min-width: 65px;
+
+    color: var(--text-secondary);
+
+    font-size: 10px;
+    font-weight: 700;
+}
+
+
+/* =========================================================
+   BENCH PROJECTION
+   ========================================================= */
+
+.bench-player-projection {
+    min-width: 48px;
+
+    color: var(--gold);
+
+    font-size: 15px;
+    font-weight: 800;
+
+    text-align: right;
+}
+
+
+/* =========================================================
+   EMPTY STATES
+   ========================================================= */
+
+.empty-lineup,
+.empty-bench {
+    padding: 28px;
+
+    color: var(--text-secondary);
+
+    text-align: center;
+
+    font-size: 13px;
+}
+
+
+/* =========================================================
+   TABLET / SMALL DESKTOP
+   ========================================================= */
+
+@media (max-width: 1100px) {
+
+    .lineup-layout {
+        grid-template-columns: 1fr;
+    }
+
+}
+
+
+/* =========================================================
+   TABLET
+   ========================================================= */
+
+@media (max-width: 700px) {
+
+    .start-sit-header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .week-selector-form {
+        justify-content: space-between;
+    }
+
+    .week-selector {
+        flex: 1;
+    }
+
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 500px) {
+
+    .start-sit-header h1 {
+        font-size: 25px;
+    }
+
+    .lineup-card-header {
+        padding: 17px;
+    }
+
+    .lineup-total {
+        font-size: 21px;
+    }
+
+    .lineup-section {
+        padding: 0 6px;
+    }
+
+    .player-card {
+        gap: 8px;
+        padding: 9px;
+    }
+
+    .player-slot {
+        width: 38px;
+        min-width: 38px;
+
+        font-size: 9px;
+    }
+
+    .player-image-wrapper {
+        width: 46px;
+        height: 46px;
+    }
+
+    .player-name {
+        font-size: 13px;
+    }
+
+    .player-meta {
+        gap: 5px;
+    }
+
+    .player-matchup {
+        min-width: 52px;
+        gap: 3px;
+    }
+
+    .team-logo,
+    .opponent-logo {
+        width: 16px;
+        height: 16px;
+    }
+
+    .player-projection {
+        min-width: 44px;
+    }
+
+    .projection-value {
+        font-size: 16px;
+    }
+
+
+    /* BENCH */
+
+    .bench-section {
+        padding: 0 6px 10px;
+    }
+
+    .bench-player {
+        gap: 8px;
+        padding: 8px 9px;
+    }
+
+    .bench-player-image {
+        width: 40px;
+        height: 40px;
+    }
+
+    .bench-player-name {
+        font-size: 12px;
+    }
+
+    .bench-player-meta {
+        font-size: 9px;
+    }
+
+    .bench-matchup {
+        min-width: 48px;
+        font-size: 9px;
+    }
+
+        .bench-player-projection {
+        min-width: 40px;
+        font-size: 14px;
+    }
+
+    }
+
+
+    /* =========================================================
+       HEADER LEFT SIDE
+       ========================================================= */
+
+    .start-sit-header-left {
+        min-width: 0;
+    }
+
+
+    /* =========================================================
+       WEEK CONTROLS
+       ========================================================= */
+
+    .week-controls {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 8px;
+        flex-shrink: 0;
+    }
+
+
+    /* =========================================================
+       RESYNC LEAGUE
+       ========================================================= */
+
+    .resync-form {
+        margin: 0;
+    }
+
+    .resync-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+
+        gap: 6px;
+
+        padding: 6px 10px;
+
+        background-color: transparent;
+
+        border: 1px solid var(--border);
+        border-radius: 6px;
+
+        color: var(--text-secondary);
+
+        font-family: inherit;
+        font-size: 11px;
+        font-weight: 700;
+
+        cursor: pointer;
+
+        transition:
+            color 0.15s ease,
+            border-color 0.15s ease,
+            background-color 0.15s ease;
+    }
+
+    .resync-button i {
+        font-size: 13px;
+    }
+
+    .resync-button:hover {
+        color: var(--gold);
+        border-color: var(--gold);
+        background-color: rgba(255, 255, 255, 0.04);
+    }
+.historical-player-projection { min-width: 104px; }
+.historical-projected-total { color: var(--text-secondary); font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.historical-player-scores { display: flex; justify-content: flex-end; gap: 9px; }
+.historical-player-scores span { display: flex; flex-direction: column; align-items: flex-end; }
+.historical-player-scores b { color: var(--gold); font-size: 14px; font-variant-numeric: tabular-nums; }
+.historical-player-scores small,
+.historical-bench-scores small { color: var(--text-secondary); font-size: 8px; font-weight: 700; letter-spacing: .3px; }
+.historical-bench-scores { display: inline-flex; align-items: baseline; justify-content: flex-end; gap: 3px; min-width: 100px; font-variant-numeric: tabular-nums; }
+.historical-bench-scores b { color: var(--gold); font-size: 12px; }

@@ -1,0 +1,140 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/projection-explanation.css' %}">
+
+<div id="projectionExplanationModal" class="projection-explanation-modal" aria-hidden="true">
+    <div class="projection-explanation-overlay" onclick="closeProjectionExplanation()"></div>
+    <section class="projection-explanation-dialog" role="dialog" aria-modal="true"
+             aria-labelledby="projectionExplanationTitle" tabindex="-1">
+        <header class="projection-explanation-header">
+            <div>
+                <p class="projection-explanation-eyebrow">PROJECTION DETAILS</p>
+                <h2 id="projectionExplanationTitle">Player and matchup stats</h2>
+                <p id="projectionExplanationPlayer" class="projection-explanation-player"></p>
+            </div>
+            <button type="button" class="projection-explanation-close"
+                    onclick="closeProjectionExplanation()" aria-label="Close projection details">&times;</button>
+        </header>
+        <div class="projection-explanation-content">
+            <div class="projection-result-card">
+                <div><span class="projection-result-label">Projected points</span>
+                    <span id="projectionExplanationContext" class="projection-result-context"></span></div>
+                <strong><span id="projectionExplanationPoints">—</span><small> PTS</small></strong>
+            </div>
+            <p id="projectionStatsLoading" class="projection-loading">Loading historical stats…</p>
+            <p id="projectionStatsError" class="projection-status-note" hidden></p>
+            <section class="projection-explanation-section" id="playerStatsSection" hidden>
+                <h3>Player production <span>per game</span></h3>
+                <div class="projection-table-wrap"><table class="projection-stats-table">
+                    <thead><tr><th>Stat</th><th>Last game</th><th>Last 3 avg</th><th>Season avg</th></tr></thead>
+                    <tbody id="projectionPlayerStats"></tbody>
+                </table></div>
+            </section>
+            <section class="projection-explanation-section" id="teamStatsSection" hidden>
+                <h3>Team offense <span>per game</span></h3>
+                <div class="projection-table-wrap"><table class="projection-stats-table">
+                    <thead><tr><th>Stat</th><th>Last game</th><th>Last 3 avg</th><th>Season avg</th></tr></thead>
+                    <tbody id="projectionTeamStats"></tbody>
+                </table></div>
+            </section>
+            <section class="projection-explanation-section" id="defenseStatsSection" hidden>
+                <h3>Opponent defense</h3>
+                <div class="projection-defense-grid" id="projectionDefenseStats"></div>
+            </section>
+            <p class="projection-explanation-footnote">Historical averages are model inputs and matchup context, not separate predicted stat lines. The model predicts PPR points only. Defense rank: 1 = fewest points allowed (toughest); 32 = most (easiest).</p>
+        </div>
+    </section>
+</div>
+
+<script>
+    let projectionExplanationTrigger = null;
+    function statText(value, percent) {
+        if (value === null || value === undefined || value === "") return "—";
+        const number = Number(value);
+        if (!Number.isFinite(number)) return "—";
+        return (percent ? (number * 100).toFixed(1) + "%" : number.toFixed(1));
+    }
+    function fillStats(targetId, rows) {
+        const body = document.getElementById(targetId);
+        body.replaceChildren();
+        rows.forEach(row => {
+            const tr = document.createElement("tr");
+            [row.label, statText(row.last, row.percent), statText(row.last3, row.percent), statText(row.season, row.percent)]
+                .forEach((value, index) => {
+                    const cell = document.createElement(index ? "td" : "th");
+                    cell.textContent = value;
+                    tr.appendChild(cell);
+                });
+            body.appendChild(tr);
+        });
+    }
+    async function loadProjectionStats(button) {
+        const loading = document.getElementById("projectionStatsLoading");
+        const error = document.getElementById("projectionStatsError");
+        loading.hidden = false;
+        error.hidden = true;
+        ["playerStatsSection", "teamStatsSection", "defenseStatsSection"].forEach(id => document.getElementById(id).hidden = true);
+        try {
+            const response = await fetch(button.dataset.detailsUrl, {headers: {"X-Requested-With": "XMLHttpRequest"}});
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "Unable to load stats.");
+            if (data.error) throw new Error(data.error);
+            if (!data.player_stats) {
+                loading.textContent = data.error || "Detailed stats are not available for this position.";
+                return;
+            }
+            fillStats("projectionPlayerStats", data.player_stats);
+            fillStats("projectionTeamStats", data.team_stats);
+            document.getElementById("playerStatsSection").hidden = false;
+            document.getElementById("teamStatsSection").hidden = false;
+            const defense = data.defense;
+            const cells = [
+                ["Matchup", data.game_status === "GAME" ? `${data.home ? "vs" : "@"} ${data.opponent || "—"}` : (data.game_status || "—")],
+                ["Last 3 allowed", statText(defense.position_allowed, false) + " PPR"],
+                ["Season allowed", statText(defense.season_allowed, false) + " PPR"],
+                ["Defense rank", defense.rank ? `#${defense.rank} / ${defense.rank_count}` : "—"],
+            ];
+            const grid = document.getElementById("projectionDefenseStats");
+            grid.replaceChildren();
+            cells.forEach(([label, value]) => {
+                const cell = document.createElement("div"); cell.className = "projection-defense-stat";
+                const title = document.createElement("span"); title.textContent = label;
+                const result = document.createElement("strong"); result.textContent = value;
+                cell.append(title, result); grid.appendChild(cell);
+            });
+            document.getElementById("defenseStatsSection").hidden = false;
+            loading.hidden = true;
+        } catch (e) {
+            loading.hidden = true;
+            error.textContent = e.message || "Unable to load stats.";
+            error.hidden = false;
+        }
+    }
+    function openProjectionExplanation(button) {
+        projectionExplanationTrigger = button;
+        const modal = document.getElementById("projectionExplanationModal");
+        const position = (button.dataset.playerPosition || "").toUpperCase();
+        document.getElementById("projectionExplanationPlayer").textContent = `${button.dataset.playerName || "Player"} · ${position}`;
+        document.getElementById("projectionExplanationPoints").textContent = button.dataset.projectionPoints || "—";
+        document.getElementById("projectionExplanationContext").textContent = `${button.dataset.projectionSeason || ""} · Week ${button.dataset.projectionWeek || ""}`;
+        const loading = document.getElementById("projectionStatsLoading");
+        loading.textContent = "Loading historical stats…";
+        modal.classList.add("is-open");
+        modal.setAttribute("aria-hidden", "false");
+        document.body.classList.add("projection-explanation-open");
+        modal.querySelector(".projection-explanation-dialog").focus();
+        loadProjectionStats(button);
+    }
+    function closeProjectionExplanation() {
+        const modal = document.getElementById("projectionExplanationModal");
+        modal.classList.remove("is-open"); modal.setAttribute("aria-hidden", "true");
+        document.body.classList.remove("projection-explanation-open");
+        if (projectionExplanationTrigger) { projectionExplanationTrigger.focus(); projectionExplanationTrigger = null; }
+    }
+    document.addEventListener("keydown", event => {
+        const modal = document.getElementById("projectionExplanationModal");
+        if (event.key === "Escape" && modal.classList.contains("is-open")) closeProjectionExplanation();
+        else if (event.key === "Tab" && modal.classList.contains("is-open")) {
+            event.preventDefault(); modal.querySelector(".projection-explanation-close").focus();
+        }
+    });
+</script>

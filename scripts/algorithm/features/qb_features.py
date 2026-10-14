@@ -200,18 +200,32 @@ def get_qb_history(player_id, season, week):
 
 
 # ============================================================
-# HISTORICAL GAME CONTEXT
+# PLAYER GAME CONTEXT
 # ============================================================
 
 def get_player_game_context(player_id, season, week):
     """
-    Determine the player's actual team and opponent for a game.
+    Determine the player's team, opponent, and home/away status.
 
-    The player's current team is NOT used because it would cause
-    historical backtesting problems.
+    Historical weeks:
+        Use player_weekly_stats so historical backtesting uses
+        the actual team and opponent from that game.
+
+    Future weeks:
+        Use the player's current team_id and nfl_games to find
+        the scheduled matchup.
+
+    If no game exists for the player's team that week, the player
+    is considered to be on a BYE.
     """
 
-    query = """
+    conn = get_connection()
+
+    # ========================================================
+    # 1. HISTORICAL GAME
+    # ========================================================
+
+    historical_query = """
         SELECT
             pws.opponent_team,
             tws.team_id,
@@ -236,11 +250,9 @@ def get_player_game_context(player_id, season, week):
         LIMIT 1
     """
 
-    conn = get_connection()
-
     with conn.cursor() as cur:
         cur.execute(
-            query,
+            historical_query,
             (
                 player_id,
                 season,
@@ -250,14 +262,124 @@ def get_player_game_context(player_id, season, week):
 
         row = cur.fetchone()
 
+    if row is not None:
+        return {
+            "game_status": "GAME",
+            "opponent_team": row[0],
+            "team_id": row[1],
+            "opponent_team_id": row[2],
+            "is_home": row[3],
+        }
+
+    # ========================================================
+    # 2. GET PLAYER'S CURRENT TEAM
+    # ========================================================
+
+    player_query = """
+        SELECT
+            team_id
+        FROM players
+        WHERE id = %s
+    """
+
+    with conn.cursor() as cur:
+        cur.execute(
+            player_query,
+            (player_id,),
+        )
+
+        player_row = cur.fetchone()
+
+    # Player doesn't have a team.
+    if player_row is None or player_row[0] is None:
+        return {
+            "game_status": "BYE",
+            "opponent_team": None,
+            "team_id": None,
+            "opponent_team_id": None,
+            "is_home": None,
+        }
+
+    team_id = player_row[0]
+
+    # ========================================================
+    # 3. FIND FUTURE GAME
+    # ========================================================
+
+    future_query = """
+        SELECT
+            CASE
+                WHEN ng.home_team_id = %s
+                    THEN away_team.abbreviation
+                ELSE home_team.abbreviation
+            END AS opponent_team,
+
+            CASE
+                WHEN ng.home_team_id = %s
+                    THEN ng.away_team_id
+                ELSE ng.home_team_id
+            END AS opponent_team_id,
+
+            (ng.home_team_id = %s) AS is_home
+
+        FROM nfl_games ng
+
+        JOIN teams home_team
+            ON home_team.id = ng.home_team_id
+
+        JOIN teams away_team
+            ON away_team.id = ng.away_team_id
+
+        WHERE ng.season = %s
+          AND ng.week = %s
+          AND ng.game_type = 'REG'
+          AND (
+              ng.home_team_id = %s
+              OR ng.away_team_id = %s
+          )
+
+        LIMIT 1
+    """
+
+    with conn.cursor() as cur:
+        cur.execute(
+            future_query,
+            (
+                team_id,
+                team_id,
+                team_id,
+                season,
+                week,
+                team_id,
+                team_id,
+            ),
+        )
+
+        row = cur.fetchone()
+
+    # ========================================================
+    # 4. BYE WEEK
+    # ========================================================
+
     if row is None:
-        return None
+        return {
+            "game_status": "BYE",
+            "opponent_team": None,
+            "team_id": team_id,
+            "opponent_team_id": None,
+            "is_home": None,
+        }
+
+    # ========================================================
+    # 5. FUTURE GAME FOUND
+    # ========================================================
 
     return {
+        "game_status": "GAME",
         "opponent_team": row[0],
-        "team_id": row[1],
-        "opponent_team_id": row[2],
-        "is_home": row[3],
+        "team_id": team_id,
+        "opponent_team_id": row[1],
+        "is_home": row[2],
     }
 
 
@@ -381,7 +503,7 @@ def build_qb_features(player, season, week):
     last_8_qb = qb_games[-8:]
 
     # ========================================================
-    # 2. HISTORICAL GAME CONTEXT
+    # 2. GAME CONTEXT
     # ========================================================
 
     game_context = get_player_game_context(
@@ -397,8 +519,11 @@ def build_qb_features(player, season, week):
     opponent_team_id = None
     is_home = None
     opponent_team = None
+    game_status = "BYE"
 
     if game_context is not None:
+
+        game_status = game_context["game_status"]
 
         team_id = game_context["team_id"]
         opponent_team_id = game_context["opponent_team_id"]
@@ -448,6 +573,10 @@ def build_qb_features(player, season, week):
         "season": team_games,
     }
 
+    # ========================================================
+    # 6. BASE FEATURES
+    # ========================================================
+
     features = {
 
         # ----------------------------------------------------
@@ -462,6 +591,7 @@ def build_qb_features(player, season, week):
         # GAME CONTEXT
         # ----------------------------------------------------
 
+        "game_status": game_status,
         "team_id": team_id,
         "opponent_team": opponent_team,
         "opponent_team_id": opponent_team_id,
@@ -476,7 +606,7 @@ def build_qb_features(player, season, week):
     }
 
     # ========================================================
-    # 6. QB PRODUCTION / EFFICIENCY / CONSISTENCY
+    # 7. QB PRODUCTION / EFFICIENCY / CONSISTENCY
     # ========================================================
 
     for name, games in qb_windows.items():
@@ -588,10 +718,8 @@ def build_qb_features(player, season, week):
         )
 
     # ========================================================
-    # 7. QB TREND FEATURES
+    # 8. QB TREND FEATURES
     # ========================================================
-
-    # Recent performance vs longer-term performance.
 
     features["fantasy_points_trend_l3_l8"] = trend(
         features["fantasy_points_l3"],
@@ -624,7 +752,7 @@ def build_qb_features(player, season, week):
     )
 
     # ========================================================
-    # 8. TEAM OFFENSIVE ENVIRONMENT
+    # 9. TEAM OFFENSIVE ENVIRONMENT
     # ========================================================
 
     for name, games in team_windows.items():
@@ -665,7 +793,7 @@ def build_qb_features(player, season, week):
     )
 
     # ========================================================
-    # 9. OPPONENT DEFENSE — LAST 3
+    # 10. OPPONENT DEFENSE — LAST 3
     # ========================================================
 
     recent_opponent_games = opponent_games[-3:]
@@ -699,7 +827,7 @@ def build_qb_features(player, season, week):
     )
 
     # ========================================================
-    # 10. GAME ENVIRONMENT
+    # 11. GAME ENVIRONMENT
     # ========================================================
 
     if (
@@ -714,7 +842,7 @@ def build_qb_features(player, season, week):
         features["game_environment_l3"] = None
 
     # ========================================================
-    # 11. RETURN FEATURES
+    # 12. RETURN FEATURES
     # ========================================================
 
     return features
