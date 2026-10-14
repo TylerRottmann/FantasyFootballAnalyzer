@@ -78,3 +78,24 @@ git diff --check
 ```
 
 Seventeen focused tests passed, Django's system check reported no issues, and both RB backtest paths completed. Database inspection, training, and evaluation used read-only database sessions. Credentials were not printed. The existing ticket branch matched freshly fetched `origin/dev` before implementation, and no existing local changes were present. No push, pull request, or merge was performed.
+
+## Start/sit integration verification, October 14, 2026
+
+The page displays `FantasyProjection` rows for the league's season, selected week, and model version `v1`. The existing `generate_projections` command calls `predict_player`, persists the projected points and status, and supplies the records used by the current and optimized lineups. Opening the page does not generate missing projections.
+
+The RB projection details endpoint now uses `build_rb_features`, including historical matchup recovery and RB workload shares. The TE details branch retains its previous behavior. This corrects the older generic RB details path, which could disagree with the model's historical team and opponent inputs.
+
+Seven additional tests exercise the actual saved RB model, feature calculations, shared router, generation command, isolated database persistence, page template rendering, current and historical lineup optimization, details response, and roster access checks. The historical source snapshot and Sleeper response use deterministic fixtures. The model and generation, storage, page, and optimizer code run normally. The temporary SQLite database builds current model tables instead of testing the existing PostgreSQL migration history. Test-only flattened context capture works around Django 5.1's context-copy failure on Python 3.14 while preserving actual template rendering.
+
+```powershell
+$env:OMP_NUM_THREADS = '2'
+.venv/Scripts/python.exe manage.py test scripts.tests.test_rb_start_sit scripts.tests.test_rb_algorithm --settings=scripts.tests.rb_test_settings -v 1
+```
+
+All 24 tests passed in the project's existing Python 3.14.7 / Django 5.1.5 environment. Django's system check and the diff whitespace check also passed. The seven integration tests separately passed with temporary Django 5.2.18; installed project dependencies were not changed.
+
+A separate read-only request using an existing connected roster and five real-data RB model predictions rendered the actual start/sit page with HTTP 200 and the expected projected values. These projection records were supplied in memory for that verification request, so the shared database was not modified. This verifies server-rendered values, not a browser click-through or a shared-database refresh.
+
+At inspection, the shared database held 474 RB projection rows, all marked `inactive` for 2026 Week 6; no active RB `ml_model` projections had been persisted. The team must regenerate projections for the desired season and week before verifying the live page with saved RB results. The existing generation command processes all supported positions and updates shared projection rows, so coordinate that run with the data owner. The schedule and team-history limitations above still apply.
+
+These follow-up integration changes are local until committed and pushed to the existing SCRUM-23 pull request. The original implementation was published as commit `04196b2` in PR #30 targeting `dev`.
