@@ -131,6 +131,20 @@ class ESPNLeagueService:
             16: "DEF",
         }
         return positions.get(position_id)
+    @staticmethod
+    def _lineup_slot_name(slot_id):
+        slots = {
+            0: "QB",
+            2: "RB",
+            4: "WR",
+            6: "TE",
+            16: "DEF",
+            17: "K",
+            20: "BN",
+            21: "IR",
+            23: "FLEX",
+        }
+        return slots.get(slot_id, "BN")
 
     def _resolve_player(
         self,
@@ -224,6 +238,20 @@ class ESPNLeagueService:
         league_data = data["league"]
         teams = data["teams"]
         roster_teams = data["rosters"]
+        lineup_slot_counts = (
+            league_data.get("settings", {})
+            .get("rosterSettings", {})
+            .get("lineupSlotCounts", {})
+        )
+
+        roster_positions = []
+        for slot_id, count in lineup_slot_counts.items():
+            slot_name = self._lineup_slot_name(int(slot_id))
+
+            if slot_name not in {"BN", "IR"}:
+                roster_positions.extend([slot_name] * int(count))
+
+        starter_count = len(roster_positions)
 
         if not teams:
             raise ValueError("ESPN did not return any teams for this league.")
@@ -243,8 +271,8 @@ class ESPNLeagueService:
             "ppr": None,
             "te_premium": 0,
             "scoring_settings": league_data.get("settings", {}),
-            "starter_count": None,
-            "roster_positions": [],
+            "starter_count": starter_count,
+            "roster_positions": roster_positions,
             "updated_at": now,
         }
 
@@ -385,8 +413,8 @@ class ESPNLeagueService:
                             roster=roster,
                             player=player,
                             team=None,
-                            roster_slot=str(
-                                entry.get("lineupSlotId", "BN")
+                            roster_slot=self._lineup_slot_name(
+                                entry.get("lineupSlotId")
                             ),
                             created_at=now,
                         )
