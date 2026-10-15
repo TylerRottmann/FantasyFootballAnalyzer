@@ -140,6 +140,25 @@
 
             </div>
 
+            <div class="form-group" id="espn-team-group">
+
+                <label for="espn_team_id">
+                    ESPN Team ID
+                </label>
+
+                <input
+                    type="number"
+                    id="espn_team_id"
+                    name="espn_team_id"
+                    class="form-input"
+                    placeholder="Enter your ESPN team ID"
+                >
+
+                <p class="input-help">
+                    Required when connecting an ESPN league.
+                </p>
+
+            </div>
 
             <!-- OR -->
             <div class="or-divider">
@@ -365,6 +384,7 @@
     const platformSelect = document.getElementById("platform");
     const sleeperGroup = document.getElementById("sleeper-username-group");
     const seasonGroup = document.getElementById("season-group");
+    const espnTeamGroup = document.getElementById("espn-team-group");
 
     function updatePlatformFields() {
         const platform = platformSelect.value;
@@ -373,6 +393,8 @@
             platform === "sleeper" ? "block" : "none";
 
         seasonGroup.style.display =
+            platform === "espn" ? "block" : "none";
+        espnTeamGroup.style.display =
             platform === "espn" ? "block" : "none";
     }
 

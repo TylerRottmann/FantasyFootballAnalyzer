@@ -1,4 +1,5 @@
 import secrets
+import os
 from types import SimpleNamespace
 
 from django.core.cache import cache
@@ -20,6 +21,7 @@ from .models import (
     FantasyProjection,
     FantasyRosterPlayer,
     Player,
+    RosterPlatformIdentity,
     UserLeagueConnection,
 )
 
@@ -86,21 +88,28 @@ def connect_league(request):
 
         elif platform == "espn":
             season = request.POST.get("season", "").strip()
+            owned_team_id = request.POST.get("espn_team_id", "").strip()
 
             try:
                 service = ESPNLeagueService(
                     league_identifier,
                     season,
+                    swid=os.environ.get("ESPN_SWID"),
+                    espn_s2=os.environ.get("ESPN_S2"),
                 )
 
-                result = service.get_league_data()
-
-                context["success"] = (
-                    f"ESPN league '{result['name']}' was found successfully. "
-                    f"Season: {result['season']}. "
-                    f"Teams found: {len(result['teams'])}."
+                result = service.import_league(
+                    request.user,
+                    owned_team_id=owned_team_id or None,
                 )
 
+                if result["my_roster"] is None:
+                    context["error"] = (
+                        "ESPN league imported successfully, but we could not "
+                        "identify your team. Enter your ESPN Team ID.")
+                else:
+                    request.session["active_league_id"] = result["league"].id
+                    return redirect("start_sit")
             except Exception as exc:
                 context["error"] = str(exc)
 
@@ -308,14 +317,27 @@ def start_sit(request):
     # FIND USER'S ROSTER
     # ---------------------------------------------------------
 
-    roster = (
-        FantasyRoster.objects
-        .filter(
-            league=league,
-            owner_sleeper_id=connection.external_user_id,
+    if connection.platform == UserLeagueConnection.PLATFORM_SLEEPER:
+        roster = (
+            FantasyRoster.objects
+            .filter(
+                league=league,
+                owner_sleeper_id=connection.external_user_id,
+            )
+            .first()
         )
-        .first()
-    )
+    else:
+        roster_identity = (
+            RosterPlatformIdentity.objects
+            .filter(
+                roster__league=league,
+                platform=connection.platform,
+                external_id=connection.external_user_id,
+            )
+            .select_related("roster")
+            .first()
+        )
+        roster = roster_identity.roster if roster_identity else None
 
     if roster is None:
         messages.error(
