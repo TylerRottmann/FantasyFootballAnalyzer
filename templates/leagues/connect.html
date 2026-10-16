@@ -61,12 +61,12 @@
                     name="platform"
                     class="form-input"
                 >
-                    <option value="sleeper">
+                    <option value="sleeper" {% if selected_platform == "sleeper" %}selected{% endif %}>
                         Sleeper
                     </option>
 
-                    <option value="espn" disabled>
-                        ESPN — Coming Soon
+                    <option value="espn" {% if selected_platform == "espn" %}selected{% endif %}>
+                        ESPN
                     </option>
 
                     <option value="yahoo" disabled>
@@ -78,7 +78,7 @@
 
 
             <!-- PLATFORM USERNAME -->
-            <div class="form-group">
+            <div class="form-group" id="sleeper-username-group">
 
                 <label for="platform_username">
                     Sleeper Username
@@ -91,7 +91,6 @@
                     class="form-input"
                     value="{{ request.user.sleeper_username }}"
                     placeholder="Enter your Sleeper username"
-                    required
                 >
 
                 <p class="input-help">
@@ -120,8 +119,46 @@
                     You can find your League ID on your fantasy platform.
                 </p>
 
+             <div class="form-group" id="season-group">
+
+                <label for="season">
+                     Season
+                </label>
+
+                <input
+                    type="number"
+                    id="season"
+                    name="season"
+                    class="form-input"
+                    value="2026"
+                    placeholder="2026"
+                >
+
+                <p class="input-help">
+                    Required when connecting an ESPN league.
+                </p>
+
             </div>
 
+            <div class="form-group" id="espn-team-group">
+
+                <label for="espn_team_id">
+                    ESPN Team ID
+                </label>
+
+                <input
+                    type="number"
+                    id="espn_team_id"
+                    name="espn_team_id"
+                    class="form-input"
+                    placeholder="Enter your ESPN team ID"
+                >
+
+                <p class="input-help">
+                    Required when connecting an ESPN league.
+                </p>
+
+            </div>
 
             <!-- OR -->
             <div class="or-divider">
@@ -342,6 +379,27 @@
 
     }, 10000);
 
+</script>
+<script>
+    const platformSelect = document.getElementById("platform");
+    const sleeperGroup = document.getElementById("sleeper-username-group");
+    const seasonGroup = document.getElementById("season-group");
+    const espnTeamGroup = document.getElementById("espn-team-group");
+
+    function updatePlatformFields() {
+        const platform = platformSelect.value;
+
+        sleeperGroup.style.display =
+            platform === "sleeper" ? "block" : "none";
+
+        seasonGroup.style.display =
+            platform === "espn" ? "block" : "none";
+        espnTeamGroup.style.display =
+            platform === "espn" ? "block" : "none";
+    }
+
+    platformSelect.addEventListener("change", updatePlatformFields);
+    updatePlatformFields();
 </script>
 
 
