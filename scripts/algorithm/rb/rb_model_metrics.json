@@ -1,0 +1,93 @@
+{
+  "scoring": "PPR",
+  "projection_season": 2026,
+  "training_seasons": [
+    2023,
+    2024,
+    2025
+  ],
+  "features": 153,
+  "library_versions": {
+    "numpy": "2.5.3",
+    "scikit-learn": "1.9.1",
+    "joblib": "1.6.0"
+  },
+  "datasets": {
+    "2023": {
+      "recorded_games": 874,
+      "missing_target": 0,
+      "no_history": 74,
+      "missing_matchup": 0,
+      "usable_games": 800
+    },
+    "2024": {
+      "recorded_games": 1140,
+      "missing_target": 0,
+      "no_history": 93,
+      "missing_matchup": 0,
+      "usable_games": 1047
+    },
+    "2025": {
+      "recorded_games": 1426,
+      "missing_target": 0,
+      "no_history": 123,
+      "missing_matchup": 0,
+      "usable_games": 1303
+    }
+  },
+  "holdout": {
+    "training_seasons": [
+      2023,
+      2024
+    ],
+    "test_season": 2025,
+    "model_all_rows": {
+      "predictions": 1303,
+      "mae": 4.989819080516955,
+      "rmse": 6.830838515917561,
+      "bias": 0.25338603107813523,
+      "within_points_percent": {
+        "2": 29.547198772064466,
+        "3": 42.440521872601686,
+        "5": 63.39217191097467,
+        "7": 75.97851112816578
+      }
+    },
+    "model_baseline_rows": {
+      "predictions": 1303,
+      "mae": 4.989819080516955,
+      "rmse": 6.830838515917561,
+      "bias": 0.25338603107813523,
+      "within_points_percent": {
+        "2": 29.547198772064466,
+        "3": 42.440521872601686,
+        "5": 63.39217191097467,
+        "7": 75.97851112816578
+      }
+    },
+    "last_three_average": {
+      "predictions": 1303,
+      "mae": 4.832046559222307,
+      "rmse": 7.11628546083743,
+      "bias": -0.22968789971859818,
+      "within_points_percent": {
+        "2": 39.06369915579432,
+        "3": 49.19416730621642,
+        "5": 64.46661550268611,
+        "7": 75.74827321565618
+      }
+    }
+  },
+  "final_training_fit_in_sample": {
+    "predictions": 3150,
+    "mae": 2.7106393161741766,
+    "rmse": 3.6447716232951297,
+    "bias": -0.0018905043574341672,
+    "within_points_percent": {
+      "2": 47.714285714285715,
+      "3": 65.52380952380953,
+      "5": 86.28571428571429,
+      "7": 94.34920634920636
+    }
+  }
+}

@@ -592,7 +592,7 @@ def start_sit(request):
 
 @login_required
 def projection_details(request, player_id):
-    """Return historical model inputs for a rostered QB or WR on demand."""
+    """Return historical model inputs for a rostered player on demand."""
     active_league_id = request.session.get("active_league_id")
     connection = (
         UserLeagueConnection.objects
@@ -650,17 +650,30 @@ def projection_details(request, player_id):
         }
         allowed_field = "wr_fantasy_points_allowed"
         recent_allowed_key = "opponent_wr_fantasy_allowed_l3"
-    elif position in {"RB", "TE"}:
-        stat_keys = ([
-            ("PPR points", "fantasy_points"), ("Rush attempts", "rushing_attempts"),
-            ("Rush yards", "rushing_yards"), ("Rush TD", "rushing_tds"),
-            ("Targets", "targets"), ("Receptions", "receptions"),
-            ("Receiving yards", "receiving_yards"), ("Receiving TD", "receiving_tds"),
-        ] if position == "RB" else [
+    elif position == "RB":
+        from scripts.algorithm.features.rb_features import build_rb_features
+        features = build_rb_features(player, league.season, week)
+        groups = {
+            "player": [
+                ("PPR points", "fantasy_points"), ("Rush attempts", "carries"),
+                ("Rush yards", "rushing_yards"), ("Rush TD", "rushing_tds"),
+                ("Targets", "targets"), ("Receptions", "receptions"),
+                ("Receiving yards", "receiving_yards"), ("Receiving TD", "receiving_tds"),
+                ("Touches", "touches"), ("Opportunities", "opportunities"),
+                ("Carry share", "carry_share"), ("Target share", "target_share"),
+                ("Catch rate", "catch_rate"),
+            ],
+            "team": [("Points", "team_points"), ("Pass yards", "team_passing_yards"),
+                     ("Rush yards", "team_rushing_yards"), ("Total yards", "team_total_yards")],
+        }
+        allowed_field = "rb_fantasy_points_allowed"
+        recent_allowed_key = "opponent_rb_fantasy_allowed_l3"
+    elif position == "TE":
+        stat_keys = [
             ("PPR points", "fantasy_points"), ("Targets", "targets"),
             ("Receptions", "receptions"), ("Receiving yards", "receiving_yards"),
             ("Receiving TD", "receiving_tds"),
-        ])
+        ]
         history = list(PlayerWeeklyStats.objects.filter(
             player_id=player_id, season=league.season, season_type="REG", week__lt=week,
         ).order_by("week"))
@@ -714,7 +727,7 @@ def projection_details(request, player_id):
         return [
             {"label": label, "last": features.get(f"{key}_l1"),
              "last3": features.get(f"{key}_l3"), "season": features.get(f"{key}_season"),
-             "percent": key in {"target_share", "catch_rate"}}
+             "percent": key in {"carry_share", "target_share", "catch_rate"}}
             for label, key in fields
         ]
 

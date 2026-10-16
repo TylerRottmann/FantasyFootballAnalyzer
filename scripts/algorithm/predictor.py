@@ -2,6 +2,7 @@
 
 from leagues.models import Player
 from scripts.algorithm.qb.qb_predictor import predict_qb
+from scripts.algorithm.rb.rb_predictor import predict_rb
 from scripts.algorithm.wr.wr_predictor import predict_wr
 
 
@@ -23,6 +24,7 @@ def predict_placeholder(player, season, week):
 
 PREDICTORS = {
     "QB": predict_qb,
+    "RB": predict_rb,
     "WR": predict_wr,
 }
 

@@ -1,3 +1,4 @@
+import argparse
 import os
 
 import psycopg
@@ -190,7 +191,9 @@ def backtest_player(player_id, season, position):
 
     return results
 
-def main():
+def main(seasons=SEASONS, positions=POSITIONS):
+
+    print("Historical replay of saved models; training-season results are in-sample.")
 
     total_predictions = 0
     #successful_predictions = 0
@@ -204,7 +207,7 @@ def main():
                 for threshold in ERROR_THRESHOLDS
             },
         }
-        for position in POSITIONS
+        for position in positions
     }
 
     season_stats = {
@@ -216,15 +219,15 @@ def main():
                 for threshold in ERROR_THRESHOLDS
             },
         }
-        for season in SEASONS
+        for season in seasons
     }
 
-    for season in SEASONS:
+    for season in seasons:
 
         print()
         print(f"========== {season} ==========")
 
-        for position in POSITIONS:
+        for position in positions:
 
             players = get_top_players(
                 season,
@@ -279,7 +282,7 @@ def main():
         average_error = (
                 sum(
                     position_stats[position]["absolute_error"]
-                    for position in POSITIONS
+                    for position in positions
                 )
                 / total_predictions
         )
@@ -289,7 +292,7 @@ def main():
         for threshold in ERROR_THRESHOLDS:
             count = sum(
                 position_stats[position]["within_threshold"][threshold]
-                for position in POSITIONS
+                for position in positions
             )
 
             percentage = (
@@ -304,7 +307,7 @@ def main():
     print()
     print("========== BY POSITION ==========")
 
-    for position in POSITIONS:
+    for position in positions:
 
         stats = position_stats[position]
 
@@ -335,4 +338,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Replay saved position models against recorded games.")
+    parser.add_argument("--seasons", type=int, nargs="+", default=SEASONS)
+    parser.add_argument("--positions", nargs="+", choices=POSITIONS, default=POSITIONS)
+    args = parser.parse_args()
+    try:
+        main(args.seasons, args.positions)
+    finally:
+        conn.close()
