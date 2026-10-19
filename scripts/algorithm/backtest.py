@@ -13,7 +13,7 @@ os.environ.setdefault(
 
 django.setup()
 
-from scripts.algorithm.predictor import predict_player
+from scripts.algorithm.predictor import predict_defense, predict_player
 
 
 load_dotenv()
@@ -30,7 +30,7 @@ conn = psycopg.connect(
 
 SEASONS = [2023, 2024, 2025]
 
-POSITIONS = ["QB", "RB", "WR", "TE"]
+POSITIONS = ["QB", "RB", "WR", "TE", "DST"]
 
 RECENT_GAMES = 4
 SUCCESS_THRESHOLD = 3
@@ -191,6 +191,54 @@ def backtest_player(player_id, season, position):
 
     return results
 
+def backtest_dst(season):
+    """
+    Backtest every team's D/ST for one season.
+
+    D/ST is keyed by team, so it does not use get_top_players() or the
+    player-based predictor; all 32 defenses are replayed instead.
+    """
+
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT team_id, week, dst_fantasy_points
+            FROM team_weekly_stats
+            WHERE season = %s
+              AND season_type = 1
+              AND dst_fantasy_points IS NOT NULL
+            ORDER BY team_id, week
+        """, (season,))
+        games = cur.fetchall()
+
+    results = []
+
+    for team_id, week, actual_points in games:
+
+        # Need at least one prior game to build features.
+        if week <= 1:
+            continue
+
+        prediction = predict_defense(team_id, season, week)
+
+        if prediction is None:
+            continue
+
+        projected = prediction["projected_fantasy_points"]
+
+        if projected is None:
+            continue
+
+        results.append({
+            "week": week,
+            "opponent": team_id,
+            "projected": projected,
+            "actual": actual_points,
+            "difference": abs(float(projected) - float(actual_points)),
+        })
+
+    return results
+
+
 def main(seasons=SEASONS, positions=POSITIONS):
 
     print("Historical replay of saved models; training-season results are in-sample.")
@@ -229,25 +277,26 @@ def main(seasons=SEASONS, positions=POSITIONS):
 
         for position in positions:
 
-            players = get_top_players(
-                season,
-                position,
-            )
-
-            print(
-                f"{position}: "
-                f"{len(players)} players"
-            )
-
-            for player in players:
-
-                player_id = player[0]
-
-                results = backtest_player(
-                    player_id,
+            if position == "DST":
+                batches = [backtest_dst(season)]
+                print(f"{position}: 32 defenses")
+            else:
+                players = get_top_players(
                     season,
                     position,
                 )
+
+                print(
+                    f"{position}: "
+                    f"{len(players)} players"
+                )
+
+                batches = (
+                    backtest_player(player[0], season, position)
+                    for player in players
+                )
+
+            for results in batches:
 
                 for result in results:
 

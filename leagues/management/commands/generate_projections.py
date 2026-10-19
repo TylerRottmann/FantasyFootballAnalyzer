@@ -1,8 +1,9 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.db import close_old_connections
 
-from leagues.models import FantasyProjection, Player
-from scripts.algorithm.predictor import predict_player
+from analyzer.models import Teams
+from leagues.models import DefenseProjection, FantasyProjection, Player
+from scripts.algorithm.predictor import predict_defense, predict_player
 
 
 MODEL_VERSION = "v1"
@@ -169,6 +170,56 @@ class Command(BaseCommand):
                         self.style.ERROR(
                             f"Failed for {player.full_name} "
                             f"({player.position}), "
+                            f"season {season}, week {current_week}: {exc}"
+                        )
+                    )
+
+            # --------------------------------------------------
+            # D/ST: defenses are teams, so they are projected per
+            # team and saved to DefenseProjection.
+            # --------------------------------------------------
+            for team in Teams.objects.filter(is_active=True).order_by("id"):
+                try:
+                    prediction = predict_defense(
+                        team.id,
+                        season,
+                        current_week,
+                    )
+
+                    projected_points = prediction.get(
+                        "projected_fantasy_points"
+                    )
+
+                    if projected_points is None:
+                        week_skipped += 1
+                        self.stdout.write(
+                            self.style.WARNING(
+                                f"Skipping {team.abbreviation} D/ST: "
+                                f"{prediction.get('status')}."
+                            )
+                        )
+                        continue
+
+                    DefenseProjection.objects.update_or_create(
+                        team=team,
+                        season=season,
+                        week=current_week,
+                        model_version=MODEL_VERSION,
+                        defaults={
+                            "projected_fantasy_points": float(
+                                projected_points
+                            ),
+                            "status": prediction.get("status", "projected"),
+                        },
+                    )
+
+                    week_saved += 1
+
+                except Exception as exc:
+                    week_failed += 1
+                    self.stderr.write(
+                        self.style.ERROR(
+                            f"Failed for {team.abbreviation} D/ST, "
                             f"season {season}, week {current_week}: {exc}"
                         )
                     )
