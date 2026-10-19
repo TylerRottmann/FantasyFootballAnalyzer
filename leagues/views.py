@@ -14,6 +14,7 @@ from analyzer.models import NFLGame, PlayerWeeklyStats, Teams, TeamWeeklyStats
 from .integrations.sleeper import SleeperLeagueService
 from .integrations.yahoo import YahooLeagueService
 from .models import (
+    DefenseProjection,
     FantasyLeague,
     FantasyRoster,
     FantasyProjection,
@@ -189,10 +190,18 @@ def _build_historical_lineups(league, roster, week, starting_positions):
             team = Teams.objects.filter(abbreviation__iexact=sleeper_id).first()
         if player is None and team is None:
             continue
+        defense_projection = None
+        if player is None and team is not None:
+            defense_projection = DefenseProjection.objects.filter(
+                team=team, season=league.season, week=week,
+                model_version="v1",
+            ).first()
         item = {
             "player": player,
             "roster_player": SimpleNamespace(id=index + 1, roster_slot="BN"),
-            "prediction": projection_map.get(player.id) if player else None,
+            "prediction": (
+                projection_map.get(player.id) if player else defense_projection
+            ),
             "matchup": matchup_by_team_id.get(player.team_id) if player else None,
             "team": teams.get(player.team_id) if player else team,
             "is_defense": player is None,
@@ -397,6 +406,21 @@ def start_sit(request):
 
     players = []
 
+    defense_projection_map = {
+        projection.team_id: projection
+        for projection in DefenseProjection.objects.filter(
+            team_id__in=[
+                roster_player.team_id
+                for roster_player in roster_players
+                if roster_player.player is None
+                and roster_player.team_id is not None
+            ],
+            season=league.season,
+            week=week,
+            model_version="v1",
+        )
+    }
+
     for roster_player in roster_players:
         # D/ST
         if roster_player.player is None:
@@ -406,7 +430,10 @@ def start_sit(request):
             players.append({
                 "player": None,
                 "roster_player": roster_player,
-                "prediction": None,
+                "prediction": (
+                    defense_projection_map.get(defense_team.id)
+                    if defense_team else None
+                ),
                 "matchup": matchup,
                 "team": defense_team,
                 "is_defense": True,

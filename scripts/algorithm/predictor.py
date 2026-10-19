@@ -5,6 +5,7 @@ from scripts.algorithm.qb.qb_predictor import predict_qb
 from scripts.algorithm.rb.rb_predictor import predict_rb
 from scripts.algorithm.wr.wr_predictor import predict_wr
 from scripts.algorithm.te.te_predictor import predict_te
+from scripts.algorithm.dst.dst_predictor import predict_dst
 
 
 def predict_placeholder(player, season, week):
@@ -50,3 +51,15 @@ def predict_player(player_id, season, week):
         return predictor(player, season, week)
 
     return predict_placeholder(player, season, week)
+
+
+def predict_defense(team_id, season, week):
+    """
+    Entry point for D/ST projections.
+
+    Defenses are teams, not rows in the players table (the roster
+    stores them with player=None and a team), so they are looked up by
+    team_id rather than through predict_player().
+    """
+
+    return predict_dst(team_id, season, week)
