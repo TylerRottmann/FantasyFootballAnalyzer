@@ -461,3 +461,64 @@ class FantasyProjection(models.Model):
                 name="player_projection_idx",
             ),
         ]
+
+
+class DefenseProjection(models.Model):
+    """
+    Projected D/ST fantasy points for one team-week.
+
+    Defenses are teams, not rows in `players`, so they cannot use
+    FantasyProjection (which has a foreign key to Player). The fields a
+    page reads (projected_fantasy_points, status, model_version, season,
+    week) match FantasyProjection so templates and the lineup optimizer
+    treat both the same way.
+    """
+
+    id = models.BigAutoField(primary_key=True)
+
+    team = models.ForeignKey(
+        "analyzer.Teams",
+        on_delete=models.CASCADE,
+        db_column="team_id",
+        related_name="defense_projections",
+    )
+
+    season = models.IntegerField()
+
+    week = models.IntegerField()
+
+    projected_fantasy_points = models.FloatField()
+
+    status = models.CharField(
+        max_length=20,
+        default="projected",
+    )
+
+    model_version = models.CharField(
+        max_length=50,
+        default="v1",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "defense_projections"
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=["team", "season", "week", "model_version"],
+                name="unique_defense_projection",
+            ),
+        ]
+
+        indexes = [
+            models.Index(
+                fields=["season", "week"],
+                name="defense_proj_lookup_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.team_id} {self.season} W{self.week}"
