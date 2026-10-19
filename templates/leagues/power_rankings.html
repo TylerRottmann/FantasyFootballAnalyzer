@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Power Rankings | {{ league.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/power-rankings.css' %}">
+<link rel="stylesheet" href="{% static 'css/team-breakdown-modal.css' %}">
+{% endblock %}
+
+{% block content %}
+<main class="power-page">
+    <header class="power-header">
+        <div>
+            <p class="eyebrow">{{ league.season }} SEASON</p>
+            <h1>League Power Rankings</h1>
+            <p class="subheading">Rest-of-season outlook for <strong>{{ league.name }}</strong></p>
+        </div>
+
+        <div class="power-actions">
+            {% if has_defense_slot %}
+            <label class="defense-toggle" for="include-defense-toggle">
+                <input id="include-defense-toggle" type="checkbox" {% if include_defense %}checked{% endif %}>
+                <span>Include D/ST projections</span>
+            </label>
+            {% endif %}
+            <form id="schedule-sync-form" method="post" action="{% url 'sync_matchups' league.id %}" data-auto-sync="{{ schedule_sync_needed|yesno:'true,false' }}">
+                {% csrf_token %}
+                <button type="submit" class="sync-button">
+                    <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+                    Sync schedule and results
+                </button>
+            </form>
+        </div>
+    </header>
+
+    <p id="schedule-sync-status" class="power-message" role="status" aria-live="polite" hidden></p>
+
+    {% if messages %}
+    <div class="power-messages" aria-live="polite">
+        {% for message in messages %}
+        <p class="power-message {{ message.tags }}">{{ message }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if rankings %}
+    <section class="rankings-panel records-panel" aria-labelledby="records-title">
+        <div class="panel-heading">
+            <div>
+                <h2 id="records-title">Projected Standings</h2>
+                <p>Projected wins and losses based on rest of season schedules.</p>
+                {% if playoff_info %}
+                <p class="playoff-format">Playoffs: {{ playoff_info.playoff_teams }} teams · {{ playoff_info.first_round_byes }} first-round byes · <span class="playoff-legend-bye">Bye</span> <span class="playoff-legend-team">Playoff team</span></p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="rankings-scroll">
+            <table class="rankings-table records-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Rank</th>
+                        <th scope="col">Team</th>
+                        <th scope="col">Current record</th>
+                        <th scope="col">Projected record</th>
+                        <th scope="col">Projected season points</th>
+                        <th scope="col">Current total points</th>
+                        <th scope="col">Current points against</th>
+                        <th scope="col">Projected points against</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for team in rankings %}
+                    <tr class="{% if playoff_info %}{% if forloop.counter <= playoff_info.first_round_byes %}playoff-bye-row{% elif forloop.counter <= playoff_info.playoff_teams %}playoff-team-row{% endif %}{% endif %}{% if team.is_user_team %} user-team-row{% endif %}">
+                        <td class="rank-cell">{{ forloop.counter }}</td>
+                        <th scope="row" class="team-cell">
+                            <a class="js-team-breakdown" aria-haspopup="dialog" href="{% url 'team_breakdown' league_id=league.id roster_id=team.roster_id %}?include_defense={% if include_defense %}1{% else %}0{% endif %}">{{ team.team_name }}</a>
+                            {% if team.is_user_team %}<span class="you-tag">Your team</span>{% endif %}
+                        </th>
+                        <td class="record-cell">
+                            {% if team.current_games_played %}
+                                {{ team.current_wins }}-{{ team.current_losses }}{% if team.current_ties %}-{{ team.current_ties }}{% endif %}
+                            {% else %}—{% endif %}
+                        </td>
+                        <td class="record-cell projected-record">
+                            {% if team.current_games_played or team.projected_games %}
+                                {{ team.projected_wins }}-{{ team.projected_losses }}{% if team.projected_ties %}-{{ team.projected_ties }}{% endif %}
+                            {% else %}—{% endif %}
+                        </td>
+                        <td class="points-cell">
+                            {% if team.current_games_played or team.projected_weeks %}{{ team.projected_total_points|floatformat:1 }}{% else %}—{% endif %}
+                        </td>
+                        <td class="points-cell current-points">
+                            {% if team.current_games_played %}{{ team.current_points|floatformat:1 }}{% else %}—{% endif %}
+                        </td>
+                        <td class="points-cell current-points">
+                            {% if team.current_games_played %}{{ team.current_points_against|floatformat:1 }}{% else %}—{% endif %}
+                        </td>
+                        <td class="points-cell">
+                            {% if team.current_games_played or team.projected_games %}{{ team.projected_points_against|floatformat:1 }}{% else %}—{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="rankings-panel position-panel" aria-labelledby="position-chart-title">
+        <div class="panel-heading position-heading">
+            <div>
+                <h2 id="position-chart-title">Points by Position</h2>
+                <p>Average projected points per week by starter position or bench group.</p>
+            </div>
+            <label class="position-select-label" for="position-select">
+                Position
+                <select id="position-select" class="position-select">
+                    {% for position in chart_positions %}
+                    <option value="{{ position.value }}">{{ position.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+        </div>
+
+        <div class="chart-scroll">
+            <div class="position-chart" aria-label="Average projected points per week by team">
+                <div class="chart-axis-title">Average points per week</div>
+                <div class="chart-y-axis" id="chart-y-axis" aria-hidden="true"></div>
+                <div class="chart-main">
+                    <div class="chart-plot" id="position-chart-plot"></div>
+                    <div class="chart-x-axis-title">Team</div>
+                </div>
+            </div>
+        </div>
+
+        {{ position_chart_data|json_script:"position-chart-data" }}
+    </section>
+    {% else %}
+    <section class="empty-state">
+        <h2>No power rankings yet</h2>
+        <p>Generate rest-of-season projections for this league to see team records and positional strength.</p>
+    </section>
+    {% endif %}
+</main>
+
+{% if has_defense_slot %}
+<script>
+document.getElementById("include-defense-toggle").addEventListener("change", event => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("include_defense", event.target.checked ? "1" : "0");
+    window.location.assign(url);
+});
+</script>
+{% endif %}
+
+{% if rankings %}
+<script src="{% static 'js/team-breakdown-modal.js' %}" defer></script>
+<script>
+(() => {
+    const data = JSON.parse(document.getElementById("position-chart-data").textContent);
+    const select = document.getElementById("position-select");
+    const plot = document.getElementById("position-chart-plot");
+    const yAxis = document.getElementById("chart-y-axis");
+    const syncForm = document.getElementById("schedule-sync-form");
+    const syncButton = syncForm.querySelector("button[type='submit']");
+    const syncStatus = document.getElementById("schedule-sync-status");
+
+    function render(position) {
+        const teams = [...(data[position] || [])].sort((a, b) => {
+            const pointsDifference = (Number(b.average) || 0) - (Number(a.average) || 0);
+            return pointsDifference || a.team.localeCompare(b.team);
+        });
+        const maximum = Math.max(1, ...teams.map(team => Number(team.average) || 0));
+        const axisMax = Math.ceil(maximum / 5) * 5 || 5;
+        plot.style.minWidth = `${Math.max(620, teams.length * 82)}px`;
+        plot.replaceChildren();
+        yAxis.replaceChildren();
+
+        for (let tick = 0; tick <= 4; tick += 1) {
+            const value = axisMax * tick / 4;
+            const label = document.createElement("span");
+            label.textContent = value.toFixed(value % 1 ? 1 : 0);
+            yAxis.appendChild(label);
+        }
+
+        teams.forEach((team, index) => {
+            const average = Number(team.average) || 0;
+            const column = document.createElement("div");
+            column.className = `chart-column${team.is_user_team ? " chart-user-team" : ""}`;
+
+            const value = document.createElement("span");
+            value.className = "chart-value";
+            value.textContent = average.toFixed(1);
+
+            const track = document.createElement("div");
+            track.className = "chart-bar-track";
+            const bar = document.createElement("span");
+            bar.className = "chart-bar";
+            bar.style.height = `${Math.max(average > 0 ? 1 : 0, average / axisMax * 100)}%`;
+            track.appendChild(bar);
+
+            const label = document.createElement("div");
+            label.className = "chart-team-label";
+
+            const name = document.createElement("span");
+            name.className = "chart-team-name";
+            name.textContent = team.team;
+            name.title = team.team;
+
+            const rank = document.createElement("span");
+            rank.className = "chart-team-rank";
+            rank.textContent = `#${index + 1}`;
+            rank.setAttribute("aria-label", `Rank ${index + 1}`);
+
+            label.append(name, rank);
+            column.append(value, track, label);
+            plot.appendChild(column);
+        });
+    }
+
+    select.addEventListener("change", () => render(select.value));
+    render(select.value);
+
+    async function syncSchedule(force) {
+        syncButton.disabled = true;
+        syncStatus.hidden = false;
+        syncStatus.textContent = "Syncing the league schedule and completed results…";
+        const body = new FormData(syncForm);
+        body.set("force", force ? "1" : "0");
+
+        try {
+            const response = await fetch(syncForm.action, {
+                method: "POST",
+                body,
+                headers: {"Accept": "application/json"},
+            });
+            const result = await response.json();
+
+            if (!response.ok || result.status === "error") {
+                throw new Error(result.error || "Schedule sync failed.");
+            }
+            if (result.status === "running") {
+                window.setTimeout(() => syncSchedule(false), 2500);
+                return;
+            }
+            if (result.status === "synced") {
+                syncStatus.textContent = `Synced ${result.synced} schedule and result records. Refreshing records…`;
+                window.setTimeout(() => window.location.reload(), 400);
+                return;
+            }
+            if (result.status === "fresh" && syncForm.dataset.autoSync === "true") {
+                window.location.reload();
+                return;
+            }
+
+            syncStatus.hidden = true;
+            syncButton.disabled = false;
+        } catch (error) {
+            syncStatus.textContent = `Schedule sync failed: ${error.message}`;
+            syncButton.disabled = false;
+        }
+    }
+
+    syncForm.addEventListener("submit", event => {
+        event.preventDefault();
+        syncSchedule(true);
+    });
+
+    if (syncForm.dataset.autoSync === "true") {
+        syncSchedule(false);
+    }
+})();
+</script>
+{% endif %}
+{% endblock %}

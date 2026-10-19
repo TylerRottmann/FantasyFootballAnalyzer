@@ -5,7 +5,7 @@ from django.core.paginator import Paginator
 from django.db.models import Exists, OuterRef
 from django.shortcuts import render
 
-from leagues.context_processors import league_selector
+from leagues.services.context_processors import league_selector
 from leagues.models import FantasyRosterPlayer
 from .models import Players, Teams
 from .waiver_predictions import predict_waiver_player

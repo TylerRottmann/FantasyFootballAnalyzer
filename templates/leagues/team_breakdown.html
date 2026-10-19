@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ team_name }} | {{ league.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/team-breakdown-modal.css' %}">
+{% endblock %}
+
+{% block content %}
+<main class="team-breakdown-page">
+    <a class="team-breakdown-back" href="{% url 'power_rankings' league_id=league.id %}">Back to League Power Rankings</a>
+    {% include "leagues/team_breakdown_modal.html" %}
+</main>
+<script src="{% static 'js/team-breakdown-modal.js' %}" defer></script>
+{% endblock %}

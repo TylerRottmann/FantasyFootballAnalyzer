@@ -1,0 +1,148 @@
+<div class="team-breakdown-backdrop" data-team-modal-backdrop>
+    <section class="team-breakdown-modal" role="dialog" aria-modal="true" aria-labelledby="team-breakdown-title" tabindex="-1">
+        <header class="team-breakdown-header">
+            <div>
+                <p class="team-breakdown-eyebrow">REST-OF-SEASON TEAM OUTLOOK</p>
+                <h2 id="team-breakdown-title">{{ team_name }}</h2>
+            </div>
+            <button class="team-breakdown-close" type="button" data-team-modal-close aria-label="Close team breakdown">&times;</button>
+        </header>
+
+        <nav class="team-breakdown-tabs" role="tablist" aria-label="Team breakdown pages">
+            <button id="team-tab-overview" class="team-breakdown-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="team-panel-overview" data-team-tab="overview">Team breakdown</button>
+            <button id="team-tab-schedule" class="team-breakdown-tab" type="button" role="tab" aria-selected="false" aria-controls="team-panel-schedule" data-team-tab="schedule" tabindex="-1">Projected schedule</button>
+            <button id="team-tab-points" class="team-breakdown-tab" type="button" role="tab" aria-selected="false" aria-controls="team-panel-points" data-team-tab="points" tabindex="-1">Point breakdown</button>
+        </nav>
+
+        <div class="team-breakdown-content">
+            <div id="team-panel-overview" class="team-breakdown-tab-panel" role="tabpanel" aria-labelledby="team-tab-overview" data-team-panel="overview">
+            <section class="team-breakdown-records" aria-label="Team record summary">
+                <div><span>Current record</span><strong>{% if current_record.current_games_played %}{{ current_record.current_wins }}-{{ current_record.current_losses }}{% if current_record.current_ties %}-{{ current_record.current_ties }}{% endif %}{% else %}—{% endif %}</strong></div>
+                <div><span>Projected record</span><strong>{% if current_record.current_games_played or current_record.projected_games %}{{ current_record.projected_wins }}-{{ current_record.projected_losses }}{% if current_record.projected_ties %}-{{ current_record.projected_ties }}{% endif %}{% else %}—{% endif %}</strong></div>
+                <div><span>Projected season points</span><strong>{% if current_record.projected_total_points %}{{ current_record.projected_total_points|floatformat:1 }}{% else %}0.0{% endif %}</strong></div>
+            </section>
+
+            <section class="team-breakdown-summary" aria-label="Weekly projection highs and lows">
+                <article class="team-breakdown-stat strongest">
+                    <span>Strongest projected week</span>
+                    {% if strongest_week %}<strong>Week {{ strongest_week.week }}</strong><b>{{ strongest_week.projected_points|floatformat:1 }} pts</b>{% else %}<b>Projection unavailable</b>{% endif %}
+                </article>
+                <article class="team-breakdown-stat weakest">
+                    <span>Weakest projected week</span>
+                    {% if weakest_week %}<strong>Week {{ weakest_week.week }}</strong><b>{{ weakest_week.projected_points|floatformat:1 }} pts</b>{% else %}<b>Projection unavailable</b>{% endif %}
+                </article>
+                <article class="team-breakdown-stat">
+                    <span>Strongest position</span>
+                    {% if strongest_position %}<strong>{{ strongest_position.position }}</strong><b>{{ strongest_position.points|floatformat:1 }} pts / week</b>{% else %}<b>Projection unavailable</b>{% endif %}
+                </article>
+                <article class="team-breakdown-stat">
+                    <span>Weakest position</span>
+                    {% if weakest_position %}<strong>{{ weakest_position.position }}</strong><b>{{ weakest_position.points|floatformat:1 }} pts / week</b>{% else %}<b>Projection unavailable</b>{% endif %}
+                </article>
+                <article class="team-breakdown-stat">
+                    <span>Average weekly points</span>
+                    {% if average_weekly_points != None %}<strong>{{ average_weekly_points|floatformat:1 }} pts</strong><b>Remaining schedule</b>{% else %}<b>Projection unavailable</b>{% endif %}
+                </article>
+                <article class="team-breakdown-stat">
+                    <span>Projected spot to finish</span>
+                    {% if current_record.projected_rank %}<strong>#{{ current_record.projected_rank }}</strong><b>Projected standings</b>{% else %}<b>Projection unavailable</b>{% endif %}
+                </article>
+            </section>
+
+            <section class="team-breakdown-panel team-breakdown-position-panel">
+                <div class="team-breakdown-panel-heading">
+                    <div><h3>Rest-of-season points by position</h3><p>Projected points summed across remaining weeks.</p></div>
+                    <label for="team-breakdown-chart-mode">Lineup
+                        <select id="team-breakdown-chart-mode">
+                            <option value="starters">Starters</option>
+                            <option value="bench">Bench</option>
+                            <option value="whole_team">Whole team</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="team-breakdown-pie-area">
+                    <div class="team-breakdown-pie" id="team-breakdown-pie" role="img" aria-label="Rest-of-season projected points by position"></div>
+                    <ul class="team-breakdown-pie-legend" id="team-breakdown-pie-legend"></ul>
+                </div>
+                {{ position_breakdowns|json_script:"team-breakdown-chart-data" }}
+            </section>
+            </div>
+
+            <div id="team-panel-schedule" class="team-breakdown-tab-panel" role="tabpanel" aria-labelledby="team-tab-schedule" data-team-panel="schedule" hidden>
+            <section class="team-breakdown-panel">
+                <div class="team-breakdown-panel-heading">
+                    <div><h3>Projected schedule</h3><p>Completed results and optimized lineup projections against each opponent.</p></div>
+                </div>
+                <div class="team-breakdown-table-scroll">
+                    <table class="team-breakdown-schedule">
+                        <thead><tr><th>Week</th><th>Opponent</th><th>Your points</th><th>Opponent points</th><th>Outcome</th></tr></thead>
+                        <tbody>
+                            {% for game in schedule %}
+                            <tr>
+                                <th scope="row">{{ game.week }}</th>
+                                <td>{{ game.opponent }}</td>
+                                <td>{% if game.team_points != None %}{{ game.team_points|floatformat:1 }}{% else %}—{% endif %}</td>
+                                <td>{% if game.opponent_points != None %}{{ game.opponent_points|floatformat:1 }}{% else %}—{% endif %}</td>
+                                <td><span class="team-breakdown-outcome {{ game.result_type }}">{% if game.is_projected %}Projected {% endif %}{{ game.result }}</span></td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" class="team-breakdown-empty">No schedule data is available for this team.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            </div>
+
+            <div id="team-panel-points" class="team-breakdown-tab-panel" role="tabpanel" aria-labelledby="team-tab-points" data-team-panel="points" hidden>
+            <section class="team-breakdown-panel">
+                <div class="team-breakdown-panel-heading">
+                    <div><h3>Roster projection breakdown</h3><p>Bench points show projected production outside the optimized starting lineup.</p></div>
+                </div>
+                <fieldset class="team-position-filters" aria-label="Filter players by position">
+                    <legend>Positions</legend>
+                    <label><input type="checkbox" value="QB" checked> QB</label>
+                    <label><input type="checkbox" value="RB" checked> RB</label>
+                    <label><input type="checkbox" value="WR" checked> WR</label>
+                    <label><input type="checkbox" value="TE" checked> TE</label>
+                    <label title="Players projected to start in a FLEX slot"><input type="checkbox" value="FLEX" checked> FLEX</label>
+                    <label><input type="checkbox" value="D/ST" checked> D/ST</label>
+                    <span class="team-position-filter-count" aria-live="polite"></span>
+                </fieldset>
+                <div class="team-breakdown-table-scroll">
+                    <table class="team-breakdown-players" id="team-breakdown-roster">
+                        <thead>
+                            <tr>
+                                <th scope="col">Player</th>
+                                <th scope="col">Pos</th>
+                                <th scope="col" aria-sort="none"><button class="roster-sort-button" type="button" data-sort-key="rest-points">Rest-season points <span aria-hidden="true">↕</span></button></th>
+                                <th scope="col" aria-sort="none"><button class="roster-sort-button" type="button" data-sort-key="starter-points">Starter contribution <span aria-hidden="true">↕</span></button></th>
+                                <th scope="col" aria-sort="none"><button class="roster-sort-button" type="button" data-sort-key="bench-points">Bench points <span aria-hidden="true">↕</span></button></th>
+                                <th scope="col" aria-sort="none"><button class="roster-sort-button" type="button" data-sort-key="starts">Projected starts <span aria-hidden="true">↕</span></button></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for player in players %}
+                            <tr data-position-groups="{{ player.position_groups|join:',' }}" data-rest-points="{{ player.projected_points }}" data-starter-points="{{ player.starting_points }}" data-bench-points="{{ player.bench_points }}" data-starts="{{ player.starts }}">
+                                <th scope="row" class="team-breakdown-player-cell">
+                                    {% if player.headshot_url %}<img class="team-breakdown-headshot" src="{{ player.headshot_url }}" alt="">{% else %}<span class="team-breakdown-headshot player-placeholder">{{ player.name|slice:":1" }}</span>{% endif %}
+                                    <span>{{ player.name }}</span>
+                                    {% if player.team_logo_url %}<img class="team-breakdown-team-logo" src="{{ player.team_logo_url }}" alt="" loading="lazy">{% endif %}
+                                </th>
+                                <td>{{ player.position }}</td>
+                                <td>{{ player.projected_points|floatformat:1 }}</td>
+                                <td>{{ player.starting_points|floatformat:1 }}</td>
+                                <td>{{ player.bench_points|floatformat:1 }}</td>
+                                <td>{{ player.starts }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="6" class="team-breakdown-empty">No player projections are available.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            </div>
+        </div>
+    </section>
+</div>
