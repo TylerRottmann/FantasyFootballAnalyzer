@@ -522,3 +522,62 @@ class DefenseProjection(models.Model):
 
     def __str__(self):
         return f"{self.team_id} {self.season} W{self.week}"
+
+
+class FantasyMatchup(models.Model):
+    league = models.ForeignKey(
+        FantasyLeague,
+        on_delete=models.CASCADE,
+        related_name="matchups",
+    )
+    roster = models.ForeignKey(
+        FantasyRoster,
+        on_delete=models.CASCADE,
+        related_name="matchups",
+    )
+    opponent = models.ForeignKey(
+        FantasyRoster,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="opponent_matchups",
+    )
+    season = models.IntegerField()
+    week = models.IntegerField()
+    platform = models.CharField(max_length=20)
+    external_id = models.CharField(max_length=100, blank=True)
+    points = models.FloatField(null=True, blank=True)
+    opponent_points = models.FloatField(null=True, blank=True)
+    is_final = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "fantasy_matchups"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["league", "roster", "season", "week", "platform"],
+                name="unique_fantasy_roster_matchup_week",
+            )
+        ]
+
+class TeamWeekProjection(models.Model):
+    league = models.ForeignKey(FantasyLeague, on_delete=models.CASCADE)
+    roster = models.ForeignKey(FantasyRoster, on_delete=models.CASCADE)
+    season = models.IntegerField()
+    week = models.IntegerField()
+
+    projected_points = models.FloatField(null=True)
+    points_by_position = models.JSONField(default=dict)
+    lineup = models.JSONField(default=list)
+
+    model_version = models.CharField(max_length=50)
+    scoring_version = models.CharField(max_length=50)
+    generated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["league", "roster", "season", "week", "model_version"],
+                name="unique_team_week_projection",
+            )
+        ]

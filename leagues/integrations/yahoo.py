@@ -190,6 +190,10 @@ class YahooLeagueService:
     # Yahoo API Requests
     # ---------------------------------------------------------
 
+    def get_scoreboard(self, league_key, week):
+        encoded_key = quote(str(league_key), safe=".")
+        return self._get(f"/league/{encoded_key}/scoreboard;week={int(week)}")
+
     def _get(self, endpoint):
         access_token = self.get_valid_access_token()
 

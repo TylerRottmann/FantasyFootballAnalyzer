@@ -1,0 +1,457 @@
+.power-page {
+    width: min(1440px, 100%);
+    margin: 0 auto;
+    color: var(--text-primary);
+}
+
+.power-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 26px;
+}
+
+.power-header h1 {
+    margin: 0;
+    font-size: 30px;
+    font-weight: 800;
+}
+
+.power-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.power-actions form {
+    margin: 0;
+}
+
+.defense-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.defense-toggle input {
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    accent-color: var(--gold);
+}
+
+.eyebrow {
+    margin: 0 0 6px;
+    color: var(--gold);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .12em;
+}
+
+.subheading,
+.panel-heading p {
+    margin: 7px 0 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.panel-heading .playoff-format {
+    margin-top: 5px;
+    color: var(--gold);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.playoff-legend-bye,
+.playoff-legend-team {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    color: var(--text-primary);
+    font-size: 11px;
+}
+
+.playoff-legend-bye,
+.playoff-bye-row {
+    background-color: rgba(255, 204, 0, .09);
+}
+
+.playoff-legend-team,
+.playoff-team-row {
+    background-color: rgba(92, 168, 255, .09);
+}
+
+.subheading strong {
+    color: var(--gold);
+}
+
+.button-secondary {
+    padding: 10px 14px;
+    color: var(--text-primary);
+    text-decoration: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-card);
+    white-space: nowrap;
+}
+
+.button-secondary:hover {
+    border-color: var(--gold-dark);
+    background: var(--bg-hover);
+}
+
+.sync-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 10px;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: transparent;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: color .15s ease, border-color .15s ease, background-color .15s ease;
+}
+
+.sync-button i {
+    font-size: 13px;
+}
+
+.sync-button:hover:not(:disabled) {
+    color: var(--gold);
+    border-color: var(--gold);
+    background-color: rgba(255, 255, 255, .04);
+}
+
+.sync-button:disabled {
+    cursor: wait;
+    opacity: .65;
+}
+
+.power-messages {
+    margin: -10px 0 18px;
+}
+
+.power-message {
+    margin: 0;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-card);
+}
+
+.power-message.success {
+    color: var(--green);
+}
+
+.power-message.error {
+    color: #ff8b8b;
+}
+
+.rankings-panel,
+.empty-state {
+    overflow: hidden;
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-card);
+}
+
+.panel-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 20px 22px;
+    border-bottom: 1px solid var(--border);
+}
+
+.panel-heading h2 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.rankings-scroll {
+    overflow-x: auto;
+}
+
+.rankings-table {
+    width: 100%;
+    min-width: 1050px;
+    border-collapse: collapse;
+}
+
+.rankings-table th,
+.rankings-table td {
+    padding: 15px 18px;
+    text-align: left;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--border);
+}
+
+.rankings-table thead th {
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+}
+
+.rankings-table tbody tr:last-child th,
+.rankings-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.user-team-row {
+    background: rgba(255, 204, 0, .055);
+}
+
+.rankings-table .playoff-bye-row {
+    background-color: rgba(255, 204, 0, .09);
+}
+
+.rankings-table .playoff-team-row {
+    background-color: rgba(92, 168, 255, .09);
+}
+
+.team-cell a {
+    color: var(--text-primary);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.team-cell a:hover {
+    color: var(--gold);
+}
+
+.you-tag {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 4px 7px;
+    color: var(--gold);
+    border-radius: 999px;
+    background: rgba(255, 204, 0, .12);
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.record-cell {
+    min-width: 120px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.rank-cell {
+    width: 48px;
+    color: var(--text-secondary);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.projected-record {
+    color: var(--gold);
+}
+
+.points-cell {
+    min-width: 135px;
+    font-size: 14px;
+}
+
+.current-points {
+    color: var(--text-primary);
+}
+
+.position-heading {
+    align-items: flex-end;
+}
+
+.position-select-label {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.position-select {
+    min-width: 95px;
+    padding: 8px 30px 8px 10px;
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--bg-hover);
+    font: inherit;
+}
+
+.chart-scroll {
+    overflow-x: auto;
+    padding: 20px 20px 24px;
+}
+
+.position-chart {
+    display: grid;
+    min-width: 660px;
+    grid-template-columns: 28px 48px minmax(0, 1fr);
+    grid-template-rows: 330px;
+    color: var(--text-secondary);
+}
+
+.chart-axis-title {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    grid-column: 1;
+    grid-row: 1;
+    color: var(--text-secondary);
+    font-size: 11px;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+}
+
+.chart-y-axis {
+    display: flex;
+    height: 306px;
+    box-sizing: border-box;
+    flex-direction: column-reverse;
+    justify-content: space-between;
+    grid-column: 2;
+    grid-row: 1;
+    padding: 20px 10px 54px 0;
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.chart-main {
+    min-width: 0;
+    grid-column: 3;
+    grid-row: 1;
+}
+
+.chart-plot {
+    display: grid;
+    height: 306px;
+    grid-auto-columns: minmax(72px, 1fr);
+    grid-auto-flow: column;
+    gap: 8px;
+    align-items: stretch;
+    border-bottom: 1px solid var(--border);
+    background-image: linear-gradient(
+        to top,
+        transparent calc(25% - .5px), var(--border) 25%, transparent calc(25% + .5px),
+        transparent calc(50% - .5px), var(--border) 50%, transparent calc(50% + .5px),
+        transparent calc(75% - .5px), var(--border) 75%, transparent calc(75% + .5px)
+    );
+}
+
+.chart-column {
+    display: grid;
+    min-width: 0;
+    grid-template-rows: 20px minmax(0, 1fr) 54px;
+    justify-items: center;
+}
+
+.chart-value {
+    color: var(--text-primary);
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+}
+
+.chart-bar-track {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    align-items: end;
+    justify-content: center;
+}
+
+.chart-bar {
+    display: block;
+    width: min(38px, 62%);
+    min-height: 2px;
+    border-radius: 5px 5px 0 0;
+    background: #5ca8ff;
+}
+
+.chart-user-team .chart-bar {
+    background: var(--gold);
+}
+
+.chart-team-label {
+    width: 100%;
+    padding: 7px 3px 0;
+    box-sizing: border-box;
+}
+
+.chart-team-name {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 10px;
+    line-height: 1.25;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+
+.chart-team-rank {
+    display: block;
+    margin-top: 3px;
+    color: var(--text-primary);
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.chart-user-team .chart-team-name {
+    color: var(--gold);
+    font-weight: 700;
+}
+
+.chart-x-axis-title {
+    padding-top: 3px;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-align: center;
+}
+
+.empty-state {
+    padding: 36px;
+    text-align: center;
+}
+
+.empty-state p {
+    color: var(--text-secondary);
+}
+
+@media (max-width: 720px) {
+    .power-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .power-actions {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .panel-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}

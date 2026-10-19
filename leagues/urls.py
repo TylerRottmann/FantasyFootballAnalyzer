@@ -44,4 +44,19 @@ urlpatterns = [
         views.resync_league,
         name="resync_league"
     ),
+    path(
+        "<int:league_id>/power-rankings/",
+        views.power_rankings,
+        name="power_rankings",
+    ),
+    path(
+        "<int:league_id>/power-rankings/sync/",
+        views.sync_matchups,
+        name="sync_matchups",
+    ),
+    path(
+        "<int:league_id>/teams/<int:roster_id>/",
+        views.team_breakdown,
+        name="team_breakdown",
+    ),
 ]
