@@ -170,3 +170,25 @@ class KStartSitTests(TestCase):
         self.assertEqual(response.status_code,200)
         self.assertContains(response,'value="K"')
         self.assertContains(response,'value="BENCH_K"')
+
+    def test_missing_schedule_is_not_labeled_as_bye(self):
+        from analyzer.models import NFLGame
+        NFLGame.objects.filter(season=2026).delete()
+        response=self.page()
+        self.assertEqual(response.status_code,200)
+        self.assertContains(response,'Schedule unavailable')
+        for item in response.context['players']:
+            self.assertEqual(item['matchup_missing_label'],'Schedule unavailable')
+
+    def test_complete_schedule_confirms_bye_label(self):
+        from analyzer.models import NFLGame
+        from django.utils import timezone
+        NFLGame.objects.filter(season=2026).delete()
+        for week in range(1,19):
+            if week!=2:
+                NFLGame.objects.create(season=2026,week=week,game_type='REG',
+                    game_date=timezone.now().date(),home_team=self.home,away_team=self.away)
+        response=self.page()
+        self.assertEqual(response.status_code,200)
+        for item in response.context['players']:
+            self.assertEqual(item['matchup_missing_label'],'BYE')

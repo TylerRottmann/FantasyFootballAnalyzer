@@ -379,7 +379,7 @@
                                                 {% else %}
 
                                                     <span class="matchup-unavailable">
-                                                        BYE
+                                                        {{ item.matchup_missing_label|default:"Schedule unavailable" }}
                                                     </span>
 
                                                 {% endif %}
@@ -630,7 +630,7 @@
                                         {% else %}
 
                                             <span class="matchup-unavailable">
-                                                BYE
+                                                {{ item.matchup_missing_label|default:"Schedule unavailable" }}
                                             </span>
 
                                         {% endif %}
@@ -928,7 +928,7 @@
                                                 {% else %}
 
                                                     <span class="matchup-unavailable">
-                                                        BYE
+                                                        {{ item.matchup_missing_label|default:"Schedule unavailable" }}
                                                     </span>
 
                                                 {% endif %}
@@ -1179,7 +1179,7 @@
                                         {% else %}
 
                                             <span class="matchup-unavailable">
-                                                BYE
+                                                {{ item.matchup_missing_label|default:"Schedule unavailable" }}
                                             </span>
 
                                         {% endif %}

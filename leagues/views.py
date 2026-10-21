@@ -18,6 +18,7 @@ from analyzer.models import NFLGame, PlayerWeeklyStats, Teams, TeamWeeklyStats
 from .integrations.sleeper import SleeperLeagueService
 from .integrations.yahoo import YahooLeagueService
 from leagues.services.kicker_scoring import league_projection
+from leagues.services.schedule import confirmed_bye_team_ids
 from .models import (
     DefenseProjection,
     FantasyLeague,
@@ -279,6 +280,7 @@ def _build_historical_lineups(league, roster, week, starting_positions):
             "opponent": game.away_team, "is_home": True, "game": game,
         }
 
+    bye_team_ids = confirmed_bye_team_ids(league.season, week)
     items_by_sleeper_id = {}
     player_pool = []
     for index, sleeper_id in enumerate(sleeper_ids):
@@ -300,7 +302,8 @@ def _build_historical_lineups(league, roster, week, starting_positions):
             "prediction": (
                 projection_map.get(player.id) if player else defense_projection
             ),
-            "matchup": matchup_by_team_id.get(player.team_id) if player else None,
+            "matchup": matchup_by_team_id.get(player.team_id if player else team.id),
+            "matchup_missing_label": "BYE" if (player.team_id if player else team.id) in bye_team_ids else "Schedule unavailable",
             "team": teams.get(player.team_id) if player else team,
             "is_defense": player is None,
             "actual_points": points_by_sleeper_id.get(sleeper_id),
@@ -477,11 +480,12 @@ def start_sit(request):
     )
 
     teams = Teams.objects.in_bulk(team_ids)
+    bye_team_ids = confirmed_bye_team_ids(league.season, week)
 
     matchups = {}
     schedule_games = (
         NFLGame.objects
-        .filter(season=league.season, week=week)
+        .filter(season=league.season, week=week, game_type="REG")
         .filter(Q(away_team_id__in=team_ids) | Q(home_team_id__in=team_ids))
         .select_related("away_team", "home_team")
         .order_by("id")
@@ -533,6 +537,7 @@ def start_sit(request):
                     if defense_team else None
                 ),
                 "matchup": matchup,
+                "matchup_missing_label": "BYE" if defense_team and defense_team.id in bye_team_ids else "Schedule unavailable",
                 "team": defense_team,
                 "is_defense": True,
             })
@@ -549,6 +554,7 @@ def start_sit(request):
             "roster_player": roster_player,
             "prediction": prediction,
             "matchup": matchup,
+            "matchup_missing_label": "BYE" if player.team_id in bye_team_ids else "Schedule unavailable",
             "team": teams.get(player.team_id),
             "is_defense": False,
         })

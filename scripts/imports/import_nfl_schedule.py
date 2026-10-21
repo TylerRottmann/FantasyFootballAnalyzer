@@ -23,7 +23,7 @@ NFL_SCHEDULE_URL = (
 )
 
 
-def import_nfl_schedule(season=None):
+def import_nfl_schedule(season=None, *, missing_only=False):
     print("Downloading NFL schedule...")
 
     response = requests.get(
@@ -41,6 +41,13 @@ def import_nfl_schedule(season=None):
         for team in Teams.objects.all()
     }
 
+    # nflverse uses LA for the Rams; the teams table stores LAR.
+    team_aliases = {"LA": "LAR"}
+    existing_keys = set()
+    if missing_only:
+        existing = NFLGame.objects.filter(season=season) if season is not None else NFLGame.objects.all()
+        existing_keys = set(existing.values_list("season", "week", "away_team_id", "home_team_id"))
+
     imported = 0
     skipped = 0
 
@@ -54,11 +61,15 @@ def import_nfl_schedule(season=None):
             skipped += 1
             continue
 
-        away_team = teams.get(row["away_team"])
-        home_team = teams.get(row["home_team"])
+        away_team = teams.get(team_aliases.get(row["away_team"], row["away_team"]))
+        home_team = teams.get(team_aliases.get(row["home_team"], row["home_team"]))
 
         if away_team is None or home_team is None:
             skipped += 1
+            continue
+
+        key = (row_season, int(row["week"]), away_team.id, home_team.id)
+        if missing_only and key in existing_keys:
             continue
 
         game_date = datetime.strptime(
@@ -74,7 +85,8 @@ def import_nfl_schedule(season=None):
                 "%H:%M",
             ).time()
 
-        NFLGame.objects.update_or_create(
+        save_game = NFLGame.objects.get_or_create if missing_only else NFLGame.objects.update_or_create
+        _, created = save_game(
             season=row_season,
             week=int(row["week"]),
             away_team=away_team,
@@ -86,7 +98,9 @@ def import_nfl_schedule(season=None):
             },
         )
 
-        imported += 1
+        if not missing_only or created:
+            imported += 1
+        existing_keys.add(key)
 
     print(f"Successfully imported {imported} NFL games.")
 
