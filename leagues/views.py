@@ -1078,11 +1078,13 @@ def power_rankings(request, league_id):
         {"value": "RB", "label": "RB starters"},
         {"value": "WR", "label": "WR starters"},
         {"value": "TE", "label": "TE starters"},
+        {"value": "K", "label": "K starters"},
         {"value": "DEF", "label": "DEF starters"},
         {"value": "BENCH_QB", "label": "Bench QB"},
         {"value": "BENCH_RB", "label": "Bench RB"},
         {"value": "BENCH_WR", "label": "Bench WR"},
         {"value": "BENCH_TE", "label": "Bench TE"},
+        {"value": "BENCH_K", "label": "Bench K"},
         {"value": "BENCH_DEF", "label": "Bench DEF"},
         {"value": "BENCH_TOTAL", "label": "Bench total"},
     ]

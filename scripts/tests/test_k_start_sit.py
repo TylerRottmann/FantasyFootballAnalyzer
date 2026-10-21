@@ -116,3 +116,57 @@ class KStartSitTests(TestCase):
         for player in (self.low,self.high):
             self.assertEqual(player_rows[player.full_name]['projected_points'],
                              round(expected[player.id]['projected_fantasy_points'],1))
+
+    def test_kicker_only_generation_preserves_other_positions(self):
+        other=self.make_player(3,'Fixture RB','fixture-other',position='RB')
+        stored=FantasyProjection.objects.create(
+            player=other,season=2026,week=2,model_version='v1',
+            projected_fantasy_points=17,status='ml_model')
+        original=stored.updated_at
+        with patch.object(KSeasonData,'load',return_value=self.data), \
+             patch('leagues.management.commands.generate_projections.predict_defense',
+                   side_effect=AssertionError('Kicker-only generation must not touch defenses')):
+            call_command('generate_projections',season=2026,week=2,positions=['K'],
+                         stdout=StringIO(),stderr=StringIO())
+        stored.refresh_from_db()
+        self.assertEqual(stored.projected_fantasy_points,17)
+        self.assertEqual(stored.updated_at,original)
+        self.assertEqual(FantasyProjection.objects.filter(player__position='K').count(),2)
+
+    def test_projected_starter_and_bench_defenses_do_not_build_player_links(self):
+        from leagues.models import DefenseProjection
+        from django.utils import timezone
+        self.generate()
+        self.league.roster_positions=['K','DEF','BN']
+        self.league.save()
+        for team,slot,points in ((self.home,'DEF',8.5),(self.away,'BN',11.5)):
+            FantasyRosterPlayer.objects.create(
+                roster=self.roster,team=team,player=None,roster_slot=slot,
+                created_at=timezone.now())
+            DefenseProjection.objects.update_or_create(
+                team=team,season=2026,week=2,model_version='v1',
+                defaults={'projected_fantasy_points':points,'status':'ml_model'})
+        response=self.page()
+        self.assertEqual(response.status_code,200)
+        self.assertContains(response,'8.5')
+        self.assertContains(response,'11.5')
+        self.assertNotContains(response,'data-player-name=""')
+        self.assertContains(response,'projection-details/')
+
+    def test_rankings_and_team_modal_offer_kicker_filters(self):
+        from django.test.utils import ContextList
+        def capture(store,signal,sender,template,context,**kwargs):
+            store.setdefault('templates',[]).append(template)
+            store.setdefault('context',ContextList()).append(context.flatten())
+        self.generate()
+        with patch('leagues.views.get_current_nfl_week',return_value=2), \
+             patch('leagues.views.get_sleeper_playoff_info',return_value=None), \
+             patch('django.test.client.store_rendered_templates',side_effect=capture):
+            response=self.client.get(reverse('power_rankings',args=[self.league.id]))
+            modal=self.client.get(reverse('team_breakdown',args=[self.league.id,self.roster.id]),{'modal':'1'})
+        self.assertEqual(modal.status_code,200)
+        self.assertContains(modal,'value="K" checked')
+        self.assertContains(modal,'data-position-groups="K"')
+        self.assertEqual(response.status_code,200)
+        self.assertContains(response,'value="K"')
+        self.assertContains(response,'value="BENCH_K"')

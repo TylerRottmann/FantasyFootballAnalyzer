@@ -242,7 +242,7 @@ def build_team_breakdown(
             name = player.full_name
             position = (player.position or "—").upper()
             headshot = player.headshot_url or ""
-            position_groups = [position] if position in {"QB", "RB", "WR", "TE"} else []
+            position_groups = [position] if position in {"QB", "RB", "WR", "TE", "K"} else []
         else:
             name = team.name if team else "Defense"
             position = "D/ST"

@@ -16,6 +16,11 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--season", type=int, required=True)
+        parser.add_argument(
+            "--positions", nargs="+", choices=[*POSITIONS, "DST"],
+            default=[*POSITIONS, "DST"],
+            help="Limit generation to selected positions, such as --positions K.",
+        )
         parser.add_argument("--week", type=int)
         parser.add_argument(
             "--all-weeks",
@@ -27,6 +32,7 @@ class Command(BaseCommand):
         season = options["season"]
         week = options["week"]
         all_weeks = options["all_weeks"]
+        positions = options["positions"]
 
         if all_weeks and week is not None:
             raise CommandError(
@@ -47,11 +53,11 @@ class Command(BaseCommand):
         # Load players and their teams in one query.
         players = list(
             Player.objects.filter(
-                position__in=POSITIONS
+                position__in=[position for position in positions if position != "DST"]
             ).order_by("id")
         )
 
-        if not players:
+        if not players and "DST" not in positions:
             self.stdout.write(
                 self.style.WARNING("No eligible players found.")
             )
@@ -181,7 +187,11 @@ class Command(BaseCommand):
             # D/ST: defenses are teams, so they are projected per
             # team and saved to DefenseProjection.
             # --------------------------------------------------
-            for team in Teams.objects.filter(is_active=True).order_by("id"):
+            defense_teams = (
+                Teams.objects.filter(is_active=True).order_by("id")
+                if "DST" in positions else []
+            )
+            for team in defense_teams:
                 try:
                     prediction = predict_defense(
                         team.id,

@@ -154,7 +154,7 @@ old state mismatch, apply the repair in an isolated database, verify the origina
 predictions and uniqueness rule survive, and check older-style inserts receive
 the empty database default. These tests never use the configured shared database.
 
-Validation: 41 focused kicker/RB/defense algorithm tests and 11 isolated
+Validation: 41 focused kicker/RB/defense algorithm tests and 14 isolated
 generation/page tests pass. Tests cover temporal leakage, zero targets, paired
 rates, complete-schedule byes, blocked/distance scoring, unsupported settings,
 model persistence/schema guards, chronological evaluation, router integration,
@@ -170,3 +170,51 @@ artifact. `.venv` now has the pinned requirements and `django-extensions==4.1`.
 Django system checks and dependency consistency checks pass. No push, pull request,
 merge, or source-data import was performed. The authorized shared schema updates
 are described above.
+
+## Live browser verification, October 21, 2026
+
+Signed-in browser checks used the existing league and actual shared data, rather
+than test fixtures. The start/sit page originally crashed when a saved defense
+projection tried to build a player-details URL with no player ID. Starter and
+bench defenses now display their scores without those invalid links. A regression
+covers defenses in both current and optimized lineups.
+
+The lineup optimizer also left eligible zero-point players out because an empty
+slot tied their score. It now maximizes filled eligible slots first, then projected
+points. This also keeps a valid kicker in a required slot when custom penalties
+produce a negative projection. Four regression tests cover zero/negative scores,
+complete-lineup selection, and genuinely missing positions.
+
+Kickers now appear in both starter/bench ranking chart choices and the team
+breakdown position filter. The player grouping includes K, so selecting that
+filter displays the kicker instead of hiding it. Browser checks cover prediction
+points and the loaded historical-details panel, switching weeks, ranking charts,
+and team breakdown tabs. ADP player/position filtering and the waiver page also
+load. Weekly Rankings remains a placeholder link; waiver predictions remain
+explicit demo values, and ADP's unfiltered page is large (9,357 rows). These existing
+features were not redesigned as part of the kicker ticket. Missing Rams schedule
+data and unsupported Yahoo kicking settings remain the documented limitations.
+
+Available 2026 kicker forecasts were saved for Weeks 1–18 using a shared source
+snapshot and model: 454 model projections, 21 confirmed-bye zeros, and 2,070
+inactive zeros following the existing generation convention. There were 178
+insufficient-history cases and 49 unresolved matchups; no scores were invented
+for those cases. All 59,678 non-kicker projections were verified unchanged. This
+was forecast generation, not an import of new source-stat rows.
+
+The existing generation command now accepts a position filter, preserving its
+previous all-position default:
+
+```powershell
+.\.venv\Scripts\python.exe manage.py generate_projections --season 2026 --week 7 --positions K
+.\.venv\Scripts\python.exe manage.py generate_projections --season 2026 --all-weeks --positions K
+```
+
+Run these writes in a normal deployment session, not the read-only evaluation
+session above. Batch callers of `predict_k` can reuse the same data snapshot and
+loaded model without changing the prediction logic. A generation regression
+confirms the K-only command leaves other positions and defenses untouched.
+
+Final focused validation includes 48 algorithm/schema/lineup tests and 14 isolated
+page/persistence tests (62 total). Screenshots were saved separately for review.
+Additional frontend fixes remain local until the feature branch is pushed again.
