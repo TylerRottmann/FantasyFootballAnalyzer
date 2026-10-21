@@ -411,7 +411,7 @@ class FantasyProjection(models.Model):
 
     projected_fantasy_points = models.FloatField()
 
-    projected_stats = models.JSONField(default=dict, blank=True)
+    projected_stats = models.JSONField(default=dict, blank=True, db_default={})
 
     status = models.CharField(
         max_length=20,

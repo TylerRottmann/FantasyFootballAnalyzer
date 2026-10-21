@@ -74,7 +74,8 @@ is incomplete: the shared 2026 team table has only 30 Week 1 rows. The model use
 available earlier team history and leaves absent inputs missing. Existing schedule
 imports also omit Rams games; historical source teams recover recorded kicker
 games, but unresolved upcoming schedules still require the imports owner to fix
-the LA/LAR alias and refresh schedules. No shared data was changed for this ticket.
+the LA/LAR alias and refresh schedules. No player or team source rows were imported for this ticket. Shared database
+structure updates are recorded below.
 
 ## Model and measured results
 
@@ -118,20 +119,40 @@ $env:PGOPTIONS = '-c default_transaction_read_only=on'
 git diff --check
 ```
 
-Apply migration `leagues.0008_fantasyprojection_projected_stats` to the deployment
-database before running the changed app or generating projections. It adds a
-JSON field with an empty default for existing rows. The migration was prepared
-but was not applied to the shared database. Coordinate its number with incoming
-teammate migrations. The example read-only session above intentionally cannot
-apply migrations or generate stored projections; use the normal deployment session
-for those writes after review. Then regenerate the desired season/week projections.
+The configured shared database was updated on October 21, 2026 through
+`leagues.0010_kicker_stats_database_default`:
 
-The project's unmodified `dev` already has migration drift: a missing
-`TeamWeekProjection` migration and a mismatched FantasyProjection constraint.
-`makemigrations --check --dry-run` reports those same changes before and after
-SCRUM-27. They were not folded into this ticket. The new field matches the
-explicit migration. Migration history and schema creation should be coordinated
-with the owner of those existing changes before deployment.
+- `0008` adds `FantasyProjection.projected_stats` for kicking stat components.
+- `0009` creates the missing `TeamWeekProjection` table already expected by dev.
+  It also corrects an existing migration-state mismatch: 0004 and 0005 recorded
+  two differently defined constraints under the same name. The repair resets
+  only migration state to the existing, correct four-column uniqueness rule.
+  It does not drop or recreate that live database constraint.
+- `0010` supplies an empty JSON value at the database level for older clients
+  that omit the new field, so teammates running older code can keep saving
+  predictions. The model retains its normal application default as well.
+
+The first two updates were applied in a single transaction, with a before/after
+checksum of every existing prediction's original fields. All 59,678 predictions
+were preserved, including IDs, scores, statuses, and timestamps. The original
+uniqueness constraint retained its exact identity and definition. The new team
+projection table is empty. The compatibility default was applied and verified
+with an older-style insert whose temporary test row was rolled back; all 59,678
+predictions remained unchanged. No source-stat imports or forecast generation
+were performed during the schema repair.
+
+The same shared database already records these updates as applied. For another
+configured database, review its normal pending updates and run the migration
+chain through `0010` before using this code. Migration and projection-generation
+commands need a normal write-enabled session; the reproduction session above is
+read-only. Source snapshots remain local to each installation and must be prepared
+before kicker inference. Nothing has been pushed or opened as a pull request.
+
+`makemigrations --check --dry-run` now reports no changes, and `migrate --plan`
+reports no pending operations. Three additional regression tests reproduce the
+old state mismatch, apply the repair in an isolated database, verify the original
+predictions and uniqueness rule survive, and check older-style inserts receive
+the empty database default. These tests never use the configured shared database.
 
 Validation: 41 focused kicker/RB/defense algorithm tests and 11 isolated
 generation/page tests pass. Tests cover temporal leakage, zero targets, paired
@@ -147,4 +168,5 @@ teammate's already-implemented TE router.
 Python 3.14.0, NumPy 2.5.3, scikit-learn 1.9.1, and joblib 1.6.0 were used for the
 artifact. `.venv` now has the pinned requirements and `django-extensions==4.1`.
 Django system checks and dependency consistency checks pass. No push, pull request,
-merge, shared import, or shared migration was performed.
+merge, or source-data import was performed. The authorized shared schema updates
+are described above.
