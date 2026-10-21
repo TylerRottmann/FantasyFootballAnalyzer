@@ -17,3 +17,5 @@ db.sqlite3
 # OS
 .DS_Store
 Thumbs.db
+# Reproducible local kicker source snapshot
+scripts/algorithm/k/kicker_weekly.json

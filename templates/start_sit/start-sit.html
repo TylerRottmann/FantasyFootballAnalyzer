@@ -379,7 +379,7 @@
                                                 {% else %}
 
                                                     <span class="matchup-unavailable">
-                                                        BYE
+                                                        {{ item.matchup_missing_label|default:"Schedule unavailable" }}
                                                     </span>
 
                                                 {% endif %}
@@ -401,20 +401,24 @@
                                                     {% if item.prediction.projected_fantasy_points is not None %}
 
                                                         <div class="projection-value">
-                                                            <button
-                                                                type="button"
-                                                                class="projection-value projection-value-button"
-                                                                onclick="openProjectionExplanation(this)"
-                                                                data-player-name="{{ item.player.full_name }}"
-                                                                data-details-url="{% url 'projection_details' item.player.id %}?week={{ week }}"
-                                                                data-player-position="{{ item.player.position }}"
-                                                                data-projection-points="{{ item.prediction.projected_fantasy_points|floatformat:1 }}"
-                                                                data-projection-status="{{ item.prediction.status }}"
-                                                                data-model-version="{{ item.prediction.model_version }}"
-                                                                data-projection-season="{{ item.prediction.season }}"
-                                                                data-projection-week="{{ item.prediction.week }}"
-                                                                aria-label="Explain {{ item.player.full_name }}'s projected points"
-                                                            >{{ item.prediction.projected_fantasy_points|floatformat:1 }}</button>
+                                                            {% if item.player %}
+                                                                <button
+                                                                    type="button"
+                                                                    class="projection-value projection-value-button"
+                                                                    onclick="openProjectionExplanation(this)"
+                                                                    data-player-name="{{ item.player.full_name }}"
+                                                                    data-details-url="{% url 'projection_details' item.player.id %}?week={{ week }}"
+                                                                    data-player-position="{{ item.player.position }}"
+                                                                    data-projection-points="{{ item.prediction.projected_fantasy_points|floatformat:1 }}"
+                                                                    data-projection-status="{{ item.prediction.status }}"
+                                                                    data-model-version="{{ item.prediction.model_version }}"
+                                                                    data-projection-season="{{ item.prediction.season }}"
+                                                                    data-projection-week="{{ item.prediction.week }}"
+                                                                    aria-label="Explain {{ item.player.full_name }}'s projected points"
+                                                                >{{ item.prediction.projected_fantasy_points|floatformat:1 }}</button>
+                                                            {% else %}
+                                                                <span class="projection-value">{{ item.prediction.projected_fantasy_points|floatformat:1 }}</span>
+                                                            {% endif %}
                                                         </div>
 
                                                     {% else %}
@@ -626,7 +630,7 @@
                                         {% else %}
 
                                             <span class="matchup-unavailable">
-                                                BYE
+                                                {{ item.matchup_missing_label|default:"Schedule unavailable" }}
                                             </span>
 
                                         {% endif %}
@@ -644,20 +648,24 @@
 
                                             {% if item.prediction.projected_fantasy_points is not None %}
 
-                                                <button
-                                                    type="button"
-                                                    class="projection-value-button bench-projection-value-button"
-                                                    onclick="openProjectionExplanation(this)"
-                                                    data-player-name="{{ item.player.full_name }}"
-                                                    data-details-url="{% url 'projection_details' item.player.id %}?week={{ week }}"
-                                                    data-player-position="{{ item.player.position }}"
-                                                    data-projection-points="{{ item.prediction.projected_fantasy_points|floatformat:1 }}"
-                                                    data-projection-status="{{ item.prediction.status }}"
-                                                    data-model-version="{{ item.prediction.model_version }}"
-                                                    data-projection-season="{{ item.prediction.season }}"
-                                                    data-projection-week="{{ item.prediction.week }}"
-                                                    aria-label="Explain {{ item.player.full_name }}'s projected points"
-                                                >{{ item.prediction.projected_fantasy_points|floatformat:1 }}</button>
+                                                {% if item.player %}
+                                                    <button
+                                                        type="button"
+                                                        class="projection-value-button bench-projection-value-button"
+                                                        onclick="openProjectionExplanation(this)"
+                                                        data-player-name="{{ item.player.full_name }}"
+                                                        data-details-url="{% url 'projection_details' item.player.id %}?week={{ week }}"
+                                                        data-player-position="{{ item.player.position }}"
+                                                        data-projection-points="{{ item.prediction.projected_fantasy_points|floatformat:1 }}"
+                                                        data-projection-status="{{ item.prediction.status }}"
+                                                        data-model-version="{{ item.prediction.model_version }}"
+                                                        data-projection-season="{{ item.prediction.season }}"
+                                                        data-projection-week="{{ item.prediction.week }}"
+                                                        aria-label="Explain {{ item.player.full_name }}'s projected points"
+                                                    >{{ item.prediction.projected_fantasy_points|floatformat:1 }}</button>
+                                                {% else %}
+                                                    <span class="projection-value">{{ item.prediction.projected_fantasy_points|floatformat:1 }}</span>
+                                                {% endif %}
 
                                             {% else %}
 
@@ -920,7 +928,7 @@
                                                 {% else %}
 
                                                     <span class="matchup-unavailable">
-                                                        BYE
+                                                        {{ item.matchup_missing_label|default:"Schedule unavailable" }}
                                                     </span>
 
                                                 {% endif %}
@@ -942,20 +950,24 @@
                                                     {% if item.prediction.projected_fantasy_points is not None %}
 
                                                         <div class="projection-value">
-                                                            <button
-                                                                type="button"
-                                                                class="projection-value projection-value-button"
-                                                                onclick="openProjectionExplanation(this)"
-                                                                data-player-name="{{ item.player.full_name }}"
-                                                                data-details-url="{% url 'projection_details' item.player.id %}?week={{ week }}"
-                                                                data-player-position="{{ item.player.position }}"
-                                                                data-projection-points="{{ item.prediction.projected_fantasy_points|floatformat:1 }}"
-                                                                data-projection-status="{{ item.prediction.status }}"
-                                                                data-model-version="{{ item.prediction.model_version }}"
-                                                                data-projection-season="{{ item.prediction.season }}"
-                                                                data-projection-week="{{ item.prediction.week }}"
-                                                                aria-label="Explain {{ item.player.full_name }}'s projected points"
-                                                            >{{ item.prediction.projected_fantasy_points|floatformat:1 }}</button>
+                                                            {% if item.player %}
+                                                                <button
+                                                                    type="button"
+                                                                    class="projection-value projection-value-button"
+                                                                    onclick="openProjectionExplanation(this)"
+                                                                    data-player-name="{{ item.player.full_name }}"
+                                                                    data-details-url="{% url 'projection_details' item.player.id %}?week={{ week }}"
+                                                                    data-player-position="{{ item.player.position }}"
+                                                                    data-projection-points="{{ item.prediction.projected_fantasy_points|floatformat:1 }}"
+                                                                    data-projection-status="{{ item.prediction.status }}"
+                                                                    data-model-version="{{ item.prediction.model_version }}"
+                                                                    data-projection-season="{{ item.prediction.season }}"
+                                                                    data-projection-week="{{ item.prediction.week }}"
+                                                                    aria-label="Explain {{ item.player.full_name }}'s projected points"
+                                                                >{{ item.prediction.projected_fantasy_points|floatformat:1 }}</button>
+                                                            {% else %}
+                                                                <span class="projection-value">{{ item.prediction.projected_fantasy_points|floatformat:1 }}</span>
+                                                            {% endif %}
                                                         </div>
 
                                                     {% else %}
@@ -1167,7 +1179,7 @@
                                         {% else %}
 
                                             <span class="matchup-unavailable">
-                                                BYE
+                                                {{ item.matchup_missing_label|default:"Schedule unavailable" }}
                                             </span>
 
                                         {% endif %}
@@ -1185,20 +1197,24 @@
 
                                             {% if item.prediction.projected_fantasy_points is not None %}
 
-                                                <button
-                                                    type="button"
-                                                    class="projection-value-button bench-projection-value-button"
-                                                    onclick="openProjectionExplanation(this)"
-                                                    data-player-name="{{ item.player.full_name }}"
-                                                    data-details-url="{% url 'projection_details' item.player.id %}?week={{ week }}"
-                                                    data-player-position="{{ item.player.position }}"
-                                                    data-projection-points="{{ item.prediction.projected_fantasy_points|floatformat:1 }}"
-                                                    data-projection-status="{{ item.prediction.status }}"
-                                                    data-model-version="{{ item.prediction.model_version }}"
-                                                    data-projection-season="{{ item.prediction.season }}"
-                                                    data-projection-week="{{ item.prediction.week }}"
-                                                    aria-label="Explain {{ item.player.full_name }}'s projected points"
-                                                >{{ item.prediction.projected_fantasy_points|floatformat:1 }}</button>
+                                                {% if item.player %}
+                                                    <button
+                                                        type="button"
+                                                        class="projection-value-button bench-projection-value-button"
+                                                        onclick="openProjectionExplanation(this)"
+                                                        data-player-name="{{ item.player.full_name }}"
+                                                        data-details-url="{% url 'projection_details' item.player.id %}?week={{ week }}"
+                                                        data-player-position="{{ item.player.position }}"
+                                                        data-projection-points="{{ item.prediction.projected_fantasy_points|floatformat:1 }}"
+                                                        data-projection-status="{{ item.prediction.status }}"
+                                                        data-model-version="{{ item.prediction.model_version }}"
+                                                        data-projection-season="{{ item.prediction.season }}"
+                                                        data-projection-week="{{ item.prediction.week }}"
+                                                        aria-label="Explain {{ item.player.full_name }}'s projected points"
+                                                    >{{ item.prediction.projected_fantasy_points|floatformat:1 }}</button>
+                                                {% else %}
+                                                    <span class="projection-value">{{ item.prediction.projected_fantasy_points|floatformat:1 }}</span>
+                                                {% endif %}
 
                                             {% else %}
 

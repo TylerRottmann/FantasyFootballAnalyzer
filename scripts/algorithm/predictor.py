@@ -1,6 +1,7 @@
 # scripts/algorithm/predictor.py
 
 from leagues.models import Player
+from scripts.algorithm.k.k_predictor import predict_k
 from scripts.algorithm.qb.qb_predictor import predict_qb
 from scripts.algorithm.rb.rb_predictor import predict_rb
 from scripts.algorithm.wr.wr_predictor import predict_wr
@@ -25,6 +26,7 @@ def predict_placeholder(player, season, week):
 
 
 PREDICTORS = {
+    "K": predict_k,
     "QB": predict_qb,
     "RB": predict_rb,
     "WR": predict_wr,
@@ -32,7 +34,7 @@ PREDICTORS = {
 }
 
 
-def predict_player(player_id, season, week):
+def predict_player(player_id, season, week, scoring_settings=None):
     """
     Main entry point for all fantasy player predictions.
 
@@ -46,6 +48,9 @@ def predict_player(player_id, season, week):
         return None
 
     predictor = PREDICTORS.get(player.position)
+
+    if player.position == "K":
+        return predictor(player, season, week, scoring_settings=scoring_settings)
 
     if predictor is not None:
         return predictor(player, season, week)

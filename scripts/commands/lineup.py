@@ -118,7 +118,12 @@ def build_optimized_lineup(players, starting_positions):
 
         states = next_states
 
-    total_score, assignment = max(states.values(), key=lambda state: state[0])
+    # Fill available lineup slots before comparing scores. An eligible player
+    # with zero or negative points must not be replaced by an empty slot.
+    total_score, assignment = max(
+        states.values(),
+        key=lambda state: (sum(item is not None for item in state[1]), state[0]),
+    )
     return [
         {"slot": slot, "item": item}
         for slot, item in zip(starting_positions, assignment)

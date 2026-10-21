@@ -17,6 +17,8 @@ from analyzer.models import NFLGame, PlayerWeeklyStats, Teams, TeamWeeklyStats
 
 from .integrations.sleeper import SleeperLeagueService
 from .integrations.yahoo import YahooLeagueService
+from leagues.services.kicker_scoring import league_projection
+from leagues.services.schedule import confirmed_bye_team_ids
 from .models import (
     DefenseProjection,
     FantasyLeague,
@@ -238,8 +240,8 @@ def _build_historical_lineups(league, roster, week, starting_positions):
     teams = Teams.objects.in_bulk({p.team_id for p in db_players if p.team_id})
 
     projection_map = {
-        projection.player_id: projection
-        for projection in FantasyProjection.objects.filter(
+        projection.player_id: league_projection(projection, league)
+        for projection in FantasyProjection.objects.select_related("player").filter(
             player_id__in=players_by_id,
             season=league.season,
             week=week,
@@ -278,6 +280,7 @@ def _build_historical_lineups(league, roster, week, starting_positions):
             "opponent": game.away_team, "is_home": True, "game": game,
         }
 
+    bye_team_ids = confirmed_bye_team_ids(league.season, week)
     items_by_sleeper_id = {}
     player_pool = []
     for index, sleeper_id in enumerate(sleeper_ids):
@@ -299,7 +302,8 @@ def _build_historical_lineups(league, roster, week, starting_positions):
             "prediction": (
                 projection_map.get(player.id) if player else defense_projection
             ),
-            "matchup": matchup_by_team_id.get(player.team_id) if player else None,
+            "matchup": matchup_by_team_id.get(player.team_id if player else team.id),
+            "matchup_missing_label": "BYE" if (player.team_id if player else team.id) in bye_team_ids else "Schedule unavailable",
             "team": teams.get(player.team_id) if player else team,
             "is_defense": player is None,
             "actual_points": points_by_sleeper_id.get(sleeper_id),
@@ -441,7 +445,7 @@ def start_sit(request):
         if roster_player.player_id is not None
     ]
 
-    projections = FantasyProjection.objects.filter(
+    projections = FantasyProjection.objects.select_related("player").filter(
         player_id__in=player_ids,
         season=league.season,
         week=week,
@@ -449,7 +453,7 @@ def start_sit(request):
     )
 
     projection_map = {
-        projection.player_id: projection
+        projection.player_id: league_projection(projection, league)
         for projection in projections
     }
 
@@ -476,11 +480,12 @@ def start_sit(request):
     )
 
     teams = Teams.objects.in_bulk(team_ids)
+    bye_team_ids = confirmed_bye_team_ids(league.season, week)
 
     matchups = {}
     schedule_games = (
         NFLGame.objects
-        .filter(season=league.season, week=week)
+        .filter(season=league.season, week=week, game_type="REG")
         .filter(Q(away_team_id__in=team_ids) | Q(home_team_id__in=team_ids))
         .select_related("away_team", "home_team")
         .order_by("id")
@@ -532,6 +537,7 @@ def start_sit(request):
                     if defense_team else None
                 ),
                 "matchup": matchup,
+                "matchup_missing_label": "BYE" if defense_team and defense_team.id in bye_team_ids else "Schedule unavailable",
                 "team": defense_team,
                 "is_defense": True,
             })
@@ -548,6 +554,7 @@ def start_sit(request):
             "roster_player": roster_player,
             "prediction": prediction,
             "matchup": matchup,
+            "matchup_missing_label": "BYE" if player.team_id in bye_team_ids else "Schedule unavailable",
             "team": teams.get(player.team_id),
             "is_defense": False,
         })
@@ -792,6 +799,20 @@ def projection_details(request, player_id):
         }
         allowed_field = "rb_fantasy_points_allowed"
         recent_allowed_key = "opponent_rb_fantasy_allowed_l3"
+    elif position == "K":
+        from scripts.algorithm.features.k_features import build_k_features
+        try:
+            features = build_k_features(player, league.season, week)
+        except (FileNotFoundError, ValueError):
+            return JsonResponse({"error": "Kicker source data is unavailable for this season."}, status=200)
+        groups = {
+            "player": [("FG attempts", "fg_att"), ("FG made", "fg_made"),
+                       ("FG missed (including blocked)", "fg_missed"),
+                       ("PAT made", "pat_made"), ("PAT missed (including blocked)", "pat_missed")],
+            "team": [("Points", "team_points_for"), ("Total yards", "team_total_yards")],
+        }
+        allowed_field = "kicking_points_against"
+        recent_allowed_key = "opponent_kicking_points_against_l3"
     elif position == "TE":
         stat_keys = [
             ("PPR points", "fantasy_points"), ("Targets", "targets"),
@@ -1063,11 +1084,13 @@ def power_rankings(request, league_id):
         {"value": "RB", "label": "RB starters"},
         {"value": "WR", "label": "WR starters"},
         {"value": "TE", "label": "TE starters"},
+        {"value": "K", "label": "K starters"},
         {"value": "DEF", "label": "DEF starters"},
         {"value": "BENCH_QB", "label": "Bench QB"},
         {"value": "BENCH_RB", "label": "Bench RB"},
         {"value": "BENCH_WR", "label": "Bench WR"},
         {"value": "BENCH_TE", "label": "Bench TE"},
+        {"value": "BENCH_K", "label": "Bench K"},
         {"value": "BENCH_DEF", "label": "Bench DEF"},
         {"value": "BENCH_TOTAL", "label": "Bench total"},
     ]

@@ -4,17 +4,23 @@ from django.db import close_old_connections
 from analyzer.models import Teams
 from leagues.models import DefenseProjection, FantasyProjection, Player
 from scripts.algorithm.predictor import predict_defense, predict_player
+from scripts.algorithm.k.feature_names import TARGETS as K_TARGETS
 
 
 MODEL_VERSION = "v1"
-POSITIONS = ["QB", "RB", "WR", "TE"]
+POSITIONS = ["QB", "RB", "WR", "TE", "K"]
 
 
 class Command(BaseCommand):
-    help = "Generate universal PPR fantasy football projections."
+    help = "Generate PPR skill-position, reference kicker, and defense projections."
 
     def add_arguments(self, parser):
         parser.add_argument("--season", type=int, required=True)
+        parser.add_argument(
+            "--positions", nargs="+", choices=[*POSITIONS, "DST"],
+            default=[*POSITIONS, "DST"],
+            help="Limit generation to selected positions, such as --positions K.",
+        )
         parser.add_argument("--week", type=int)
         parser.add_argument(
             "--all-weeks",
@@ -26,6 +32,7 @@ class Command(BaseCommand):
         season = options["season"]
         week = options["week"]
         all_weeks = options["all_weeks"]
+        positions = options["positions"]
 
         if all_weeks and week is not None:
             raise CommandError(
@@ -46,11 +53,11 @@ class Command(BaseCommand):
         # Load players and their teams in one query.
         players = list(
             Player.objects.filter(
-                position__in=POSITIONS
+                position__in=[position for position in positions if position != "DST"]
             ).order_by("id")
         )
 
-        if not players:
+        if not players and "DST" not in positions:
             self.stdout.write(
                 self.style.WARNING("No eligible players found.")
             )
@@ -106,6 +113,7 @@ class Command(BaseCommand):
                         defaults={
                             "projected_fantasy_points": 0.0,
                             "status": "inactive",
+                            "projected_stats": dict.fromkeys(K_TARGETS, 0) if player.position == "K" else {},
                         },
                     )
                     week_zeroed += 1
@@ -155,6 +163,7 @@ class Command(BaseCommand):
                             "projected_fantasy_points": float(
                                 projected_points
                             ),
+                            "projected_stats": prediction.get("projected_stats", {}),
                             "status": prediction.get(
                                 "status",
                                 "projected",
@@ -178,7 +187,11 @@ class Command(BaseCommand):
             # D/ST: defenses are teams, so they are projected per
             # team and saved to DefenseProjection.
             # --------------------------------------------------
-            for team in Teams.objects.filter(is_active=True).order_by("id"):
+            defense_teams = (
+                Teams.objects.filter(is_active=True).order_by("id")
+                if "DST" in positions else []
+            )
+            for team in defense_teams:
                 try:
                     prediction = predict_defense(
                         team.id,
