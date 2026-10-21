@@ -1,0 +1,39 @@
+{
+  "test_season": 2026,
+  "training_seasons": [
+    2023,
+    2024,
+    2025
+  ],
+  "dataset": {
+    "recorded_games": 168,
+    "no_history": 30,
+    "missing_matchup": 0,
+    "missing_target": 0,
+    "usable_games": 138
+  },
+  "reference_model": {
+    "predictions": 138,
+    "mae": 4.277709180701328,
+    "rmse": 5.280719497867682,
+    "bias": -0.2446241910197098,
+    "within_points_percent": {
+      "2": 27.536231884057973,
+      "3": 37.68115942028986,
+      "5": 63.04347826086957,
+      "7": 78.26086956521739
+    }
+  },
+  "reference_last_three_average": {
+    "predictions": 138,
+    "mae": 4.777777777777777,
+    "rmse": 5.944218696331998,
+    "bias": -0.3937198067632851,
+    "within_points_percent": {
+      "2": 31.88405797101449,
+      "3": 42.7536231884058,
+      "5": 57.971014492753625,
+      "7": 76.08695652173914
+    }
+  }
+}

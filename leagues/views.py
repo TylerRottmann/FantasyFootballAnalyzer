@@ -17,6 +17,7 @@ from analyzer.models import NFLGame, PlayerWeeklyStats, Teams, TeamWeeklyStats
 
 from .integrations.sleeper import SleeperLeagueService
 from .integrations.yahoo import YahooLeagueService
+from leagues.services.kicker_scoring import league_projection
 from .models import (
     DefenseProjection,
     FantasyLeague,
@@ -238,8 +239,8 @@ def _build_historical_lineups(league, roster, week, starting_positions):
     teams = Teams.objects.in_bulk({p.team_id for p in db_players if p.team_id})
 
     projection_map = {
-        projection.player_id: projection
-        for projection in FantasyProjection.objects.filter(
+        projection.player_id: league_projection(projection, league)
+        for projection in FantasyProjection.objects.select_related("player").filter(
             player_id__in=players_by_id,
             season=league.season,
             week=week,
@@ -441,7 +442,7 @@ def start_sit(request):
         if roster_player.player_id is not None
     ]
 
-    projections = FantasyProjection.objects.filter(
+    projections = FantasyProjection.objects.select_related("player").filter(
         player_id__in=player_ids,
         season=league.season,
         week=week,
@@ -449,7 +450,7 @@ def start_sit(request):
     )
 
     projection_map = {
-        projection.player_id: projection
+        projection.player_id: league_projection(projection, league)
         for projection in projections
     }
 
@@ -792,6 +793,20 @@ def projection_details(request, player_id):
         }
         allowed_field = "rb_fantasy_points_allowed"
         recent_allowed_key = "opponent_rb_fantasy_allowed_l3"
+    elif position == "K":
+        from scripts.algorithm.features.k_features import build_k_features
+        try:
+            features = build_k_features(player, league.season, week)
+        except (FileNotFoundError, ValueError):
+            return JsonResponse({"error": "Kicker source data is unavailable for this season."}, status=200)
+        groups = {
+            "player": [("FG attempts", "fg_att"), ("FG made", "fg_made"),
+                       ("FG missed (including blocked)", "fg_missed"),
+                       ("PAT made", "pat_made"), ("PAT missed (including blocked)", "pat_missed")],
+            "team": [("Points", "team_points_for"), ("Total yards", "team_total_yards")],
+        }
+        allowed_field = "kicking_points_against"
+        recent_allowed_key = "opponent_kicking_points_against_l3"
     elif position == "TE":
         stat_keys = [
             ("PPR points", "fantasy_points"), ("Targets", "targets"),

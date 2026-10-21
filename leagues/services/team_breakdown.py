@@ -1,4 +1,5 @@
 from collections import defaultdict
+from leagues.services.kicker_scoring import league_projection
 
 from analyzer.models import Teams
 from leagues.models import (
@@ -12,7 +13,7 @@ from leagues.services.power_rankings import REGULAR_SEASON_WEEKS
 from scripts.commands.lineup import build_optimized_lineup, get_projection
 
 
-POSITION_CODES = ("QB", "RB", "WR", "TE", "DEF")
+POSITION_CODES = ("QB", "RB", "WR", "TE", "K", "DEF")
 
 
 def build_team_breakdown(
@@ -41,7 +42,7 @@ def build_team_breakdown(
         week__lte=REGULAR_SEASON_WEEKS,
         model_version="v1",
     ).select_related("team"))
-    projection_map = {(row.player_id, row.week): row for row in projections}
+    projection_map = {(row.player_id, row.week): league_projection(row, league) for row in projections}
     defense_map = {(row.team_id, row.week): row for row in defense_projections}
     available_weeks = sorted({row.week for row in projections + defense_projections})
     starting_positions = [

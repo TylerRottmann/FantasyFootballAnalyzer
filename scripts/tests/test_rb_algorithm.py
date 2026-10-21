@@ -179,13 +179,13 @@ class RBPredictorTests(TestCase):
     def test_shared_router_and_other_positions(self):
         from scripts.algorithm import predictor
         self.assertIs(predictor.PREDICTORS["RB"], predict_rb)
-        for position in ("QB", "RB", "WR"):
+        for position in ("QB", "RB", "WR", "TE"):
             self.player.position = position
             with patch.object(predictor.Player.objects, "filter") as query, \
                  patch.dict(predictor.PREDICTORS, {position: lambda p, s, w: {"status": position}}):
                 query.return_value.first.return_value = self.player
                 self.assertEqual(predictor.predict_player(1, 2025, 2)["status"], position)
-        self.player.position = "TE"
+        self.player.position = "UNKNOWN"
         with patch.object(predictor.Player.objects, "filter") as query:
             query.return_value.first.return_value = self.player
             self.assertEqual(predictor.predict_player(1, 2025, 2)["status"], "placeholder")

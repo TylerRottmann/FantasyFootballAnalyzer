@@ -4,14 +4,15 @@ from django.db import close_old_connections
 from analyzer.models import Teams
 from leagues.models import DefenseProjection, FantasyProjection, Player
 from scripts.algorithm.predictor import predict_defense, predict_player
+from scripts.algorithm.k.feature_names import TARGETS as K_TARGETS
 
 
 MODEL_VERSION = "v1"
-POSITIONS = ["QB", "RB", "WR", "TE"]
+POSITIONS = ["QB", "RB", "WR", "TE", "K"]
 
 
 class Command(BaseCommand):
-    help = "Generate universal PPR fantasy football projections."
+    help = "Generate PPR skill-position, reference kicker, and defense projections."
 
     def add_arguments(self, parser):
         parser.add_argument("--season", type=int, required=True)
@@ -106,6 +107,7 @@ class Command(BaseCommand):
                         defaults={
                             "projected_fantasy_points": 0.0,
                             "status": "inactive",
+                            "projected_stats": dict.fromkeys(K_TARGETS, 0) if player.position == "K" else {},
                         },
                     )
                     week_zeroed += 1
@@ -155,6 +157,7 @@ class Command(BaseCommand):
                             "projected_fantasy_points": float(
                                 projected_points
                             ),
+                            "projected_stats": prediction.get("projected_stats", {}),
                             "status": prediction.get(
                                 "status",
                                 "projected",
