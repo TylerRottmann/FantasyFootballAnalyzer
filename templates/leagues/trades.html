@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Trades | {{ league.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/trades.css' %}?v=3">
+{% endblock %}
+
+{% block content %}
+<div class="trades-page"
+     data-suggestions-url="{{ suggestions_url }}"
+     data-player-search-url="{{ player_search_url }}"
+     data-calculator-url="{{ calculator_url }}"
+     data-my-roster-id="{{ my_roster_id|default:'' }}">
+    <header class="trades-heading">
+        <div>
+            <p class="trades-eyebrow">{{ league.season }} SEASON · {{ league.name }}</p>
+            <h1>Trades</h1>
+            <p class="trades-subtitle">Find roster moves that improve both teams’ rest-of-season starting lineups.</p>
+        </div>
+    </header>
+
+    <nav class="trade-subnav" aria-label="Trade tools" role="tablist">
+        <button class="trade-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="trade-suggestor" data-trade-tab="suggestor">Trade Suggestor</button>
+        <button class="trade-tab" type="button" role="tab" aria-selected="false" aria-controls="trade-calculator" data-trade-tab="calculator">Trade Calculator</button>
+    </nav>
+
+    {% if trade_error %}
+        <div class="trade-notice" role="status">{{ trade_error }}</div>
+    {% else %}
+        <section id="trade-suggestor" class="trade-panel" role="tabpanel" data-trade-panel="suggestor">
+            <div class="trade-section-heading">
+                <div>
+                    <h2>Trade Suggestor</h2>
+                    <p>Explore trade ideas using projected rest-of-season starter points.</p>
+                </div>
+                <span class="trade-scoring-note">Rest-of-season starter points</span>
+            </div>
+
+            <form id="trade-filters" class="trade-filters">
+                <div class="trade-filter-main-row">
+                    <div class="trade-package-filter"><strong>Trade away</strong><div class="trade-package-controls">
+                        <label class="trade-count-control">Give<select aria-label="Number of players to give" name="give_count" data-package-count="give"><option value="any">Any</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>
+                        <div data-package-rows="give"></div>
+                    </div></div>
+                    <div class="trade-package-filter"><strong>Trade for</strong><div class="trade-package-controls">
+                        <label class="trade-count-control">Receive<select aria-label="Number of players to receive" name="receive_count" data-package-count="receive"><option value="any">Any</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>
+                        <div data-package-rows="receive"></div>
+                    </div></div>
+                    <details class="trade-extra-filters">
+                        <summary>More filters</summary>
+                        <div class="trade-extra-filter-popover">
+                            <div class="trade-age-filter">
+                                <strong>Age range <span data-age-label>20–45</span></strong>
+                                <div class="trade-range-pair">
+                                    <input type="range" min="20" max="45" value="20" data-age-range="min" aria-label="Minimum age">
+                                    <input type="range" min="20" max="45" value="45" data-age-range="max" aria-label="Maximum age">
+                                </div>
+                                <input type="hidden" name="min_age" value="" data-age-value="min">
+                                <input type="hidden" name="max_age" value="" data-age-value="max">
+                            </div>
+                            <label class="trade-multi-filter trade-position-priority">Prioritize position
+                                <select name="prioritize_position">
+                                    <option value="">Any position</option>
+                                    {% for position in trade_positions %}<option value="{{ position }}">{{ position }}</option>{% endfor %}
+                                </select>
+                                <small>Uses added projected starts as a tie-break after your starter-point gain.</small>
+                            </label>
+                            <div class="trade-multi-filter">
+                                <span class="trade-multi-label">Exclude NFL teams</span>
+                                <details class="trade-multi-select">
+                                    <summary data-multi-summary="teams">Any team</summary>
+                                    <div class="trade-multi-options">
+                                        {% for team in nfl_teams %}<label><input type="checkbox" name="exclude_nfl_teams" value="{{ team.abbreviation }}"><span>{{ team.abbreviation }} · {{ team.name }}</span></label>{% endfor %}
+                                    </div>
+                                </details>
+                            </div>
+                            <div class="trade-multi-filter">
+                                <span class="trade-multi-label">Acceptable bye weeks</span>
+                                <details class="trade-multi-select">
+                                    <summary data-multi-summary="byes">Any bye week</summary>
+                                    <div class="trade-multi-options trade-bye-options">
+                                        {% for week in bye_weeks %}<label><input type="checkbox" name="bye_week" value="{{ week }}"><span>Week {{ week }}</span></label>{% endfor %}
+                                    </div>
+                                </details>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+                <div hidden data-player-options="give">{% for option in give_options %}<span data-player-option data-player-id="{{ option.id }}" data-player-name="{{ option.name }}" data-fantasy-team="{{ option.team }}" data-position="{{ option.position }}" data-nfl-team="{{ option.nfl_team }}" data-headshot="{{ option.headshot_url }}"></span>{% endfor %}</div>
+                <div hidden data-player-options="receive">{% for option in receive_options %}<span data-player-option data-player-id="{{ option.id }}" data-player-name="{{ option.name }}" data-fantasy-team="{{ option.team }}" data-position="{{ option.position }}" data-nfl-team="{{ option.nfl_team }}" data-headshot="{{ option.headshot_url }}"></span>{% endfor %}</div>
+                <template id="trade-package-row-template">
+                    <div class="trade-filter-row">
+                        <label class="trade-filter-control trade-filter-position">Position
+                            <select data-position-field><option value="">Any</option>{% for position in trade_positions %}<option value="{{ position }}">{{ position }}</option>{% endfor %}</select>
+                        </label>
+                        <div class="trade-filter-control">
+                            <label data-player-label>Player</label>
+                            <input type="search" class="trade-filter-player" data-player-field autocomplete="off" placeholder="Any player" aria-autocomplete="list">
+                            <input type="hidden" data-player-id-field>
+                            <small class="trade-player-owner" data-player-owner aria-live="polite"></small>
+                            <div class="trade-suggest-player-results trade-search-results" data-player-results role="listbox" hidden></div>
+                        </div>
+                    </div>
+                </template>
+                <div class="trade-filter-actions">
+                    <button class="trade-button trade-button-primary" type="submit">Update suggestions</button>
+                    <button class="trade-button" type="reset">Clear filters</button>
+                </div>
+            </form>
+
+            <div id="trade-suggestion-status" class="trade-status" role="status" aria-live="polite">Loading trade suggestions…</div>
+            <div id="trade-suggestions" class="trade-suggestions" aria-live="polite"></div>
+        </section>
+
+        <section id="trade-calculator" class="trade-panel" role="tabpanel" data-trade-panel="calculator" hidden>
+            <div class="trade-section-heading">
+                <div>
+                    <h2>Trade calculator</h2>
+                    <p>Compare both optimized lineups using saved rest-of-season projections.</p>
+                </div>
+                <span class="trade-scoring-note">Bench points count only when a player enters the lineup</span>
+            </div>
+
+            <div class="calculator-teams">
+                <section class="calculator-team" data-calculator-team="one" data-roster-id="{{ my_roster_id }}">
+                    <h3>{{ my_roster.owner_name|default:user.username }}</h3>
+                    <p class="calculator-team-caption">Your team</p>
+                    <label>Search your players
+                        <input class="trade-player-search" type="search" autocomplete="off" placeholder="Search player or defense">
+                    </label>
+                    <div class="trade-search-results" hidden></div>
+                    <div class="trade-selected-players" aria-live="polite"></div>
+                </section>
+
+                <div class="calculator-versus" aria-hidden="true">⇄</div>
+
+                <section class="calculator-team" data-calculator-team="two">
+                    <h3>Other team</h3>
+                    <label>Fantasy team (selected player’s team)
+                        <select class="calculator-roster-select">
+                            <option value="">Select a team</option>
+                            {% for roster in trade_teams %}<option value="{{ roster.id }}">{{ roster.owner_name|default:roster.sleeper_roster_id }}</option>{% endfor %}
+                        </select>
+                    </label>
+                    <label>Search their players
+                        <input class="trade-player-search" type="search" autocomplete="off" placeholder="Search all other teams' players">
+                    </label>
+                    <div class="trade-search-results" hidden></div>
+                    <div class="trade-selected-players" aria-live="polite"></div>
+                </section>
+            </div>
+
+            <div class="calculator-actions">
+                <button id="calculate-trade" class="trade-button trade-button-primary" type="button">Calculate trade</button>
+                <button id="clear-calculator" class="trade-button" type="button">Clear players</button>
+            </div>
+            <div id="trade-calculator-status" class="trade-status" role="status" aria-live="polite"></div>
+            <div id="trade-calculator-result" class="trade-calculator-result" aria-live="polite"></div>
+            <form id="trade-csrf-form" hidden>{% csrf_token %}</form>
+        </section>
+    {% endif %}
+</div>
+<script src="{% static 'js/trade-suggestor.js' %}?v=3" defer></script>
+<script src="{% static 'js/trade-calculator.js' %}?v=3" defer></script>
+{% endblock %}
