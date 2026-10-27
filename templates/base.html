@@ -239,6 +239,13 @@
         </a>
 
         <a
+            href="{% url 'trades' %}"
+            class="nav-link {% if request.resolver_match.url_name == 'trades' or request.resolver_match.url_name == 'trade_suggestions' or request.resolver_match.url_name == 'trade_player_search' or request.resolver_match.url_name == 'trade_calculate' %}active{% endif %}"
+        >
+            ⇄ Trades
+        </a>
+
+        <a
             href="{% if active_league %}{% url 'power_rankings' active_league.id %}{% else %}{% url 'connect_league' %}{% endif %}"
             class="nav-link {% if request.resolver_match.url_name == 'power_rankings' or request.resolver_match.url_name == 'team_breakdown' %}active{% endif %}"
         >
