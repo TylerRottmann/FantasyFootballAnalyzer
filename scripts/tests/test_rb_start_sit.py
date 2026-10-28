@@ -224,3 +224,65 @@ class RBStartSitTests(TestCase):
         stats = {row["label"]: row for row in response.json()["player_stats"]}
         self.assertEqual(stats["Targets"]["last3"], 4)
         self.assertEqual(stats["Receptions"]["last3"], 3)
+
+    def test_injury_badges_never_render_inside_html_attributes(self):
+        from html.parser import HTMLParser
+        self.high.injury_status='Questionable'
+        self.high.headshot_url='https://example.com/player.png'
+        self.high.save()
+        self.generate()
+        response=self.page()
+        self.assertContains(response,'injury-badge')
+        class Elements(HTMLParser):
+            def __init__(self):
+                super().__init__(); self.items=[]
+            def handle_starttag(self,tag,attrs):
+                self.items.append((tag,dict(attrs)))
+        elements=Elements(); elements.feed(response.content.decode())
+        buttons=[attrs for tag,attrs in elements.items if tag=='button' and 'data-player-name' in attrs]
+        target=[attrs for attrs in buttons if self.high.full_name in attrs['data-player-name']]
+        self.assertTrue(target)
+        for attrs in target:
+            self.assertEqual(attrs['data-player-name'],self.high.full_name)
+            self.assertEqual(attrs['aria-label'],f"Explain {self.high.full_name}'s projected points")
+        images=[attrs for tag,attrs in elements.items if tag=='img' and self.high.full_name in attrs.get('alt','')]
+        self.assertTrue(images)
+        for attrs in images:
+            self.assertEqual(attrs['alt'],self.high.full_name)
+
+    def test_confirmed_bye_shows_zero_even_without_saved_forecast(self):
+        NFLGame.objects.filter(season=2026).delete()
+        now=timezone.now()
+        for week in range(1,19):
+            if week != 2:
+                NFLGame.objects.create(season=2026,week=week,game_type='REG',game_date=now.date(),home_team=self.home,away_team=self.away)
+        self.low.injury_status='Questionable'
+        self.low.save()
+        FantasyProjection.objects.create(player=self.high,season=2026,week=2,
+            projected_fantasy_points=0,status='bye',model_version='v1')
+        response=self.page()
+        self.assertEqual(response.status_code,200)
+        self.assertFalse(FantasyProjection.objects.filter(player=self.low,season=2026,week=2).exists())
+        self.assertContains(response,'class="projection-value bye-projection">0.0</span>')
+        self.assertContains(response,'BYE')
+
+    def test_sleeper_refresh_replaces_starters_and_keeps_benched_defense_off_lineup(self):
+        from leagues.integrations.sleeper import SleeperLeagueService
+        from scripts.commands.lineup import build_current_lineup
+        service=SleeperLeagueService(self.league.sleeper_league_id)
+        league={'season':'2026','name':self.league.name,'roster_positions':['RB','DEF','BN'],'scoring_settings':{'rec':1}}
+        roster={'roster_id':1,'owner_id':'rb-test-owner','players':[self.low.sleeper_id,self.high.sleeper_id,'KC'],
+                'starters':[self.high.sleeper_id,None]}
+        users=[{'user_id':'rb-test-owner','username':'fixture-owner','display_name':'Fixture Owner'}]
+        with patch.object(service,'get_league',return_value=league), patch.object(service,'get_rosters',return_value=[roster]), patch.object(service,'get_users',return_value=users):
+            service.import_league(self.user,external_user_id='rb-test-owner')
+        entries=list(self.roster.roster_players.select_related('player','team'))
+        slots={r.player_id:r.roster_slot for r in entries if r.player_id}
+        self.assertEqual(slots[self.high.pk],'RB')
+        self.assertEqual(slots[self.low.pk],'BN')
+        defense=next(r for r in entries if r.player_id is None)
+        self.assertEqual(defense.roster_slot,'BN')
+        items=[{'player':r.player,'team':r.team,'roster_player':r,'prediction':None} for r in entries]
+        lineup=build_current_lineup(items,['RB','DEF'])
+        self.assertEqual(lineup[0]['item']['player'].pk,self.high.pk)
+        self.assertIsNone(lineup[1]['item'])

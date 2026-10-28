@@ -6,6 +6,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from django.utils import timezone
+from django.db import transaction
 
 from analyzer.models import Teams
 from leagues.models import (
@@ -255,7 +256,8 @@ class SleeperLeagueService:
         )
         return results
 
-    def import_league(self, user, platform_username=None):
+    @transaction.atomic
+    def import_league(self, user, platform_username=None, external_user_id=None):
         import_started = time.perf_counter()
         logger.info("Starting Sleeper league import for league %s", self.league_id)
 
@@ -287,10 +289,14 @@ class SleeperLeagueService:
         starter_count = len(starting_positions)
 
         username = platform_username or user.sleeper_username
-        sleeper_user = self.find_user(users, username)
+        if external_user_id is not None:
+            sleeper_user = next((entry for entry in users if str(entry.get('user_id')) == str(external_user_id)), None)
+        else:
+            sleeper_user = self.find_user(users, username)
         if sleeper_user is None:
             raise ValueError(
-                f"Sleeper user '{username}' was not found in this league."
+                'The linked Sleeper account was not found in this league.' if external_user_id is not None
+                else f"Sleeper user '{username}' was not found in this league."
             )
 
         # Resolve team IDs before player lookups. Sleeper uses team abbreviations
@@ -443,7 +449,7 @@ class SleeperLeagueService:
                             roster=roster,
                             player=None,
                             team=team,
-                            roster_slot="DEF",
+                            roster_slot=starter_slots.get(player_id, "BN"),
                             created_at=now,
                         )
                     )

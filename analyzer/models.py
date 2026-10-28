@@ -446,3 +446,32 @@ class NFLGame(models.Model):
             f"{self.away_team.abbreviation} @ "
             f"{self.home_team.abbreviation}"
         )
+
+class PlayerInjuryReport(models.Model):
+    player = models.ForeignKey('Players', models.CASCADE, db_constraint=False)
+    season = models.IntegerField()
+    week = models.IntegerField()
+    injury_status = models.CharField(max_length=40, blank=True)
+    roster_status = models.CharField(max_length=40, blank=True)
+    depth_order = models.PositiveIntegerField(null=True)
+    team_id = models.IntegerField(null=True)
+    position = models.CharField(max_length=10, blank=True)
+    source = models.CharField(max_length=30, default='sleeper')
+    observed_at = models.DateTimeField()
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['player', 'season', 'week'], name='injury_player_week_unique')]
+
+
+class PlayerSnapCount(models.Model):
+    player = models.ForeignKey('Players', models.CASCADE, db_constraint=False)
+    season = models.IntegerField()
+    week = models.IntegerField()
+    team_id = models.IntegerField(null=True)
+    offense_snaps = models.PositiveIntegerField()
+    offense_share = models.FloatField()
+    source = models.CharField(max_length=30, default='nflverse_pfr')
+    imported_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['player', 'season', 'week'], name='snaps_player_week_unique')]

@@ -91,6 +91,9 @@ class RBSeasonData:
                 ORDER BY p.player_id, p.week
             """, (season, through_week, season, through_week, player_id, player_id))
             player_games = cur.fetchall()
+            from scripts.algorithm.features.injury_history import injury_absences
+            absent = injury_absences(season)
+            player_games = [g for g in player_games if (g['player_id'], g['week']) not in absent]
             cur.execute("""
                 SELECT team_id, week, opponent_team_id, is_home,
                        points_for, passing_yards, rushing_yards, total_yards,

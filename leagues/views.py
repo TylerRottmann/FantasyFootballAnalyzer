@@ -18,6 +18,7 @@ from analyzer.models import NFLGame, PlayerWeeklyStats, Teams, TeamWeeklyStats
 from .integrations.sleeper import SleeperLeagueService
 from .integrations.yahoo import YahooLeagueService
 from leagues.services.kicker_scoring import league_projection
+from leagues.services.player_availability import projection_context
 from leagues.services.schedule import confirmed_bye_team_ids
 from .models import (
     DefenseProjection,
@@ -239,8 +240,9 @@ def _build_historical_lineups(league, roster, week, starting_positions):
     players_by_id = {player.id: player for player in db_players}
     teams = Teams.objects.in_bulk({p.team_id for p in db_players if p.team_id})
 
+    context_for_week = projection_context(league.season, week)
     projection_map = {
-        projection.player_id: league_projection(projection, league)
+        projection.player_id: league_projection(projection, league, context=context_for_week)
         for projection in FantasyProjection.objects.select_related("player").filter(
             player_id__in=players_by_id,
             season=league.season,
@@ -452,8 +454,9 @@ def start_sit(request):
         model_version="v1",
     )
 
+    context_for_week = projection_context(league.season, week)
     projection_map = {
-        projection.player_id: league_projection(projection, league)
+        projection.player_id: league_projection(projection, league, context=context_for_week)
         for projection in projections
     }
 
@@ -1033,7 +1036,7 @@ def resync_league(request):
 
         service.import_league(
             request.user,
-            platform_username=request.user.sleeper_username,
+            external_user_id=connection.external_user_id,
         )
 
         league = FantasyLeague.objects.get(

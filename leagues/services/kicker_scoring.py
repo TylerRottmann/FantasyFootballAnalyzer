@@ -2,7 +2,7 @@
 from copy import copy
 from scripts.algorithm.k.scoring import score_kicking
 
-def league_projection(projection, league):
+def _league_kicker_projection(projection, league):
     if projection.player.position != 'K':
         return projection
     result = copy(projection)
@@ -19,3 +19,9 @@ def league_projection(projection, league):
         result.projected_fantasy_points = None
         result.status = 'unsupported_scoring'
     return result
+
+
+def league_projection(projection, league, *, context=None):
+    from .player_availability import apply_availability
+    result = _league_kicker_projection(projection, league)
+    return apply_availability(result, rescore=projection.player.position == 'K', context=context)
