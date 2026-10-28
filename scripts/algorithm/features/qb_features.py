@@ -196,7 +196,8 @@ def get_qb_history(player_id, season, week):
             ),
         )
 
-        return cur.fetchall()
+        from scripts.algorithm.features.injury_history import filter_injury_history
+        return filter_injury_history(cur.fetchall(), player_id, season)
 
 
 # ============================================================

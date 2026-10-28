@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load player_health %}
 {% load static %}
 
 {% block content %}
@@ -85,7 +86,7 @@
                     <td>{{ forloop.counter }}</td>
 
                     <td class="player-name">
-                        {{ player.full_name }}
+                        {{ player.full_name }} {% injury_badge player %}
                     </td>
 
                     <td>

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load player_health %}
 {% load static %}
 
 {% block extra_css %}
@@ -57,7 +58,7 @@
                     class="resync-button"
                 >
                     <i class="bi bi-arrow-repeat"></i>
-                    Resync League
+                    Refresh from Sleeper
                 </button>
 
             </form>
@@ -287,7 +288,7 @@
 
                                                     {% if item.player %}
 
-                                                        {{ item.player.full_name }}
+                                                        {{ item.player.full_name }} {% injury_badge item.player %}
 
                                                     {% elif item.team %}
 
@@ -396,6 +397,8 @@
                                                         <span><b>{% if item.actual_points != None %}{{ item.actual_points|floatformat:1 }}{% else %}—{% endif %}</b><small>ACT</small></span>
                                                         <span><b>{% if item.prediction and item.prediction.projected_fantasy_points is not None %}{{ item.prediction.projected_fantasy_points|floatformat:1 }}{% else %}—{% endif %}</b><small>PROJ</small></span>
                                                     </div>
+                                                {% elif item.matchup_missing_label == 'BYE' %}
+                                                    <span class="projection-value bye-projection">0.0</span>
                                                 {% elif item.prediction %}
 
                                                     {% if item.prediction.projected_fantasy_points is not None %}
@@ -551,7 +554,7 @@
 
                                             {% if item.player %}
 
-                                                {{ item.player.full_name }}
+                                                {{ item.player.full_name }} {% injury_badge item.player %}
 
                                             {% elif item.team %}
 
@@ -644,7 +647,9 @@
 
                                         {% if historical_mode %}
                                             <span class="historical-bench-scores"><b>{% if item.actual_points != None %}{{ item.actual_points|floatformat:1 }}{% else %}—{% endif %}</b><small> ACT</small><b>{% if item.prediction and item.prediction.projected_fantasy_points is not None %}{{ item.prediction.projected_fantasy_points|floatformat:1 }}{% else %}—{% endif %}</b><small> PROJ</small></span>
-                                        {% elif item.prediction %}
+                                        {% elif item.matchup_missing_label == 'BYE' %}
+                                                    <span class="projection-value bye-projection">0.0</span>
+                                                {% elif item.prediction %}
 
                                             {% if item.prediction.projected_fantasy_points is not None %}
 
@@ -836,7 +841,7 @@
 
                                                     {% if item.player %}
 
-                                                        {{ item.player.full_name }}
+                                                        {{ item.player.full_name }} {% injury_badge item.player %}
 
                                                     {% elif item.team %}
 
@@ -945,6 +950,8 @@
                                                         <span><b>{% if item.actual_points != None %}{{ item.actual_points|floatformat:1 }}{% else %}—{% endif %}</b><small>ACT</small></span>
                                                         <span><b>{% if item.prediction and item.prediction.projected_fantasy_points is not None %}{{ item.prediction.projected_fantasy_points|floatformat:1 }}{% else %}—{% endif %}</b><small>PROJ</small></span>
                                                     </div>
+                                                {% elif item.matchup_missing_label == 'BYE' %}
+                                                    <span class="projection-value bye-projection">0.0</span>
                                                 {% elif item.prediction %}
 
                                                     {% if item.prediction.projected_fantasy_points is not None %}
@@ -1100,7 +1107,7 @@
 
                                             {% if item.player %}
 
-                                                {{ item.player.full_name }}
+                                                {{ item.player.full_name }} {% injury_badge item.player %}
 
                                             {% elif item.team %}
 
@@ -1193,7 +1200,9 @@
 
                                         {% if historical_mode %}
                                             <span class="historical-bench-scores"><b>{% if item.actual_points != None %}{{ item.actual_points|floatformat:1 }}{% else %}—{% endif %}</b><small> ACT</small><b>{% if item.prediction and item.prediction.projected_fantasy_points is not None %}{{ item.prediction.projected_fantasy_points|floatformat:1 }}{% else %}—{% endif %}</b><small> PROJ</small></span>
-                                        {% elif item.prediction %}
+                                        {% elif item.matchup_missing_label == 'BYE' %}
+                                                    <span class="projection-value bye-projection">0.0</span>
+                                                {% elif item.prediction %}
 
                                             {% if item.prediction.projected_fantasy_points is not None %}
 

@@ -4,6 +4,7 @@ from django.db import close_old_connections
 from analyzer.models import Teams
 from leagues.models import DefenseProjection, FantasyProjection, Player
 from scripts.algorithm.predictor import predict_defense, predict_player
+from leagues.services.player_availability import projection_context
 from scripts.algorithm.k.feature_names import TARGETS as K_TARGETS
 
 
@@ -89,6 +90,7 @@ class Command(BaseCommand):
 
         for current_week in weeks:
             close_old_connections()
+            context = projection_context(season, current_week)
 
             self.stdout.write("")
             self.stdout.write(
@@ -134,6 +136,7 @@ class Command(BaseCommand):
                         player.id,
                         season,
                         current_week,
+                        context=context,
                     )
 
                     if prediction is None:

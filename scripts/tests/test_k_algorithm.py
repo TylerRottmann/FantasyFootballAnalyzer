@@ -107,7 +107,7 @@ class KScoringTests(TestCase):
             with self.assertRaises(ValueError): score_kicking(self.stats,settings)
 
     def test_two_leagues_do_not_mutate_saved_projection(self):
-        row=SimpleNamespace(player=SimpleNamespace(position='K'),status='ml_model',
+        row=SimpleNamespace(season=2025,week=2,player=SimpleNamespace(position='K'),status='ml_model',
                             projected_stats=self.stats,projected_fantasy_points=11)
         first=league_projection(row,SimpleNamespace(scoring_settings={'fgm':3}))
         second=league_projection(row,SimpleNamespace(scoring_settings={'fgm':5}))
@@ -116,7 +116,7 @@ class KScoringTests(TestCase):
         self.assertEqual(row.projected_fantasy_points,11)
 
     def test_missing_stats_and_unsupported_league_report_unavailable(self):
-        row=SimpleNamespace(player=SimpleNamespace(position='K'),status='ml_model',projected_stats={})
+        row=SimpleNamespace(season=2025,week=2,player=SimpleNamespace(position='K'),status='ml_model',projected_stats={})
         result=league_projection(row,SimpleNamespace(scoring_settings={}))
         self.assertIsNone(result.projected_fantasy_points)
         row.projected_stats=self.stats
@@ -141,9 +141,9 @@ class KPredictorTests(TestCase):
 
     def test_router_passes_league_settings(self):
         from scripts.algorithm import predictor
-        with patch.object(predictor.Player.objects,'filter') as query,patch.dict(predictor.PREDICTORS,{'K':lambda p,s,w,scoring_settings:scoring_settings}):
+        with patch.object(predictor.Player.objects,'filter') as query,patch.dict(predictor.PREDICTORS,{'K':lambda p,s,w,scoring_settings:{'status':'ml_model','projected_fantasy_points':11,'scoring_settings':scoring_settings}}):
             query.return_value.first.return_value=self.player
-            self.assertEqual(predictor.predict_player(1,2025,2,{'xpm':2}),{'xpm':2})
+            self.assertEqual(predictor.predict_player(1,2025,2,{'xpm':2})['scoring_settings'],{'xpm':2})
 
     def test_model_round_trip_feature_guard_and_nonnegative_stats(self):
         X=np.zeros((25,len(K_FEATURE_NAMES)))

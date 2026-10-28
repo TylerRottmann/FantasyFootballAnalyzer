@@ -34,7 +34,7 @@ PREDICTORS = {
 }
 
 
-def predict_player(player_id, season, week, scoring_settings=None):
+def predict_player(player_id, season, week, scoring_settings=None, context=None):
     """
     Main entry point for all fantasy player predictions.
 
@@ -47,15 +47,27 @@ def predict_player(player_id, season, week, scoring_settings=None):
     if player is None:
         return None
 
+    from leagues.services.player_availability import availability, adjusted_forecast, quarterback_role
+    label, factor = availability(player, season, week, reports=context['reports'] if context else None)
+    if factor == 0:
+        return {'player_id': player.id, 'position': player.position, 'season': season,
+                'week': week, 'projected_fantasy_points': 0.0, 'status': 'injury_out',
+                'projected_stats': {'_context': {'base_points': None, 'base_status': 'insufficient_history'}}}
+    qb_role = quarterback_role(player, season, week, reports=context['reports'] if context else None)
+    if qb_role in ('qb_backup', 'qb_uncertain'):
+        return {'player_id': player.id, 'position': player.position, 'season': season,
+                'week': week, 'projected_fantasy_points': 0.0 if qb_role == 'qb_backup' else None,
+                'status': qb_role, 'projected_stats': {'_context': {'base_points': None, 'base_status': 'insufficient_history', 'qb_role': qb_role}}}
     predictor = PREDICTORS.get(player.position)
-
-    if player.position == "K":
-        return predictor(player, season, week, scoring_settings=scoring_settings)
-
-    if predictor is not None:
-        return predictor(player, season, week)
-
-    return predict_placeholder(player, season, week)
+    if player.position == 'K':
+        result = predictor(player, season, week, scoring_settings=scoring_settings)
+    elif predictor is not None:
+        result = predictor(player, season, week)
+    else:
+        result = predict_placeholder(player, season, week)
+    points, status, stats = adjusted_forecast(player, season, week,
+        result.get('projected_fantasy_points'), result['status'], result.get('projected_stats'), context=context)
+    return {**result, 'projected_fantasy_points': points, 'status': status, 'projected_stats': stats}
 
 
 def predict_defense(team_id, season, week):

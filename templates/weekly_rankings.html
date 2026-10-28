@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% load static player_health %}
+{% block title %}Weekly Rankings | Fantasy Football Analyzer{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/waivers.css' %}?v=20261028-6">{% endblock %}
+{% block content %}
+<section class="waiver-page">
+    <header class="waiver-header"><h1>Weekly Rankings</h1><p>{{ active_league.name }}</p></header>
+    {% if not active_league %}<div class="waiver-notice"><a href="{% url 'connect_league' %}">Connect a league to see rankings</a></div>
+    {% else %}
+    <p class="waiver-meta">Saved model forecasts. Current-week Out, Doubtful and IR players receive 0.0; Questionable reduces points by 20%. Other weeks do not assume a recovery date. QB/RB/WR/TE forecasts use PPR scoring.</p>
+    <form method="get" class="waiver-filters">{{ form.as_div }}<div class="waiver-filter-actions"><button type="submit">View rankings</button></div></form>
+    {% if not form.errors %}
+    <div class="waiver-table-container" tabindex="0" role="region" aria-label="Weekly player rankings"><table class="waiver-table">
+        <thead><tr><th scope="col">Rank</th><th scope="col">Player</th><th scope="col">Position</th><th scope="col">Team</th><th scope="col">Week {{ week }} points</th></tr></thead>
+        <tbody>{% for row in page_obj %}<tr><td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
+            <td><div class="waiver-player-identity"><div class="waiver-avatar" aria-hidden="true"><span {% if row.player.headshot_url %}hidden{% endif %}>{{ row.player.first_name|default:""|first }}{{ row.player.last_name|default:""|first }}</span>{% if row.player.headshot_url %}<img src="{{ row.player.headshot_url }}" alt="" width="52" height="52" loading="lazy" onerror="this.hidden=true;this.previousElementSibling.hidden=false">{% endif %}</div><span>{{ row.player.full_name }} {% injury_badge row.player %}</span></div></td>
+            <td>{{ row.player.position }}</td><td>{{ row.player.team.abbreviation|default:"-" }}</td><td class="waiver-points">{% if row.points is not None %}{{ row.points|floatformat:1 }}{% else %}<span class="waiver-unavailable">Unavailable</span>{% endif %}</td></tr>
+        {% empty %}<tr><td colspan="5">No saved forecasts match these filters.</td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% if page_obj.has_other_pages %}<nav class="waiver-pagination" aria-label="Ranking pages">{% if page_obj.has_previous %}<a href="?{{ filter_query }}&amp;page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}<span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>{% if page_obj.has_next %}<a href="?{{ filter_query }}&amp;page={{ page_obj.next_page_number }}">Next</a>{% endif %}</nav>{% endif %}
+    {% endif %}{% endif %}
+</section>
+{% endblock %}

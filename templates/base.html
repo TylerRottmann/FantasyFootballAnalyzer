@@ -11,7 +11,7 @@
         {% block title %}Fantasy Football Analyzer{% endblock %}
     </title>
 
-    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/base.css' %}?v=20261028-2">
     <link rel="stylesheet" href="{% static 'css/leagues.css' %}">
     <link
     rel="stylesheet"
@@ -218,7 +218,7 @@
         </a>
 
         <a
-            href="#"
+            href="{% url 'weekly_rankings' %}"
             class="nav-link"
         >
             ☷ Weekly Rankings

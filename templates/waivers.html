@@ -1,16 +1,15 @@
 {% extends "base.html" %}
+{% load player_health %}
 {% load static %}
 {% block title %}Waiver Wire | Fantasy Football Analyzer{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'css/waivers.css' %}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/waivers.css' %}?v=20261028-13">{% endblock %}
 {% block content %}
 <section class="waiver-page">
     <header class="waiver-header">
         <h1>Waiver Wire Suggestions</h1>
         {% if active_league %}
         <p>{{ active_league.name }} · {{ active_league.season|default_if_none:"Season unavailable" }}</p>
-        <p>Players not rostered by any team in this league's latest import.</p>
-        <p class="waiver-meta">Last imported: {{ active_league.updated_at|date:"M j, Y, g:i a T" }}.
-            Reconnect your league to refresh availability. Waiver claim timing is not tracked.</p>
+        <p class="waiver-meta">Available players in your league. Last synced {{ active_league.updated_at|date:"M j" }}.</p>
         {% endif %}
     </header>
     {% if not active_league %}
@@ -22,15 +21,41 @@
         <p>Availability cannot be determined until this league has imported rosters.</p>
         <a href="{% url 'connect_league' %}">Reconnect this league</a></div>
     {% else %}
-    <div class="waiver-notice"><strong>Demo predictions</strong>
-        <p>Weekly and rest-of-season points are synthetic placeholders, not player forecasts.
-        Rankings use these demo values. The current player import covers QB, RB, WR, and TE.</p></div>
+    <div class="waiver-layout">
+    <div class="waiver-controls">
+    <div class="waiver-intro">
+        <p>Find a quick fill-in or a player worth holding.</p>
+        <details class="waiver-help"><summary>How it works</summary>
+            <ul>
+                <li><strong>Long-term:</strong> A useful role for the rest of this season.</li>
+                <li><strong>Short-term:</strong> An opportunity that may shrink when an injured regular returns.</li>
+                <li><strong>Fading value:</strong> A shrinking role lowers the appeal of holding this player.</li>
+                <li><strong>Uneven usage:</strong> Playing time varies from week to week.</li>
+                <li><strong>Unclear:</strong> We need more information about how long the opportunity will last.</li>
+            </ul>
+            <p>Current-week points include injuries: Out, Doubtful and IR mean 0 points. Questionable means a 20% reduction.</p>
+            <p>Long-term moves weigh season projections and roster depth. Short-term moves must improve this week’s lineup. Missing predictions never count as zero when choosing a drop.</p>
+            <p>A dash means a prediction is unavailable. Season totals are hidden when weeks are missing, an injured player's return is unknown, or a pickup depends on a temporary role. QB, RB, WR and TE points use PPR scoring.</p>
+            <p>League availability comes from your last sync. Reconnect your league to refresh it.</p>
+        </details>
+    </div>
+    {% if week_unavailable %}<p role="alert">The current NFL week could not be loaded. Choose a week below.</p>{% endif %}
     <form method="get" class="waiver-filters">
         {% for field in filter_form %}
-        <div class="waiver-field">
-            {{ field.label_tag }}{{ field }}{{ field.errors }}
-        </div>
+        {% if field.name != 'team' and field.name != 'age_min' and field.name != 'age_max' and field.name != 'trend' %}
+        <div class="waiver-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>
+        {% endif %}
         {% endfor %}
+        <details class="waiver-advanced" {% if filter_form.team.value or filter_form.age_min.value or filter_form.age_max.value or filter_form.trend.value or filter_form.errors %}open{% endif %}>
+            <summary>More filters</summary>
+            <div class="waiver-advanced-grid">
+                {% for field in filter_form %}
+                {% if field.name == 'team' or field.name == 'age_min' or field.name == 'age_max' or field.name == 'trend' %}
+                <div class="waiver-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </details>
         <div class="waiver-filter-actions"><button type="submit">Apply filters</button>
             <a href="{% url 'waiver_wire' %}">Clear filters</a></div>
     </form>
@@ -38,21 +63,44 @@
     <p role="alert">Please correct the filters above to see matching players.</p>
     {% else %}
     <p class="waiver-meta">{{ page_obj.paginator.count }} available player{{ page_obj.paginator.count|pluralize }} matching your filters.
-        Players with unknown ages are excluded when an age limit is applied.</p>
+        </p>
+    {% endif %}
+    </div>
+    <div class="waiver-main">
+    {% if not filter_form.errors %}
     <div class="waiver-table-container" tabindex="0" role="region" aria-label="Available players">
         <table class="waiver-table">
             <thead><tr><th scope="col">Rank</th><th scope="col">Player</th><th scope="col">Position</th>
-                <th scope="col">NFL team</th><th scope="col">Age</th>
-                <th scope="col">This week <span>(demo pts)</span></th>
-                <th scope="col">Rest of season <span>(demo pts)</span></th></tr></thead>
+                <th scope="col">NFL team</th><th scope="col">Age</th><th scope="col">Pickup value</th>
+                <th scope="col">Week {{ projection_week }} <span>(projected pts)</span></th>
+                <th scope="col">Rest of season <span>(projected pts)</span></th></tr></thead>
             <tbody>{% for row in page_obj %}
                 <tr><td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
-                    <td class="waiver-player">{{ row.player.full_name }}</td><td>{{ row.player.position }}</td>
-                    <td>{{ row.player.team.abbreviation|default:"—" }}</td>
+                    <td class="waiver-player">
+                        <div class="waiver-player-identity">
+                            <div class="waiver-avatar" aria-hidden="true">
+                                <span {% if row.player.headshot_url %}hidden{% endif %}>{{ row.player.first_name|default:""|first }}{{ row.player.last_name|default:""|first }}</span>
+                                {% if row.player.headshot_url %}
+                                <img src="{{ row.player.headshot_url }}" alt="" width="52" height="52" loading="lazy" onerror="this.hidden=true;this.previousElementSibling.hidden=false">
+                                {% endif %}
+                            </div>
+                            <span class="waiver-player-name">{{ row.player.full_name }} {% injury_badge row.player %}</span>
+                        </div>
+                    </td>
+                    <td><span class="waiver-position waiver-position-{{ row.player.position|lower }}">{{ row.player.position }}</span></td>
+                    <td><div class="waiver-team">
+                        {% if row.player.team.abbreviation %}
+                        <img src="https://a.espncdn.com/i/teamlogos/nfl/500/{{ row.player.team.abbreviation|lower }}.png" alt="" width="24" height="24" loading="lazy" onerror="this.hidden=true">
+                        {% endif %}
+                        <span>{{ row.player.team.abbreviation|default:"—" }}</span>
+                    </div></td>
                     <td>{{ row.player.age|default_if_none:"—" }}</td>
-                    <td class="waiver-points">{{ row.prediction.this_week|floatformat:1 }}</td>
-                    <td class="waiver-points">{{ row.prediction.rest_of_season|floatformat:1 }}</td></tr>
-            {% empty %}<tr><td colspan="7" class="waiver-empty">No available players match these filters. Try clearing the filters.</td></tr>{% endfor %}</tbody>
+                    <td class="waiver-value">
+                        <span class="value-label value-{{ row.value.horizon }}">{{ row.value.value_label }}</span>
+                    </td>
+                    <td class="waiver-points">{% if row.prediction.this_week is not None %}{{ row.prediction.this_week|floatformat:1 }}{% else %}<span class="waiver-unavailable" aria-label="Prediction unavailable">&mdash;</span>{% endif %}</td>
+                    <td class="waiver-points">{% if row.prediction.rest_of_season is not None %}{{ row.prediction.rest_of_season|floatformat:1 }}{% else %}<span class="waiver-unavailable" aria-label="Prediction unavailable">&mdash;</span>{% endif %}</td></tr>
+            {% empty %}<tr><td colspan="8" class="waiver-empty">No available players match these filters. Try clearing the filters.</td></tr>{% endfor %}</tbody>
         </table>
     </div>
     {% if page_obj.has_other_pages %}
@@ -62,6 +110,59 @@
         {% if page_obj.has_next %}<a href="?{{ filter_query }}&amp;page={{ page_obj.next_page_number }}">Next</a>{% endif %}
     </nav>{% endif %}
     {% endif %}
+    </div>
+    <div class="waiver-suggestions-heading">
+        <h2 id="suggested-moves-title">Suggested Moves</h2>
+        <p class="waiver-suggestions-intro">For your roster{% if projection_week %} · Week {{ projection_week }}{% endif %}</p>
+    </div>
+    <aside class="waiver-suggestions" aria-labelledby="suggested-moves-title">
+        {% for move in suggested_moves %}
+        <section class="waiver-move waiver-move-{{ move.horizon }}">
+            <h3>{{ move.title }}</h3>
+            {% if move.pickup %}
+            <p class="waiver-move-action waiver-add-label">Add</p>
+            <div class="waiver-player-identity">
+                <div class="waiver-avatar" aria-hidden="true">
+                    <span {% if move.pickup.player.headshot_url %}hidden{% endif %}>{{ move.pickup.player.first_name|default:""|first }}{{ move.pickup.player.last_name|default:""|first }}</span>
+                    {% if move.pickup.player.headshot_url %}<img src="{{ move.pickup.player.headshot_url }}" alt="" width="52" height="52" loading="lazy" onerror="this.hidden=true;this.previousElementSibling.hidden=false">{% endif %}
+                </div>
+                <div><strong>{{ move.pickup.player.full_name }}</strong>
+                    <span class="waiver-move-meta">{{ move.pickup.player.position }} · {{ move.pickup.player.team.abbreviation|default:"—" }} {% injury_badge move.pickup.player %}</span>
+                </div>
+                <div class="waiver-move-points">
+                    {% if move.pickup.prediction.rest_of_season is not None %}<strong>{{ move.pickup.prediction.rest_of_season|floatformat:1 }}</strong>{% else %}<strong aria-label="Rest-of-season prediction unavailable">&mdash;</strong>{% endif %}
+                    <span>Rest of season</span>
+                </div>
+            </div>
+            <div class="waiver-drop">
+                <p class="waiver-move-action">Drop</p>
+                <div class="waiver-player-identity">
+                    <div class="waiver-avatar" aria-hidden="true">
+                        <span {% if move.drop.player.headshot_url %}hidden{% endif %}>{{ move.drop.player.first_name|default:""|first }}{{ move.drop.player.last_name|default:""|first }}</span>
+                        {% if move.drop.player.headshot_url %}<img src="{{ move.drop.player.headshot_url }}" alt="" width="52" height="52" loading="lazy" onerror="this.hidden=true;this.previousElementSibling.hidden=false">{% endif %}
+                    </div>
+                    <div><strong>{{ move.drop.player.full_name }}</strong>
+                        <span class="waiver-move-meta">{{ move.drop.player.position }} · {{ move.drop.player.team.abbreviation|default:"—" }}</span>
+                    </div>
+                    <div class="waiver-move-points">
+                        {% if move.drop.prediction.rest_of_season is not None %}<strong>{{ move.drop.prediction.rest_of_season|floatformat:1 }}</strong>{% else %}<strong aria-label="Rest-of-season prediction unavailable">&mdash;</strong>{% endif %}
+                        <span>Rest of season</span>
+                    </div>
+                </div>
+            </div>
+            <p>{{ move.message }}</p>
+            {% if move.horizon == 'short' %}<div class="waiver-move-gain">+{{ move.gain|floatformat:1 }} <span>projected lineup pts</span></div>{% endif %}
+            {% else %}
+            <strong class="waiver-move-empty">{% if filter_form.errors %}Check your filters{% else %}No suggested pickup{% endif %}</strong>
+            <p>{{ move.message }}</p>
+            {% endif %}
+        </section>
+        {% empty %}
+        <section class="waiver-move"><p>Choose a valid week to see suggested moves.</p></section>
+        {% endfor %}
+        <p class="waiver-suggestions-note">Across your league. Suggestions aren’t affected by the filters.</p>
+    </aside>
+    </div>
     {% endif %}
 </section>
 {% endblock %}
