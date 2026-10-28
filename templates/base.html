@@ -252,6 +252,13 @@
             ♜ League Power Rankings
         </a>
 
+        <a
+            href="{% url 'assistant_gm' %}"
+            class="nav-link {% if request.resolver_match.url_name == 'assistant_gm' %}active{% endif %}"
+        >
+            Assistant GM
+        </a>
+
     </nav>
 
 

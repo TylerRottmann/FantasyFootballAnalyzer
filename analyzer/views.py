@@ -1,10 +1,15 @@
+import logging
+
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
 from django.urls import reverse_lazy
 from django.views.generic import CreateView
 
 from .forms import CustomUserCreationForm, ProfileForm, SettingsForm
-from .models import Players
+from .models import Players, PlayerWeeklyStats
+from .assistant_gm import answer_question
+
+logger = logging.getLogger(__name__)
 
 def home(request):
     return render(request, "home.html")
@@ -98,3 +103,39 @@ def profile(request):
             "settings_form": settings_form,
         },
     )
+
+
+
+@login_required
+def assistant_gm_page(request):
+    """Render the rule-based Assistant GM chat page."""
+    return render(request, "assistant_gm.html")
+
+
+@login_required
+def assistant_gm_chat(request):
+    """Answer a question using local Python rules and the existing database."""
+    from django.http import JsonResponse
+    from django.views.decorators.http import require_POST
+    from django.utils.decorators import method_decorator
+
+    if request.method != "POST":
+        return JsonResponse({"error": "Use POST to send a question."}, status=405)
+
+    question = (request.POST.get("message") or "").strip()
+    if not question:
+        return JsonResponse({"error": "Please enter a question."}, status=400)
+    if len(question) > 500:
+        return JsonResponse({"error": "Please keep your question under 500 characters."}, status=400)
+
+    try:
+        from leagues.services.context_processors import league_selector
+        league = league_selector(request)["active_league"]
+        response = answer_question(question, user=request.user, league=league)
+    except Exception:
+        logger.exception("Assistant GM failed to answer: %r", question)
+        return JsonResponse(
+            {"error": "I couldn't analyze that question right now. Please try again."},
+            status=500,
+        )
+    return JsonResponse({"answer": response})
