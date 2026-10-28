@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+.assistant-gm { max-width: 1000px; margin: 0 auto; color: var(--text-color, #f5f5f5); }
+.gm-header { margin-bottom: 18px; }
+.gm-header h1 { margin: 0 0 6px; }
+.gm-subtitle { opacity: .72; }
+.gm-shell { border: 1px solid rgba(212,167,44,.35); border-radius: 16px; overflow: hidden; background: rgba(20,24,32,.72); }
+.gm-messages { min-height: 340px; max-height: 55vh; overflow-y: auto; padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+.gm-message { max-width: 85%; padding: 12px 15px; border-radius: 14px; line-height: 1.55; white-space: pre-wrap; }
+.gm-message.bot { align-self: flex-start; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.08); }
+.gm-message.user { align-self: flex-end; background: rgba(212,167,44,.18); border: 1px solid rgba(212,167,44,.35); }
+.gm-composer { display: flex; gap: 10px; padding: 14px; border-top: 1px solid rgba(255,255,255,.1); }
+.gm-composer textarea { flex: 1; resize: vertical; min-height: 48px; max-height: 140px; border-radius: 10px; padding: 12px; background: #10141b; color: inherit; border: 1px solid rgba(255,255,255,.18); font: inherit; }
+.gm-composer button, .gm-suggestion { border: 1px solid rgba(212,167,44,.55); border-radius: 10px; background: rgba(212,167,44,.15); color: inherit; padding: 10px 14px; cursor: pointer; }
+.gm-composer button:disabled { opacity: .5; cursor: wait; }
+.gm-suggestions { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 20px; }
+.gm-suggestion { font-size: .9rem; }
+.gm-note { opacity: .65; font-size: .86rem; margin-top: 10px; }
+@media(max-width: 650px) { .gm-message { max-width: 95%; } .gm-composer { flex-direction: column; } }
+</style>
+<section class="assistant-gm">
+  <div class="gm-header">
+    <h1>✦ Assistant GM</h1>
+    <div class="gm-subtitle">Your data-driven fantasy football helper</div>
+  </div>
+  <div class="gm-shell">
+    <div id="gmMessages" class="gm-messages" aria-live="polite">
+      <div class="gm-message bot">Hey! I'm Assistant GM. I can look up this week's projections, compare players, suggest lineup changes for your team, and find the best available free agents. Try a question below.</div>
+    </div>
+    <form id="gmForm" class="gm-composer">
+      {% csrf_token %}
+      <textarea id="gmInput" name="message" placeholder="Ask about a player, your lineup, waivers, or your matchup..." maxlength="500" required></textarea>
+      <button id="gmSend" type="submit">Send ↗</button>
+    </form>
+  </div>
+  <div class="gm-suggestions">
+    <button type="button" class="gm-suggestion" data-question="How has Justin Jefferson performed recently?">Recent player stats</button>
+    <button type="button" class="gm-suggestion" data-question="Compare Justin Jefferson and Ja'Marr Chase">Compare players</button>
+    <button type="button" class="gm-suggestion" data-question="Who should I start this week?">My best lineup</button>
+    <button type="button" class="gm-suggestion" data-question="Who are the best available WRs on waivers?">Waiver pickups</button>
+    <button type="button" class="gm-suggestion" data-question="What is my matchup this week?">My matchup</button>
+    <button type="button" class="gm-suggestion" data-question="Who are the top projected RBs this week?">Top projections</button>
+  </div>
+  <p class="gm-note">Answers come from rules plus the app's projections and your active league. Projections are not yet re-scored for custom league scoring (except kickers). Add \"week N\" to ask about another week.</p>
+</section>
+<script>
+(() => {
+  const form = document.getElementById("gmForm");
+  const input = document.getElementById("gmInput");
+  const send = document.getElementById("gmSend");
+  const messages = document.getElementById("gmMessages");
+  const endpoint = "{% url 'assistant_gm_chat' %}";
+
+  function addMessage(text, role) {
+    const el = document.createElement("div");
+    el.className = "gm-message " + role;
+    el.textContent = text;
+    messages.appendChild(el);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  async function submitQuestion(question) {
+    const value = (question || "").trim();
+    if (!value || send.disabled) return;
+    addMessage(value, "user");
+    input.value = "";
+    send.disabled = true;
+    send.textContent = "Thinking…";
+    try {
+      const body = new URLSearchParams();
+      body.set("message", value);
+      body.set("csrfmiddlewaretoken", form.querySelector("[name=csrfmiddlewaretoken]").value);
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+        body: body.toString(),
+        credentials: "same-origin"
+      });
+      const data = await response.json();
+      addMessage(data.answer || data.error || "Sorry, something went wrong.", "bot");
+    } catch (error) {
+      addMessage("I couldn't reach the server. Please try again.", "bot");
+    } finally {
+      send.disabled = false;
+      send.textContent = "Send ↗";
+      input.focus();
+    }
+  }
+
+  form.addEventListener("submit", event => {
+    event.preventDefault();
+    submitQuestion(input.value);
+  });
+  input.addEventListener("keydown", event => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      form.requestSubmit();
+    }
+  });
+  document.querySelectorAll(".gm-suggestion").forEach(button => {
+    button.addEventListener("click", () => submitQuestion(button.dataset.question));
+  });
+})();
+</script>
+{% endblock %}
