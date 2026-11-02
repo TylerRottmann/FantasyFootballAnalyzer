@@ -475,3 +475,45 @@ class PlayerSnapCount(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['player', 'season', 'week'], name='snaps_player_week_unique')]
+
+
+class PlayerADP(models.Model):
+    SCORING_FORMATS = [
+        ("ppr", "Full PPR"),
+        ("half_ppr", "Half PPR"),
+        ("std", "Standard"),
+    ]
+
+    player = models.ForeignKey(
+        "Players",
+        on_delete=models.CASCADE,
+        db_constraint=False,
+        related_name="adp_rankings",
+    )
+    season = models.PositiveIntegerField()
+    scoring_format = models.CharField(
+        max_length=10,
+        choices=SCORING_FORMATS,
+    )
+    adp = models.DecimalField(max_digits=7, decimal_places=2)
+    source = models.CharField(max_length=30, default="sleeper")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["adp", "player_id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["player", "season", "scoring_format"],
+                name="unique_player_season_scoring_adp",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(adp__gt=0),
+                name="player_adp_positive",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.player_id} - {self.season} "
+            f"{self.scoring_format}: {self.adp}"
+        )
