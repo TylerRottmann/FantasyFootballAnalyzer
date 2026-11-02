@@ -1,12 +1,13 @@
 import logging
 
 from django.contrib.auth.decorators import login_required
+from django.db import models
 from django.shortcuts import render, redirect
 from django.urls import reverse_lazy
 from django.views.generic import CreateView
 
 from .forms import CustomUserCreationForm, ProfileForm, SettingsForm
-from .models import Players, PlayerWeeklyStats
+from .models import Players, PlayerWeeklyStats, Teams, PlayerADP
 from .assistant_gm import answer_question
 
 logger = logging.getLogger(__name__)
@@ -16,52 +17,76 @@ def home(request):
 
 
 
+
 def adp_rankings(request):
-    players = Players.objects.exclude(
-        full_name__isnull=True
-    ).exclude(
-        full_name=""
+    fantasy_positions = ("QB", "RB", "WR", "K")
+    scoring_formats = (
+        ("ppr", "Full PPR"),
+        ("half_ppr", "Half PPR"),
+        ("std", "Standard"),
+    )
+    season = 2026
+
+    scoring_format = request.GET.get("scoring", "ppr").strip().lower()
+    valid_formats = {value for value, _ in scoring_formats}
+
+    if scoring_format not in valid_formats:
+        scoring_format = "ppr"
+
+    position = request.GET.get("position", "").strip().upper()
+    team = request.GET.get("team", "").strip()
+    search = request.GET.get("search", "").strip()
+
+    players = (
+        Players.objects
+        .filter(
+            position__in=fantasy_positions,
+            adp_rankings__season=season,
+            adp_rankings__scoring_format=scoring_format,
+        )
+        .exclude(full_name__isnull=True)
+        .exclude(full_name="")
+        .select_related("team")
+        .annotate(adp_value=models.F("adp_rankings__adp"))
     )
 
-    position = request.GET.get("position", "")
-    team = request.GET.get("team", "")
-    search = request.GET.get("search", "")
-
-    if position:
+    if position in fantasy_positions:
         players = players.filter(position=position)
+    else:
+        position = ""
 
     if team:
-        players = players.filter(team_id=team)
+        if team.isdecimal():
+            players = players.filter(team_id=int(team))
+        else:
+            team = ""
 
     if search:
         players = players.filter(full_name__icontains=search)
 
-    players = players.order_by("full_name")
-
-    positions = (
-        Players.objects
-        .exclude(position__isnull=True)
-        .exclude(position="")
-        .values_list("position", flat=True)
-        .distinct()
-        .order_by("position")
+    players = players.order_by(
+        "adp_rankings__adp",
+        "full_name",
+        "id",
     )
 
     teams = (
-        Players.objects
-        .exclude(team_id__isnull=True)
-        .values_list("team_id", flat=True)
+        Teams.objects
+        .filter(players__position__in=fantasy_positions)
         .distinct()
-        .order_by("team_id")
+        .order_by("name")
     )
 
     context = {
         "players": players,
-        "positions": positions,
+        "positions": fantasy_positions,
         "teams": teams,
         "selected_position": position,
         "selected_team": team,
         "search": search,
+        "scoring_formats": scoring_formats,
+        "selected_scoring": scoring_format,
+        "season": season,
     }
 
     return render(request, "adp.html", context)
