@@ -1,14 +1,13 @@
 import logging
 
 from django.contrib.auth.decorators import login_required
-from django.db import models
 from django.shortcuts import render, redirect
 from django.urls import reverse_lazy
 from django.views.generic import CreateView
 
 from .forms import CustomUserCreationForm, ProfileForm, SettingsForm
-from .models import Players, PlayerWeeklyStats, Teams, PlayerADP
-from .assistant_gm import answer_question
+from .models import Players, PlayerWeeklyStats
+from .assistant_gm import answer_with_state
 
 logger = logging.getLogger(__name__)
 
@@ -17,76 +16,52 @@ def home(request):
 
 
 
-
 def adp_rankings(request):
-    fantasy_positions = ("QB", "RB", "WR", "K")
-    scoring_formats = (
-        ("ppr", "Full PPR"),
-        ("half_ppr", "Half PPR"),
-        ("std", "Standard"),
-    )
-    season = 2026
-
-    scoring_format = request.GET.get("scoring", "ppr").strip().lower()
-    valid_formats = {value for value, _ in scoring_formats}
-
-    if scoring_format not in valid_formats:
-        scoring_format = "ppr"
-
-    position = request.GET.get("position", "").strip().upper()
-    team = request.GET.get("team", "").strip()
-    search = request.GET.get("search", "").strip()
-
-    players = (
-        Players.objects
-        .filter(
-            position__in=fantasy_positions,
-            adp_rankings__season=season,
-            adp_rankings__scoring_format=scoring_format,
-        )
-        .exclude(full_name__isnull=True)
-        .exclude(full_name="")
-        .select_related("team")
-        .annotate(adp_value=models.F("adp_rankings__adp"))
+    players = Players.objects.exclude(
+        full_name__isnull=True
+    ).exclude(
+        full_name=""
     )
 
-    if position in fantasy_positions:
+    position = request.GET.get("position", "")
+    team = request.GET.get("team", "")
+    search = request.GET.get("search", "")
+
+    if position:
         players = players.filter(position=position)
-    else:
-        position = ""
 
     if team:
-        if team.isdecimal():
-            players = players.filter(team_id=int(team))
-        else:
-            team = ""
+        players = players.filter(team_id=team)
 
     if search:
         players = players.filter(full_name__icontains=search)
 
-    players = players.order_by(
-        "adp_rankings__adp",
-        "full_name",
-        "id",
+    players = players.order_by("full_name")
+
+    positions = (
+        Players.objects
+        .exclude(position__isnull=True)
+        .exclude(position="")
+        .values_list("position", flat=True)
+        .distinct()
+        .order_by("position")
     )
 
     teams = (
-        Teams.objects
-        .filter(players__position__in=fantasy_positions)
+        Players.objects
+        .exclude(team_id__isnull=True)
+        .values_list("team_id", flat=True)
         .distinct()
-        .order_by("name")
+        .order_by("team_id")
     )
 
     context = {
         "players": players,
-        "positions": fantasy_positions,
+        "positions": positions,
         "teams": teams,
         "selected_position": position,
         "selected_team": team,
         "search": search,
-        "scoring_formats": scoring_formats,
-        "selected_scoring": scoring_format,
-        "season": season,
     }
 
     return render(request, "adp.html", context)
@@ -134,6 +109,7 @@ def profile(request):
 @login_required
 def assistant_gm_page(request):
     """Render the rule-based Assistant GM chat page."""
+    request.session.pop("gm_state", None)  # a fresh page load starts a fresh conversation
     return render(request, "assistant_gm.html")
 
 
@@ -156,7 +132,10 @@ def assistant_gm_chat(request):
     try:
         from leagues.services.context_processors import league_selector
         league = league_selector(request)["active_league"]
-        response = answer_question(question, user=request.user, league=league)
+        response, new_state = answer_with_state(
+            question, user=request.user, league=league, state=request.session.get("gm_state")
+        )
+        request.session["gm_state"] = new_state
     except Exception:
         logger.exception("Assistant GM failed to answer: %r", question)
         return JsonResponse(

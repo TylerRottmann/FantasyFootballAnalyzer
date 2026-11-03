@@ -1,9 +1,9 @@
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
-from django.db.models import Q
+from django.db.models import Q, Sum
 
 from .models import NFLGame, Players, PlayerWeeklyStats, Teams
 
@@ -212,9 +212,11 @@ class ChatContext:
     league: Any = None
     season: Any = None
     week: Any = None
+    detail: bool = False
+    cache: dict = field(default_factory=dict)
 
 
-def _build_context(question, user, league):
+def _build_context(question, user, league, detail=False):
     from leagues.models import FantasyProjection
 
     season = getattr(league, "season", None)
@@ -234,7 +236,12 @@ def _build_context(question, user, league):
                 FantasyProjection.objects.filter(season=season)
                 .order_by("-week").values_list("week", flat=True).first()
             )
-    return ChatContext(user=user, league=league, season=season, week=week)
+        if week is not None:
+            if re.search(r"\bnext week\b", question, re.I):
+                week = min(18, week + 1)
+            elif re.search(r"\blast week\b", question, re.I):
+                week = max(1, week - 1)
+    return ChatContext(user=user, league=league, season=season, week=week, detail=detail)
 
 
 def _detect_position(question):
@@ -269,7 +276,8 @@ def _points(projection):
     return None if value is None else float(value)
 
 
-def _opponent_label(team_id, ctx):
+def _opponent_info(team_id, ctx):
+    """Return {"label", "abbr", "home", "bye"} for this team's game, or None if unknown."""
     if not team_id or ctx.season is None or ctx.week is None:
         return None
     game = (
@@ -279,10 +287,143 @@ def _opponent_label(team_id, ctx):
     )
     if game is None:
         from leagues.services.schedule import confirmed_bye_team_ids
-        return "BYE" if team_id in confirmed_bye_team_ids(ctx.season, ctx.week) else None
-    if game.home_team_id == team_id:
-        return f"vs {game.away_team.abbreviation}"
-    return f"@ {game.home_team.abbreviation}"
+        if team_id in confirmed_bye_team_ids(ctx.season, ctx.week):
+            return {"label": "BYE", "abbr": None, "home": None, "bye": True}
+        return None
+    home = game.home_team_id == team_id
+    opp = game.away_team if home else game.home_team
+    return {"label": f"{'vs' if home else '@'} {opp.abbreviation}",
+            "abbr": opp.abbreviation, "home": home, "bye": False}
+
+
+def _opponent_label(team_id, ctx):
+    info = _opponent_info(team_id, ctx)
+    return info["label"] if info else None
+
+
+def _ordinal(n):
+    suffix = "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suffix}"
+
+
+def _position_defense_table(position, ctx):
+    """PPR points each defense has allowed per game to a position this season (before ctx.week)."""
+    key = ("pos_def", ctx.season, ctx.week, position)
+    if key in ctx.cache:
+        return ctx.cache[key]
+    table = None
+    if position in SKILL_POSITIONS and ctx.season is not None and ctx.week:
+        rows = (
+            PlayerWeeklyStats.objects.filter(
+                season=ctx.season, season_type__iexact="REG", week__lt=ctx.week,
+                player__position=position, opponent_team__isnull=False,
+            ).exclude(fantasy_points_ppr__isnull=True)
+            .values("opponent_team", "week").annotate(total=Sum("fantasy_points_ppr"))
+        )
+        per_team = {}
+        for row in rows:
+            per_team.setdefault(row["opponent_team"], []).append(float(row["total"]))
+        averages = {t: sum(v) / len(v) for t, v in per_team.items() if len(v) >= 3}
+        if len(averages) >= 8:
+            ordered = sorted(averages, key=averages.get, reverse=True)  # rank 1 = most generous
+            table = {
+                "teams": {t: (averages[t], i + 1) for i, t in enumerate(ordered)},
+                "n": len(ordered), "through": ctx.week - 1,
+            }
+    ctx.cache[key] = table
+    return table
+
+
+def _matchup_note(player, ctx):
+    """How friendly this week's defense is to the player's position. None if unknown."""
+    position = player.position
+    info = _opponent_info(getattr(player, "team_id", None), ctx)
+    if position not in SKILL_POSITIONS or not info or info["bye"]:
+        return None
+    table = _position_defense_table(position, ctx)
+    entry = table and table["teams"].get(info["abbr"])
+    if not entry:
+        return None
+    avg, rank = entry
+    n = table["n"]
+    quarter = max(1, round(n / 4))
+    if rank <= quarter:
+        tier, verdict = "favorable", "a favorable matchup"
+    elif rank > n - quarter:
+        tier, verdict = "tough", "a tough matchup"
+    else:
+        tier, verdict = "neutral", "a middling matchup"
+    text = (f"{info['abbr']} has allowed {avg:.1f} PPR points per game to {position}s "
+            f"({_ordinal(rank)}-most of {n} teams through Week {table['through']}), {verdict}.")
+    return {"tier": tier, "text": text, "avg": avg, "rank": rank}
+
+
+def _matchup_tag(player, ctx):
+    note = _matchup_note(player, ctx)
+    if not note:
+        return ""
+    if ctx.detail:
+        return f"\n    ↳ {note['text']}"
+    if note["tier"] in {"favorable", "tough"}:
+        return f" - {note['tier']} matchup"
+    return ""
+
+
+_STAT_LABELS = [
+    ("passing_yards", "pass yds", 0), ("passing_tds", "pass TD", 1),
+    ("rushing_yards", "rush yds", 0), ("rushing_tds", "rush TD", 1),
+    ("receptions", "rec", 1), ("receiving_yards", "rec yds", 0), ("receiving_tds", "rec TD", 1),
+]
+
+
+def _projected_line(projection):
+    stats = getattr(projection, "projected_stats", None) or {}
+    parts = []
+    for key, label, decimals in _STAT_LABELS:
+        value = stats.get(key)
+        if isinstance(value, (int, float)) and value:
+            parts.append(f"{value:.{decimals}f} {label}")
+    return ", ".join(parts)
+
+
+def _form_parts(player, points):
+    """Return (sentence, is_notable) comparing the projection to recent form, or None."""
+    avg = _recent_avg(player)
+    if avg is None or points is None:
+        return None
+    diff = points - avg
+    if diff >= 3:
+        return f"The projection is {diff:.1f} above his recent average of {avg:.1f}, so the model expects a step up.", True
+    if diff <= -3:
+        return f"The projection is {abs(diff):.1f} below his recent average of {avg:.1f}, so the model expects a dip.", True
+    return f"That's in line with his recent average of {avg:.1f} PPR.", False
+
+
+def _form_note(player, points, ctx):
+    parts = _form_parts(player, points)
+    return parts[0] if parts else None
+
+
+def _reasons(player, projection, points, ctx, limit=2, include_form=True):
+    """Most important reasons first. Truncated to `limit` unless the user asked for detail."""
+    candidates = []  # (priority, text); lower priority number = more important
+    note = _matchup_note(player, ctx)
+    if note:
+        candidates.append((0 if note["tier"] in {"favorable", "tough"} else 3, note["text"]))
+    if include_form:
+        form = _form_parts(player, points)
+        if form:
+            candidates.append((1 if form[1] else 4, form[0]))
+    line = _projected_line(projection)
+    if line:
+        candidates.append((2, f"Projected stat line: {line}."))
+    candidates.sort(key=lambda c: c[0])
+    texts = [text for _, text in candidates]
+    if ctx.detail or limit is None:
+        return texts
+    if len(texts) > limit:
+        ctx.cache["truncated"] = True
+    return texts[:limit]
 
 
 def _scoring_note(ctx):
@@ -298,16 +439,20 @@ def _recent_avg(player):
     return (sum(vals) / len(vals)) if vals else None
 
 
-def _projection_summary(player, ctx):
+def _projection_summary(player, ctx, include_recent=True):
     projection = _projection_for(player, ctx)
     points = _points(projection)
     head = f"{player.full_name} ({player.position or '?'})"
-    opponent = _opponent_label(player.team_id, ctx)
-    if opponent == "BYE":
+    info = _opponent_info(player.team_id, ctx)
+    if info and info["bye"]:
         return f"{head} is on a bye in Week {ctx.week}."
+    opponent = info["label"] if info else None
     parts = []
     if points is None:
         parts.append(f"I don't have a Week {ctx.week} projection for {head} yet.")
+        avg = _recent_avg(player)
+        if avg is not None and include_recent:
+            parts.append(f"Recent average over the last {len(_recent_stats(player))} games: {avg:.1f} PPR.")
     else:
         line = f"{head} is projected for {points:.1f} fantasy points in Week {ctx.week}"
         line += f" ({opponent})." if opponent else "."
@@ -315,31 +460,59 @@ def _projection_summary(player, ctx):
     status = (player.injury_status or player.status or "").strip()
     if status and status.lower() not in {"active"}:
         parts.append(f"Listed status: {status}.")
-    avg = _recent_avg(player)
-    if avg is not None:
-        parts.append(f"Recent average over the last {len(_recent_stats(player))} games: {avg:.1f} PPR.")
-    return " ".join(parts) + (_scoring_note(ctx) if points is not None else "")
+    text = " ".join(parts)
+    if points is not None:
+        text += _scoring_note(ctx)
+        reasons = _reasons(player, projection, points, ctx, include_form=include_recent)
+        if reasons:
+            text += "\n\nWhy:\n" + "\n".join(f"• {r}" for r in reasons)
+    return text
 
 
 def _compare_with_projections(a, b, ctx):
-    pa, pb = _points(_projection_for(a, ctx)), _points(_projection_for(b, ctx))
+    proj_a, proj_b = _projection_for(a, ctx), _projection_for(b, ctx)
+    pa, pb = _points(proj_a), _points(proj_b)
     if pa is None or pb is None:
         return None  # caller falls back to the history-only comparison
     gap = abs(pa - pb)
+    note_a, note_b = _matchup_note(a, ctx), _matchup_note(b, ctx)
+    tier_a = note_a["tier"] if note_a else None
+    tier_b = note_b["tier"] if note_b else None
+
     if gap < 1.5:
-        lean = "That's close enough that I'd call it a toss-up; use matchup and injury news to break the tie."
+        lean = "It's close enough that I'd call it a toss-up."
+        better = None
+        if note_a and note_b and note_a["rank"] != note_b["rank"]:
+            better = a if note_a["rank"] < note_b["rank"] else b
+        if better is not None:
+            lean += f" If you need a tiebreaker, {better.full_name} has the friendlier matchup."
     else:
-        winner = a if pa > pb else b
+        winner, loser = (a, b) if pa > pb else (b, a)
         lean = f"The model leans {winner.full_name} by {gap:.1f} points."
+        w_tier, l_tier = (tier_a, tier_b) if winner is a else (tier_b, tier_a)
+        if w_tier == "favorable" and l_tier != "favorable":
+            lean += " The matchup adds to that edge."
+        elif w_tier == "tough" and l_tier == "favorable":
+            lean += f" That's despite a tougher matchup, so {winner.full_name}'s role and recent form are doing the work."
+
     lines = [f"Week {ctx.week} projections:"]
     for player, pts in ((a, pa), (b, pb)):
         opp = _opponent_label(player.team_id, ctx)
-        extra = f" {opp}" if opp else ""
+        extra = opp or ""
         status = (player.injury_status or "").strip()
         if status:
-            extra += f", {status}"
-        lines.append(f"• {player.full_name}: {pts:.1f}{' (' + extra.strip() + ')' if extra.strip() else ''}")
-    return "\n".join(lines) + f"\n{lean}" + _scoring_note(ctx)
+            extra = f"{extra}, {status}" if extra else status
+        lines.append(f"• {player.full_name}: {pts:.1f}" + (f" ({extra})" if extra else ""))
+    text = "\n".join(lines) + f"\n{lean}"
+
+    detail = []
+    for player, projection, pts in ((a, proj_a, pa), (b, proj_b, pb)):
+        reasons = _reasons(player, projection, pts, ctx, limit=1)
+        if reasons:
+            detail.append(f"{player.full_name}:\n" + "\n".join(f"  • {r}" for r in reasons))
+    if detail:
+        text += "\n\nWhat's behind it:\n" + "\n".join(detail)
+    return text + _scoring_note(ctx)
 
 
 def _top_projected(position, ctx, exclude_rostered=False, limit=5):
@@ -369,7 +542,8 @@ def _format_top(position, rows, ctx, title):
     for projection in rows:
         player = projection.player
         opp = _opponent_label(player.team_id, ctx)
-        lines.append(f"• {player.full_name}: {_points(projection):.1f}" + (f" ({opp})" if opp else ""))
+        lines.append(f"• {player.full_name}: {_points(projection):.1f}"
+                     + (f" ({opp})" if opp else "") + _matchup_tag(player, ctx))
     return "\n".join(lines) + _scoring_note(ctx)
 
 
@@ -436,14 +610,21 @@ def _answer_my_lineup(ctx):
     cur_total = get_lineup_total(current)
 
     swaps = []
-    for cur, opt in zip(current, optimized):
-        cur_item, opt_item = cur["item"], opt["item"]
-        if opt_item is None or (cur_item is not None and cur_item["roster_player"].id == opt_item["roster_player"].id):
-            continue
-        swaps.append(
-            f"• {opt['slot']}: start {_item_name(opt_item)} ({_points(opt_item['prediction']) or 0:.1f})"
-            + (f" over {_item_name(cur_item)} ({_points(cur_item['prediction']) or 0:.1f})" if cur_item else "")
-        )
+    for incoming, outgoing in _pair_swaps(current, optimized):
+        in_pts = _points(incoming["prediction"]) or 0
+        pos = incoming["player"].position if incoming["player"] is not None else "D/ST"
+        info = _opponent_info(incoming["player"].team_id, ctx) if incoming["player"] is not None else None
+        detail_bits = f"{pos}, {in_pts:.1f}" + (f", {info['label']}" if info and not info["bye"] else "")
+        line = f"• Start {_item_name(incoming)} ({detail_bits})"
+        if incoming["player"] is not None:
+            note = _matchup_note(incoming["player"], ctx)
+            if note and ctx.detail:
+                line += f"\n    ↳ {note['text']}"
+            elif note and note["tier"] == "favorable":
+                line += " - favorable matchup"
+        if outgoing is not None:
+            line += f" over {_item_name(outgoing)} ({_points(outgoing['prediction']) or 0:.1f})"
+        swaps.append(line)
     missing = [_item_name(i) for i in items if _points(i["prediction"]) is None]
 
     if not swaps:
@@ -451,9 +632,58 @@ def _answer_my_lineup(ctx):
     else:
         text = (f"Week {ctx.week}: your lineup projects {cur_total:.1f}; the best lineup projects "
                 f"{opt_total:.1f} (+{opt_total - cur_total:.1f}).\nSuggested changes:\n" + "\n".join(swaps))
-    if missing:
+    warnings = _lineup_warnings(current, ctx)
+    if warnings:
+        text += "\nHeads up:\n" + "\n".join(f"• {w}" for w in warnings)
+    elif missing:
         text += "\nNo projection available for: " + ", ".join(missing[:6]) + " (treated as 0)."
     return text + _scoring_note(ctx)
+
+
+def _pair_swaps(current, optimized):
+    """Pair each player the optimizer wants to START with the starter he should replace.
+
+    Compares who starts in each lineup, not which slot they fill, so reshuffling the
+    same players between WR/FLEX slots is not reported as a change.
+    """
+    cur = {c["item"]["roster_player"].id: c["item"] for c in current if c["item"] is not None}
+    opt = {o["item"]["roster_player"].id: o["item"] for o in optimized if o["item"] is not None}
+    ins = sorted((i for k, i in opt.items() if k not in cur),
+                 key=lambda i: _points(i["prediction"]) or 0, reverse=True)
+    outs = sorted((i for k, i in cur.items() if k not in opt),
+                  key=lambda i: _points(i["prediction"]) or 0)
+
+    def position(item):
+        return item["player"].position if item["player"] is not None else "DST"
+
+    pairs = []
+    for incoming in ins:
+        match = next((o for o in outs if position(o) == position(incoming)), None) or (outs[0] if outs else None)
+        if match is not None:
+            outs.remove(match)
+        pairs.append((incoming, match))
+    return pairs
+
+
+def _lineup_warnings(current, ctx):
+    """Flag starters who are projected 0 (or have no projection) and say why if we can."""
+    warnings = []
+    for slot in current:
+        item = slot["item"]
+        if item is None or (_points(item["prediction"]) or 0) > 0:
+            continue
+        name = _item_name(item)
+        player = item["player"]
+        reason = "has no projection"
+        if player is not None:
+            info = _opponent_info(player.team_id, ctx)
+            status = (player.injury_status or "").strip()
+            if info and info["bye"]:
+                reason = "is on a bye"
+            elif status:
+                reason = f"is listed as {status}"
+        warnings.append(f"{name} is in your lineup but projects 0.0 ({reason}).")
+    return warnings
 
 
 def _items_for_roster(roster, ctx):
@@ -479,15 +709,19 @@ def _items_for_roster(roster, ctx):
     ]
 
 
-def _computed_team_projection(roster, ctx):
-    """Best-lineup total from player projections; None if nothing is projected."""
-    from scripts.commands.lineup import build_optimized_lineup
+def _team_lineup_totals(roster, ctx):
+    """(current_lineup_total, best_lineup_total) from player projections, or None."""
+    from scripts.commands.lineup import build_current_lineup, build_optimized_lineup, get_lineup_total
 
     items = _items_for_roster(roster, ctx)
     if not any(_points(i["prediction"]) is not None for i in items):
         return None
     slots = [x for x in (ctx.league.roster_positions or []) if x not in {"BN", "IR", "TAXI"}]
-    return build_optimized_lineup(items, slots)[1]
+    best = build_optimized_lineup(items, slots)[1]
+    current = get_lineup_total(build_current_lineup(items, slots))
+    if not current or current <= 0:  # starters not synced: fall back to the best lineup
+        current = best
+    return current, best
 
 
 def _answer_matchup(ctx):
@@ -511,58 +745,163 @@ def _answer_matchup(ctx):
         return row.projected_points if row else None
 
     mine, theirs = team_proj(roster), team_proj(matchup.opponent)
+    mine_best = None
     if mine is None:
-        mine = _computed_team_projection(roster, ctx)
+        totals = _team_lineup_totals(roster, ctx)
+        if totals:
+            mine, mine_best = totals
     if theirs is None:
-        theirs = _computed_team_projection(matchup.opponent, ctx)
+        totals = _team_lineup_totals(matchup.opponent, ctx)
+        if totals:
+            theirs = totals[0]
     opp_name = matchup.opponent.owner_name or "your opponent"
     if mine is None or theirs is None:
         return f"In Week {ctx.week} you face {opp_name}. I don't have team projections for both sides yet."
+
     diff = mine - theirs
-    verdict = "You're favored" if diff > 0 else "You're the underdog"
-    return (f"Week {ctx.week} vs {opp_name}: you're projected for {mine:.1f}, they're at {theirs:.1f}. "
-            f"{verdict} by {abs(diff):.1f} points.")
+    verdict = "you're favored" if diff > 0 else "you're the underdog"
+    text = (f"Week {ctx.week} vs {opp_name}: with your current lineup you're projected for {mine:.1f} "
+            f"to their {theirs:.1f}, so {verdict} by {abs(diff):.1f}.")
+    if mine_best is not None and mine_best - mine >= 0.5:
+        best_diff = mine_best - theirs
+        outcome = (f"that would put you ahead by {best_diff:.1f}" if best_diff > 0
+                   else f"you'd still trail by {abs(best_diff):.1f}")
+        text += (f"\nYour best lineup would project {mine_best:.1f} (+{mine_best - mine:.1f}) and {outcome}. "
+                 "Ask “who should I start?” to see the changes.")
+    return text
 
 
-def answer_question(question, user=None, league=None):
-    """Answer a question using projections, the user's roster and historical stats."""
-    q = question.strip()
+EXPAND_RE = re.compile(r"^\W*(why|explain|elaborate|tell me more|more detail|more info|how come|details?|go deeper)\b", re.I)
+WEEK_ONLY_RE = re.compile(r"^\W*(?:and |what about |how about |what if )?(next week|this week|last week|week\s*\d{1,2})\W*$", re.I)
+SINGULAR_RE = re.compile(r"\b(he|him|his|she|her)\b", re.I)
+PLURAL_RE = re.compile(r"\b(they|them|their|both)\b", re.I)
+ELLIPSIS_RE = re.compile(r"^\W*(and|what about|how about|ok|okay|so)\b", re.I)
+WEEK_PHRASE_RE = re.compile(r"\b(next|last|this) week\b|\bweek\s*\d{1,2}\b", re.I)
+
+
+def _resolve_follow_up(q, state):
+    """Rewrite a follow-up into a standalone question using the saved state.
+
+    Returns (resolved_question, detail, clarification). `clarification` is a reply
+    to send instead of answering when the follow-up is ambiguous.
+    """
+    last = state.get("last_question")
+    if not last:
+        return q, False, None
+    lower = q.lower()
+    words = lower.split()
+    names = state.get("players") or []
+
+    if EXPAND_RE.match(q) and len(words) <= 7 and not _find_players_in_question(q, limit=1):
+        return last, True, None
+
+    week_match = WEEK_ONLY_RE.match(q)
+    if week_match:
+        phrase = week_match.group(1).lower()
+        base = state.get("week")
+        stripped = WEEK_PHRASE_RE.sub("", last).strip()
+        if phrase == "this week" or base is None:
+            return stripped, False, None
+        if phrase == "next week":
+            target = base + 1
+        elif phrase == "last week":
+            target = base - 1
+        else:
+            target = int(re.search(r"\d+", phrase).group())
+        return f"{stripped} week {max(1, min(18, target))}", False, None
+
+    has_name = bool(_find_players_in_question(q, limit=1)) if len(words) <= 12 else True
+    if not has_name:
+        if state.get("topic") in {"top", "waiver"} and len(words) <= 5 and _detect_position(q):
+            pos = _detect_position(q)
+            if pos != "DST":
+                base_q = "best available {} on waivers" if state["topic"] == "waiver" else "top projected {}s"
+                return base_q.format(pos), False, None
+        if names and PLURAL_RE.search(q):
+            return f"{q} {' and '.join(names)}", False, None
+        if names and SINGULAR_RE.search(q):
+            if len(names) == 1:
+                return f"{q} {names[0]}", False, None
+            return q, False, f"Which one do you mean, {names[0]} or {names[1]}?"
+    return q, False, None
+
+
+def _route(q, user, league, detail=False):
+    """Pick an answer. Returns (text, topic, players, ctx); topic drives follow-up handling."""
     lower = q.lower()
     if re.search(r"\b(hello|hi|hey)\b", lower) and len(lower.split()) <= 5:
-        return _answer_from_history(q)
+        return _answer_from_history(q), "greeting", [], None
 
-    ctx = _build_context(q, user, league)
+    ctx = _build_context(q, user, league, detail=detail)
     position = _detect_position(q)
+    players = _find_players_in_question(q, limit=2)
 
     if re.search(r"\b(my|our)\s+(lineup|team|roster|bench|starters)\b|\bwho\s+(should|do)\s+i\s+(start|sit)\b|\boptimi[sz]e\b", lower) \
-            and not _find_players_in_question(q, limit=1):
-        return _answer_my_lineup(ctx)
+            and not players:
+        return _answer_my_lineup(ctx), "lineup", [], ctx
 
-    if re.search(r"\b(matchup|opponent|who am i (playing|facing)|will i win|my chances)\b", lower) \
-            and not _find_players_in_question(q, limit=1):
-        return _answer_matchup(ctx)
+    if re.search(r"\b(matchup|opponent|who am i (playing|facing)|will i win|my chances)\b", lower) and not players:
+        return _answer_matchup(ctx), "matchup", [], ctx
 
     if re.search(r"\b(waiver|waivers|pick ?up|free agent|available|add)\b", lower) and position and position != "DST":
         if ctx.league is None:
-            return "Connect a league first so I know which players are available."
+            return "Connect a league first so I know which players are available.", "waiver", [], ctx
         rows = _top_projected(position, ctx, exclude_rostered=True)
         if not rows:
-            return f"I don't have Week {ctx.week} projections for available {position}s yet."
-        return _format_top(position, rows, ctx, "Best available by projection")
+            return f"I don't have Week {ctx.week} projections for available {position}s yet.", "waiver", [], ctx
+        return _format_top(position, rows, ctx, "Best available by projection"), "waiver", [], ctx
 
-    players = _find_players_in_question(q, limit=2)
     if len(players) >= 2 and re.search(r"\b(compare|start|sit|or|versus|vs\.?|better|between)\b", lower):
         answer = _compare_with_projections(players[0], players[1], ctx)
-        return answer or _compare_players(players)
+        return answer or _compare_players(players), "compare", players, ctx
 
     if players:
         if re.search(r"\b(recent|recently|performed|performance|lately|last|history)\b", lower):
-            return _player_summary(players[0]) + "\n" + _projection_summary(players[0], ctx).split(" Recent average")[0]
-        return _projection_summary(players[0], ctx)
+            text = _player_summary(players[0]) + "\n\n" + _projection_summary(players[0], ctx, include_recent=False)
+        else:
+            text = _projection_summary(players[0], ctx)
+        return text, "player", players[:1], ctx
 
     if re.search(r"\b(top|best|rank|leaders|who are the)\b", lower) and position in SKILL_POSITIONS + ("K",):
         rows = _top_projected(position, ctx)
         if rows:
-            return _format_top(position, rows, ctx, "Top projected")
+            return _format_top(position, rows, ctx, "Top projected"), "top", [], ctx
 
-    return _answer_from_history(q)
+    return _answer_from_history(q), "fallback", [], ctx
+
+
+def answer_with_state(question, user=None, league=None, state=None):
+    """Answer a question, using and updating a small conversation state.
+
+    `state` is a JSON-serialisable dict (kept in the Django session). Returns
+    (answer_text, new_state).
+    """
+    state = dict(state or {})
+    league_id = getattr(league, "pk", None)
+    if state.get("league_id") != league_id:
+        state = {}
+
+    q = question.strip()
+    resolved, detail, clarification = _resolve_follow_up(q, state)
+    if clarification:
+        return clarification, state
+
+    text, topic, players, ctx = _route(resolved, user, league, detail=detail)
+    if ctx is not None and ctx.cache.pop("truncated", False) and not ctx.detail:
+        text += "\n\nAsk “why” for more detail."
+
+    if topic in {"greeting", "fallback"}:
+        return text, state  # keep the previous context so the next follow-up still works
+    new_state = {
+        "last_question": resolved,
+        "topic": topic,
+        "week": ctx.week if ctx else None,
+        "players": [p.full_name for p in players],
+        "league_id": league_id,
+    }
+    return text, new_state
+
+
+def answer_question(question, user=None, league=None):
+    """Stateless convenience wrapper (no follow-up memory)."""
+    return answer_with_state(question, user=user, league=league)[0]
