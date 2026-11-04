@@ -251,6 +251,7 @@ def build_team_breakdown(
             position_groups.append("FLEX")
         abbreviation = team.abbreviation.lower() if team and team.abbreviation else ""
         player_rows.append({
+            "player_id": entry.player_id,
             "name": name,
             "position": position,
             "position_groups": position_groups,

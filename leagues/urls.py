@@ -1,4 +1,5 @@
 from .boom_bust_api import boom_bust_prediction
+from .boom_bust_api_v2 import boom_bust_prediction_v2
 from django.urls import path
 
 from . import views
@@ -7,6 +8,7 @@ from .views import yahoo_callback, yahoo_connect
 
 urlpatterns = [
     path("boom-bust/<int:player_id>/", boom_bust_prediction, name="boom_bust_prediction"),
+    path("boom-bust/v2/<int:player_id>/", boom_bust_prediction_v2, name="boom_bust_prediction_v2"),
 
     path(
         "connect/",

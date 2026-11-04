@@ -17,3 +17,7 @@ db.sqlite3
 # OS
 .DS_Store
 Thumbs.db
+
+# Boom/Bust v2 generated data
+*.step*.bak
+scripts/algorithm/boom_bust/.cache_v2/

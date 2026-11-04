@@ -1180,7 +1180,20 @@ def team_breakdown(request, league_id, roster_id):
         request.user,
         include_defense=include_defense,
     )
+    prediction_connection = UserLeagueConnection.objects.filter(
+        user=request.user,
+        league=league,
+    ).only("external_user_id").first()
+    can_predict_roster = (
+        request.session.get("active_league_id") == league.id
+        and prediction_connection is not None
+        and bool(prediction_connection.external_user_id)
+        and roster.owner_sleeper_id == prediction_connection.external_user_id
+    )
     context = {
+        "supported_boom_bust_positions": ("QB", "RB", "WR", "TE"),
+        "boom_bust_v2_enabled": can_predict_roster,
+        "boom_bust_v2_week": current_week,
         "league": league,
         "roster": roster,
         "has_defense_slot": has_defense_slot,
