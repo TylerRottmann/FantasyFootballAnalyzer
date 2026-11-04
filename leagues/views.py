@@ -17,12 +17,12 @@ from analyzer.models import NFLGame, PlayerWeeklyStats, Teams, TeamWeeklyStats
 
 from .integrations.sleeper import SleeperLeagueService
 from .integrations.yahoo import YahooLeagueService
-from leagues.services.kicker_scoring import league_projection
+from leagues.services.kicker_scoring import league_projection, league_defense_projection
 from leagues.services.player_availability import projection_context
 from leagues.services.schedule import confirmed_bye_team_ids
 from leagues.services.external_cache import (
-    cache_sleeper_playoff_info,
-    sleeper_playoff_cache_key,
+    get_cached_sleeper_playoff_info,
+    refresh_sleeper_playoff_info,
 )
 from .models import (
     DefenseProjection,
@@ -57,26 +57,17 @@ def get_user_league_or_404(user, league_id):
 
 
 def get_sleeper_playoff_info(league):
-    """Return cached playoff-team and first-round-bye counts from Sleeper."""
-    cache_key = sleeper_playoff_cache_key(league)
+    """Read cached settings and repair a missing cache with a short request."""
     missing = object()
-    cached = cache.get(cache_key, missing)
+    cached = get_cached_sleeper_playoff_info(league, missing)
     if cached is not missing:
         return cached
 
-    info = None
     try:
-        service = SleeperLeagueService(league.sleeper_league_id)
-        service.REQUEST_TIMEOUT = 3
-        payload = service.get_league() or {}
-        info = cache_sleeper_playoff_info(league, payload)
-    except (OSError, ValueError, TypeError):
+        return refresh_sleeper_playoff_info(league)
+    except Exception:
         # The rankings page remains usable if Sleeper metadata is unavailable.
-        info = None
-
-    if info is None:
-        cache.set(cache_key, None, timeout=60 * 60 * 6)
-    return info
+        return None
 
 
 def get_power_rankings_snapshot(
@@ -103,7 +94,12 @@ def get_power_rankings_snapshot(
     )
     schedule_version = last_matchup_update.isoformat() if last_matchup_update else "unsynced"
     defense_mode = "dst-on" if include_defense else "dst-off"
-    cache_key = f"power_rankings:{league.id}:{user.id}:{current_week}:{schedule_version}:{defense_mode}"
+    projection_version = cache.get(f"projection_version:{league.season}", "initial")
+    league_version = league.updated_at.isoformat() if league.updated_at else "unknown"
+    cache_key = (
+        f"power_rankings:{league.id}:{user.id}:{current_week}:"
+        f"{schedule_version}:{projection_version}:{league_version}:{defense_mode}"
+    )
     snapshot = cache.get(cache_key)
     if snapshot is None:
         snapshot = get_saved_power_rankings(
@@ -112,7 +108,7 @@ def get_power_rankings_snapshot(
             current_week=current_week,
             include_defense=include_defense,
         )
-        cache.set(cache_key, snapshot, timeout=300)
+        cache.set(cache_key, snapshot, timeout=60 * 30)
     return snapshot, schedule_sync_needed
 
 
@@ -243,7 +239,7 @@ def _build_historical_lineups(league, roster, week, starting_positions):
             player_id__in=players_by_id,
             season=league.season,
             week=week,
-            model_version="v1",
+            model_version="v2_stat",
         )
     }
 
@@ -292,8 +288,10 @@ def _build_historical_lineups(league, roster, week, starting_positions):
         if player is None and team is not None:
             defense_projection = DefenseProjection.objects.filter(
                 team=team, season=league.season, week=week,
-                model_version="v1",
+                model_version="v2_stat",
             ).first()
+            if defense_projection:
+                defense_projection = league_defense_projection(defense_projection, league)
         item = {
             "player": player,
             "roster_player": SimpleNamespace(id=index + 1, roster_slot="BN"),
@@ -447,7 +445,7 @@ def start_sit(request):
         player_id__in=player_ids,
         season=league.season,
         week=week,
-        model_version="v1",
+        model_version="v2_stat",
     )
 
     context_for_week = projection_context(league.season, week)
@@ -455,7 +453,6 @@ def start_sit(request):
         projection.player_id: league_projection(projection, league, context=context_for_week)
         for projection in projections
     }
-
     projections_available = bool(projection_map)
     projections_required = not projections_available
 
@@ -508,7 +505,7 @@ def start_sit(request):
     players = []
 
     defense_projection_map = {
-        projection.team_id: projection
+        projection.team_id: league_defense_projection(projection, league)
         for projection in DefenseProjection.objects.filter(
             team_id__in=[
                 roster_player.team_id
@@ -518,7 +515,7 @@ def start_sit(request):
             ],
             season=league.season,
             week=week,
-            model_version="v1",
+            model_version="v2_stat",
         )
     }
 

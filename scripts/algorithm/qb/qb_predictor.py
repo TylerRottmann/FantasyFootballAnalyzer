@@ -3,6 +3,8 @@ import numpy as np
 from scripts.algorithm.features.qb_features import build_qb_features
 from scripts.algorithm.qb.feature_names import QB_FEATURE_NAMES
 from scripts.algorithm.qb.qb_model import load_model, predict
+from scripts.algorithm.qb.qb_model import TARGETS
+from leagues.services.scoring import REFERENCE_SKILL_SCORING, score_stat_line
 
 
 def build_model_row(features):
@@ -27,8 +29,7 @@ def build_model_row(features):
 
 def predict_qb(player, season, week):
     """
-    Generate a QB fantasy projection using the trained
-    machine-learning model.
+    Generate a QB projected stat line and a reference fantasy score.
     """
 
     # --------------------------------------------------------
@@ -74,9 +75,14 @@ def predict_qb(player, season, week):
     # MAKE PREDICTION
     # --------------------------------------------------------
 
-    projected_fantasy_points = float(
-        predict(model, X)[0]
-    )
+    stat_values = predict(model, X)[0]
+    projected_stats = {name: float(value) for name, value in zip(TARGETS, stat_values)}
+    uncertainty = model.predict_uncertainty(X)
+    if uncertainty is not None:
+        projected_stats["_uncertainty"] = {
+            name: float(value) for name, value in zip(TARGETS, uncertainty[0])
+        }
+    projected_fantasy_points = score_stat_line(projected_stats, REFERENCE_SKILL_SCORING, "QB")
 
     return {
         "player_id": player.id,
@@ -90,6 +96,7 @@ def predict_qb(player, season, week):
         ),
 
         "status": "ml_model",
+        "projected_stats": projected_stats,
 
         "features": features,
     }

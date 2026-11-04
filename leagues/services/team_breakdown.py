@@ -1,5 +1,5 @@
 from collections import defaultdict
-from leagues.services.kicker_scoring import league_projection
+from leagues.services.kicker_scoring import league_projection, league_defense_projection
 
 from analyzer.models import Teams
 from leagues.models import (
@@ -33,17 +33,17 @@ def build_team_breakdown(
         season=league.season,
         week__gte=current_week,
         week__lte=REGULAR_SEASON_WEEKS,
-        model_version="v1",
+        model_version="v2_stat",
     ).select_related("player"))
     defense_projections = list(DefenseProjection.objects.filter(
         team_id__in=defense_team_ids,
         season=league.season,
         week__gte=current_week,
         week__lte=REGULAR_SEASON_WEEKS,
-        model_version="v1",
+        model_version="v2_stat",
     ).select_related("team"))
     projection_map = {(row.player_id, row.week): league_projection(row, league) for row in projections}
-    defense_map = {(row.team_id, row.week): row for row in defense_projections}
+    defense_map = {(row.team_id, row.week): league_defense_projection(row, league) for row in defense_projections}
     available_weeks = sorted({row.week for row in projections + defense_projections})
     starting_positions = [
         "DEF" if str(position).upper() == "D/ST" else str(position).upper()

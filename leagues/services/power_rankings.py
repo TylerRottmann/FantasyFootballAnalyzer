@@ -1,5 +1,5 @@
 from collections import defaultdict
-from leagues.services.kicker_scoring import league_projection
+from leagues.services.kicker_scoring import league_projection, league_defense_projection
 from leagues.services.player_availability import projection_context
 
 from django.db.models import Prefetch
@@ -142,7 +142,7 @@ def get_saved_power_rankings(league, user, current_week, include_defense=True):
             season=league.season,
             week__gte=current_week,
             week__lte=REGULAR_SEASON_WEEKS,
-            model_version="v1",
+            model_version="v2_stat",
         ).select_related("player")
     )
     defense_projections = list(
@@ -151,7 +151,7 @@ def get_saved_power_rankings(league, user, current_week, include_defense=True):
             season=league.season,
             week__gte=current_week,
             week__lte=REGULAR_SEASON_WEEKS,
-            model_version="v1",
+            model_version="v2_stat",
         ).select_related("team")
     )
     available_weeks = sorted({row.week for row in projections + defense_projections})
@@ -160,7 +160,7 @@ def get_saved_power_rankings(league, user, current_week, include_defense=True):
 
     context_for_week = projection_context(league.season, current_week)
     projection_map = {(row.player_id, row.week): league_projection(row, league, context=context_for_week) for row in projections}
-    defense_map = {(row.team_id, row.week): row for row in defense_projections}
+    defense_map = {(row.team_id, row.week): league_defense_projection(row, league) for row in defense_projections}
     starting_positions = [
         "DEF" if str(position).upper() == "D/ST" else str(position).upper()
         for position in (league.roster_positions or [])

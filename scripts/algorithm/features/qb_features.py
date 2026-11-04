@@ -166,22 +166,27 @@ def get_qb_history(player_id, season, week):
 
     query = """
         SELECT
-            week,
-            completions,
-            attempts,
-            passing_yards,
-            passing_tds,
-            passing_interceptions,
-            carries,
-            rushing_yards,
-            rushing_tds,
-            fantasy_points_ppr
-        FROM player_weekly_stats
-        WHERE player_id = %s
-          AND season = %s
-          AND season_type = 'REG'
-          AND week < %s
-        ORDER BY week
+            p.week,
+            p.completions,
+            p.attempts,
+            p.passing_yards,
+            p.passing_tds,
+            p.passing_interceptions,
+            p.carries,
+            p.rushing_yards,
+            p.rushing_tds,
+            p.fantasy_points_ppr,
+            o.qb_dropbacks,
+            o.pressured_dropbacks,
+            o.qb_scrambles
+        FROM player_weekly_stats p
+        LEFT JOIN player_weekly_opportunity_stats o
+          ON o.player_id = p.player_id AND o.season = p.season AND o.week = p.week
+        WHERE p.player_id = %s
+          AND p.season = %s
+          AND p.season_type = 'REG'
+          AND p.week < %s
+        ORDER BY p.week
     """
 
     conn = get_connection()
@@ -395,18 +400,24 @@ def get_team_games(team_id, season, week):
 
     query = """
         SELECT
-            week,
-            is_home,
-            points_for,
-            passing_yards,
-            rushing_yards,
-            total_yards
-        FROM team_weekly_stats
-        WHERE team_id = %s
-          AND season = %s
-          AND season_type = 1
-          AND week < %s
-        ORDER BY week
+            t.week,
+            t.is_home,
+            t.points_for,
+            t.passing_yards,
+            t.rushing_yards,
+            t.total_yards,
+            o.offensive_plays,
+            o.offensive_dropbacks,
+            o.red_zone_trips
+        FROM team_weekly_stats t
+        JOIN teams opponent ON opponent.id = t.opponent_team_id
+        LEFT JOIN team_weekly_opportunity_stats o
+          ON o.team_id = t.team_id AND o.season = t.season AND o.week = t.week
+        WHERE t.team_id = %s
+          AND t.season = %s
+          AND t.season_type = 1
+          AND t.week < %s
+        ORDER BY t.week
     """
 
     conn = get_connection()
@@ -442,13 +453,19 @@ def get_opponent_defense(opponent_team_id, season, week):
             total_yards_against,
             rushing_yards_against,
             sacks,
-            interceptions
-        FROM team_weekly_stats
-        WHERE team_id = %s
-          AND season = %s
-          AND season_type = 1
-          AND week < %s
-        ORDER BY week
+            interceptions,
+            COALESCE(defense.interceptions, 0) + COALESCE(defense.fumble_recoveries, 0) AS turnovers_forced,
+            offense.offensive_plays,
+            offense.offensive_dropbacks
+        FROM team_weekly_stats defense
+        LEFT JOIN team_weekly_opportunity_stats offense
+          ON offense.team_id = defense.opponent_team_id
+         AND offense.season = defense.season AND offense.week = defense.week
+        WHERE defense.team_id = %s
+          AND defense.season = %s
+          AND defense.season_type = 1
+          AND defense.week < %s
+        ORDER BY defense.week
     """
 
     conn = get_connection()
@@ -648,6 +665,14 @@ def build_qb_features(player, season, week):
             [game[8] for game in games]
         )
 
+        features[f"qb_dropbacks_{name}"] = average([game[10] for game in games])
+        features[f"qb_hit_rate_{name}"] = safe_rate(
+            [game[11] for game in games], [game[10] for game in games]
+        )
+        features[f"scramble_rate_{name}"] = safe_rate(
+            [game[12] for game in games], [game[10] for game in games]
+        )
+
         # ----------------------------------------------------
         # PASSING EFFICIENCY
         # ----------------------------------------------------
@@ -774,6 +799,19 @@ def build_qb_features(player, season, week):
             [game[5] for game in games]
         )
 
+        features[f"team_offensive_plays_{name}"] = average([game[6] for game in games])
+        features[f"team_offensive_dropbacks_{name}"] = average([game[7] for game in games])
+        features[f"team_red_zone_trips_{name}"] = average([game[8] for game in games])
+        features[f"team_pass_yards_per_dropback_{name}"] = safe_rate(
+            [game[3] for game in games], [game[7] for game in games]
+        )
+        features[f"team_rush_yards_per_play_{name}"] = safe_rate(
+            [game[4] for game in games], [
+                (game[6] - game[7]) if game[6] is not None and game[7] is not None else None
+                for game in games
+            ]
+        )
+
     # --------------------------------------------------------
     # TEAM TRENDS
     # --------------------------------------------------------
@@ -826,6 +864,19 @@ def build_qb_features(player, season, week):
     features["opponent_interceptions_l3"] = average(
         [game[6] for game in recent_opponent_games]
     )
+    features["opponent_turnovers_forced_l3"] = average([game[7] for game in recent_opponent_games])
+    features["opponent_sack_rate_l3"] = safe_rate(
+        [game[5] for game in recent_opponent_games], [game[9] for game in recent_opponent_games]
+    )
+    features["opponent_pass_yards_allowed_per_dropback_l3"] = safe_rate(
+        [game[1] for game in recent_opponent_games], [game[9] for game in recent_opponent_games]
+    )
+    features["opponent_rush_yards_allowed_per_play_l3"] = safe_rate(
+        [game[4] for game in recent_opponent_games], [
+            (game[8] - game[9]) if game[8] is not None and game[9] is not None else None
+            for game in recent_opponent_games
+        ]
+    )
 
     # ========================================================
     # 11. GAME ENVIRONMENT
@@ -846,4 +897,6 @@ def build_qb_features(player, season, week):
     # 12. RETURN FEATURES
     # ========================================================
 
+    from scripts.algorithm.features.player_priors import build_player_prior_features
+    features.update(build_player_prior_features(player, season, current_team_id=team_id))
     return features

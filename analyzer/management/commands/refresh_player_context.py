@@ -33,6 +33,47 @@ class Command(BaseCommand):
         players = {str(p.sleeper_id): p for p in Players.objects.filter(position__in=['QB','RB','WR','TE','K'])}
         team_ids = {t.abbreviation: t.pk for t in Teams.objects.all()}
         now = timezone.now()
+        injury_types = {}
+        ids = None
+        snap_rows = []
+        stat_rows = []
+        if not options['injuries_only']:
+            import nflreadpy as nfl
+            try:
+                # Injury type enriches the duration estimate when the official
+                # weekly report has a matching player ID. Sleeper remains the
+                # source of the current roster/game designation.
+                ids = nfl.load_ff_playerids()
+                if not {'gsis_id', 'sleeper_id'}.issubset(ids.columns):
+                    raise ValueError('GSIS/Sleeper player ID mapping unavailable.')
+                weekly_injuries = nfl.load_injuries(seasons=season)
+                injury_fields = {
+                    'season', 'season_type', 'week', 'gsis_id', 'report_primary_injury',
+                }
+                if not injury_fields.issubset(weekly_injuries.columns):
+                    raise ValueError('nflverse injury report schema changed.')
+                sleeper_by_gsis = {
+                    str(row['gsis_id']): str(row['sleeper_id'])
+                    for row in ids.select(['gsis_id', 'sleeper_id']).to_dicts()
+                    if row['gsis_id'] and str(row['sleeper_id']) in players
+                }
+                for row in weekly_injuries.filter(
+                    (weekly_injuries['season'] == season)
+                    & (weekly_injuries['season_type'] == 'REG')
+                    & (weekly_injuries['week'] == week)
+                ).iter_rows(named=True):
+                    sleeper_id = sleeper_by_gsis.get(str(row['gsis_id']))
+                    injury_type = row.get('report_primary_injury')
+                    if sleeper_id and injury_type:
+                        injury_types[sleeper_id] = str(injury_type)
+            except Exception as exc:
+                self.stderr.write(
+                    self.style.WARNING(
+                        f'Injury type enrichment unavailable; duration estimates '
+                        f'will fall back to position profiles: {exc}'
+                    )
+                )
+
         injury_rows = []
         for sleeper_id, player in players.items():
             row = source.get(sleeper_id)
@@ -45,16 +86,15 @@ class Command(BaseCommand):
             team = 'LAR' if team == 'LA' else team
             injury_rows.append((player, {
                 'injury_status': row['injury_status'] or '', 'roster_status': row['status'] or '',
+                'injury_type': injury_types.get(sleeper_id, ''),
                 'depth_order': order, 'team_id': team_ids.get(team),
                 'position': row.get('position') or '', 'source': 'sleeper', 'observed_at': now,
             }))
-        snap_rows = []
-        stat_rows = []
         if not options['injuries_only']:
-            import nflreadpy as nfl
             try:
                 data = nfl.load_snap_counts(seasons=season)
-                ids = nfl.load_ff_playerids()
+                if ids is None:
+                    ids = nfl.load_ff_playerids()
                 required = {'season', 'week', 'game_type', 'pfr_player_id', 'team', 'offense_snaps', 'offense_pct'}
                 if not required.issubset(data.columns) or not {'pfr_id', 'sleeper_id'}.issubset(ids.columns):
                     raise ValueError('Snap count or player ID schema changed.')
@@ -83,8 +123,9 @@ class Command(BaseCommand):
                         'offense_share': share, 'offense_snaps': int(snaps), 'source': 'nflverse_pfr'}))
                 weekly = nfl.load_player_stats(seasons=season)
                 stat_fields = ['completions','attempts','passing_yards','passing_tds','passing_interceptions',
-                    'carries','rushing_yards','rushing_tds','targets','receptions','receiving_yards',
-                    'receiving_tds','fantasy_points','fantasy_points_ppr']
+                    'passing_2pt_conversions','carries','rushing_yards','rushing_tds','rushing_2pt_conversions',
+                    'targets','receptions','receiving_yards','receiving_tds','receiving_2pt_conversions',
+                    'fantasy_points','fantasy_points_ppr']
                 if not {'player_id','week','season','season_type','opponent_team',*stat_fields}.issubset(weekly.columns):
                     raise ValueError('Weekly workload schema changed.')
                 if 'gsis_id' not in ids.columns:
@@ -115,7 +156,7 @@ class Command(BaseCommand):
                 for player, defaults in injury_rows]
             PlayerInjuryReport.objects.bulk_create(reports, batch_size=250, update_conflicts=True,
                 unique_fields=['player', 'season', 'week'],
-                update_fields=['injury_status','roster_status','depth_order','team_id','position','source','observed_at'])
+                update_fields=['injury_status','injury_type','roster_status','depth_order','team_id','position','source','observed_at'])
             updated_players = []
             for player, defaults in injury_rows:
                 player.injury_status = defaults['injury_status'] or None
@@ -133,6 +174,7 @@ class Command(BaseCommand):
                     unique_fields=['player','season','week','season_type'],
                     update_fields=[*stat_fields,'nflverse_player_id','opponent_team','game_id','fumbles','fumbles_lost','updated_at'])
         cache.delete(f'player-reports:{season}:{week}')
+        cache.delete(f'absence-start-weeks:{season}:{week}')
         cache.delete(f'player-values:{season}:{week}')
         cache.delete(f'injury-absences:{season}')
         cache.set('fantasy:nfl:current-week', week, timeout=300)

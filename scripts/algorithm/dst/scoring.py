@@ -15,6 +15,8 @@ SACK = 1.0
 INTERCEPTION = 2.0
 FUMBLE_RECOVERY = 2.0
 SAFETY = 2.0
+FORCED_FUMBLE = 1.0
+FUMBLE_RECOVERY_TD = 6.0
 TOUCHDOWN = 6.0  # defensive + special teams TDs
 
 
@@ -41,6 +43,8 @@ def dst_fantasy_points(
     sacks=0,
     interceptions=0,
     fumble_recoveries=0,
+    forced_fumbles=0,
+    fumble_recovery_tds=0,
     safeties=0,
     touchdowns=0,
     points_allowed=None,
@@ -52,6 +56,8 @@ def dst_fantasy_points(
         n(sacks) * SACK
         + n(interceptions) * INTERCEPTION
         + n(fumble_recoveries) * FUMBLE_RECOVERY
+        + n(forced_fumbles) * FORCED_FUMBLE
+        + n(fumble_recovery_tds) * FUMBLE_RECOVERY_TD
         + n(safeties) * SAFETY
         + n(touchdowns) * TOUCHDOWN
         + points_allowed_score(points_allowed)

@@ -1,22 +1,22 @@
 # SCRUM-23: Running Back Projection Algorithm
 
-The RB predictor now returns weekly PPR projections through the existing `predict_player` entry point. The final `rb_model.pkl` was trained on 3,150 eligible games from 2023, 2024, and 2025 for the 2026 projection season. This follows the QB/WR gradient-boosting model configuration and position predictor response format.
+The RB predictor returns projected rushing and receiving stat components through `predict_player`. It scores these stats with a reference scoring profile for the saved universal projection; league pages rescore the same stat line using the connected league settings. The stat model is saved as `rb_stat_model.pkl` and must be retrained before use.
 
 ## Implementation
 
 - `feature_names.py` defines one ordered list of 153 numeric features for training and inference.
 - `../features/rb_features.py` reads player production, team totals, historical matchups, and schedules. It builds rolling windows over the last 1, 3, 5, and 8 recorded games and the current season.
-- `rb_model.py` creates, trains, saves, and loads the model. The artifact records its feature order, training seasons, and PPR scoring. Loading rejects a changed feature order.
+- `rb_model.py` creates, trains, saves, and loads independent component regressors. The artifact checks its target order.
 - `rb_predictor.py` builds model inputs and returns the existing player, position, season, week, projection, status, and feature fields.
 - `train_rb_model.py` selects the three completed seasons before `--projection-season`, evaluates the most recent season using a separate model trained on the preceding two, then trains the saved model on all three seasons. Training requires usable data from each season and rejects entirely empty features.
 - `backtest_rb_model.py` compares the saved model with the last-three-game average on a season after its training window. It rejects attempts to present training seasons as held-out results.
-- `../predictor.py` adds the RB import and routing entry. QB, WR, and the TE placeholder retain their existing behavior.
+- `../predictor.py` routes all supported skill positions to their component-stat predictors.
 - `../backtest.py` adds optional position and season filters and labels saved-model replay results. Existing default positions and seasons are preserved.
 - `../../tests/test_rb_algorithm.py` covers leakage boundaries, feature order, null handling, workload calculations, matchup recovery, byes, response statuses, routing, model serialization, and evaluation boundaries.
 
 ## Verified source mappings
 
-RBs are identified using `players.position = 'RB'`. Rushing production uses `player_weekly_stats.carries`, `rushing_yards`, and `rushing_tds`. Receiving production uses `targets`, `receptions`, `receiving_yards`, and `receiving_tds`. The target is `fantasy_points_ppr`; lost fumbles use `fumbles_lost`. Each of these columns was populated in the inspected RB data.
+RBs are identified using `players.position = 'RB'`. Rushing production uses `player_weekly_stats.carries`, `rushing_yards`, and `rushing_tds`. Receiving production uses `targets`, `receptions`, `receiving_yards`, and `receiving_tds`. Targets are carries, rushing yards and touchdowns, targets, receptions, receiving yards and touchdowns, and lost fumbles. Each of these columns was populated in the inspected RB data.
 
 Touches are carries plus receptions. Opportunities are carries plus targets. Carry share and target share divide player workload by the corresponding sums for all mapped players facing the same opponent in that week and season. This matches the WR target-share mapping, including its limitation: players absent from the imported weekly table can make team totals incomplete. Rate calculations retain paired numerator and denominator observations; zero denominators remain missing.
 

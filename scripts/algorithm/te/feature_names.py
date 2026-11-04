@@ -184,3 +184,25 @@ TARGET_SHARE_FEATURE_NAMES = [
 
 # The full feature list, in the exact order the model is trained on.
 TE_FEATURE_NAMES = TE_BASE_FEATURE_NAMES + TARGET_SHARE_FEATURE_NAMES
+TE_OPPORTUNITY_FEATURE_NAMES = [
+    f"{stat}_{window}"
+    for window in ("l1", "l3", "l5", "l8", "season")
+    for stat in ("offense_snap_share", "receiving_air_yards", "average_target_depth", "air_yard_share", "targets_per_team_dropback", "red_zone_targets")
+]
+TE_OPPORTUNITY_FEATURE_NAMES += [
+    f"team_{stat}_{window}"
+    for window in ("l3", "l5", "l8", "season")
+    for stat in ("pass_yards_per_dropback", "rush_yards_per_play")
+] + [
+    "opponent_turnovers_forced_l3", "opponent_sack_rate_l3",
+    "opponent_pass_yards_allowed_per_dropback_l3",
+    "opponent_rush_yards_allowed_per_play_l3",
+]
+TE_FEATURE_NAMES += TE_OPPORTUNITY_FEATURE_NAMES
+TE_FEATURE_NAMES += [
+    "prior_season_games", "prior_season_ppr_points", "prior_season_targets",
+    "prior_season_carries", "prior_season_snap_share", "prior_season_is_player_history",
+    "team_changed_since_prior_season",
+    "position_prior_avg_ppr_points", "position_prior_avg_targets",
+    "position_prior_avg_carries", "position_prior_avg_snap_share",
+]
