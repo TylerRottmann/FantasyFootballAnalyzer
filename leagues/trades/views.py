@@ -18,7 +18,7 @@ from leagues.models import (
     FantasyRosterPlayer,
     UserLeagueConnection,
 )
-from leagues.services.kicker_scoring import league_projection
+from leagues.services.kicker_scoring import league_projection, league_defense_projection
 from scripts.commands.nflweek import get_current_nfl_week
 
 from .trade_generator import (
@@ -154,14 +154,14 @@ def trade_player_search(request):
         season=connection.league.season,
         week__gte=current_week,
         week__lte=14,
-        model_version="v1",
+        model_version="v2_stat",
     ).select_related("player"))
     defense_projections = list(DefenseProjection.objects.filter(
         team_id__in=defense_ids,
         season=connection.league.season,
         week__gte=current_week,
         week__lte=14,
-        model_version="v1",
+        model_version="v2_stat",
     ))
     player_points = {}
     for projection in player_projections:
@@ -172,9 +172,10 @@ def trade_player_search(request):
             )
     defense_points = {}
     for projection in defense_projections:
-        if projection.projected_fantasy_points is not None:
+        scored = league_defense_projection(projection, connection.league)
+        if scored.projected_fantasy_points is not None:
             defense_points[projection.team_id] = defense_points.get(projection.team_id, 0.0) + float(
-                projection.projected_fantasy_points
+                scored.projected_fantasy_points
             )
 
     results = []

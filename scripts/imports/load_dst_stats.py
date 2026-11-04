@@ -7,13 +7,15 @@
 #     python -m scripts.imports.load_dst_stats
 #
 # New team_weekly_stats columns:
-#     fumble_recoveries, defensive_tds, special_teams_tds, safeties,
+#     forced_fumbles, fumble_recoveries, defensive_tds, special_teams_tds,
+#     safeties,
 #     dst_fantasy_points
 #
 # NOTE: field names below come from nflreadpy.load_team_stats().
 # If a name differs in your installed version, the script prints the
 # available columns and stops so you can fix the mapping.
 
+import argparse
 import os
 
 import nflreadpy as nfl
@@ -24,7 +26,9 @@ from scripts.algorithm.dst.scoring import dst_fantasy_points
 
 load_dotenv()
 
-SEASONS = [2023, 2024, 2025]
+parser = argparse.ArgumentParser(description="Import weekly D/ST statistics.")
+parser.add_argument("--seasons", nargs="+", type=int, default=[2023, 2024, 2025])
+SEASONS = sorted(set(parser.parse_args().seasons))
 
 conn = psycopg.connect(
     host=os.getenv("DB_HOST"),
@@ -38,6 +42,7 @@ conn = psycopg.connect(
 REQUIRED = [
     "def_sacks",
     "def_interceptions",
+    "def_fumbles_forced",
     "fumble_recovery_opp",
     "def_tds",
     "def_safeties",
@@ -48,6 +53,7 @@ with conn.cursor() as cur:
     cur.execute("""
         ALTER TABLE team_weekly_stats
             ADD COLUMN IF NOT EXISTS fumble_recoveries numeric(10,2),
+            ADD COLUMN IF NOT EXISTS forced_fumbles numeric(10,2),
             ADD COLUMN IF NOT EXISTS defensive_tds numeric(10,2),
             ADD COLUMN IF NOT EXISTS special_teams_tds numeric(10,2),
             ADD COLUMN IF NOT EXISTS safeties numeric(10,2),
@@ -91,6 +97,9 @@ for row in team_stats.filter(team_stats["season_type"] == "REG").iter_rows(named
         sacks = row["def_sacks"] or 0
         ints = row["def_interceptions"] or 0
         fum_rec = row["fumble_recovery_opp"] or 0
+        forced_fumbles = row["def_fumbles_forced"] or 0
+        # Team-level def_tds already includes fumble-return touchdowns; the
+        # upstream team stats do not expose a separate recovery-TD split.
         safeties = row["def_safeties"] or 0
         def_tds = row["def_tds"] or 0
         st_tds = row["special_teams_tds"] or 0
@@ -99,6 +108,7 @@ for row in team_stats.filter(team_stats["season_type"] == "REG").iter_rows(named
             sacks=sacks,
             interceptions=ints,
             fumble_recoveries=fum_rec,
+            forced_fumbles=forced_fumbles,
             safeties=safeties,
             touchdowns=def_tds + st_tds,
             points_allowed=found[0],
@@ -107,6 +117,7 @@ for row in team_stats.filter(team_stats["season_type"] == "REG").iter_rows(named
         cur.execute("""
             UPDATE team_weekly_stats
             SET fumble_recoveries = %s,
+                forced_fumbles = %s,
                 defensive_tds = %s,
                 special_teams_tds = %s,
                 safeties = %s,
@@ -114,7 +125,7 @@ for row in team_stats.filter(team_stats["season_type"] == "REG").iter_rows(named
                 updated_at = NOW()
             WHERE team_id = %s AND season = %s
               AND week = %s AND season_type = 1
-        """, (fum_rec, def_tds, st_tds, safeties, points,
+        """, (fum_rec, forced_fumbles, def_tds, st_tds, safeties, points,
               team_id, row["season"], row["week"]))
         updated += 1
 

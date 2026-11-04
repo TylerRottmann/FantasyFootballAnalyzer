@@ -37,6 +37,11 @@ class KSeasonData:
         for games in self.players.values():
             games.sort(key=lambda g: g['week'])
         for game in team_games:
+            game = dict(game)
+            game['offensive_plays_minus_dropbacks'] = (
+                game['offensive_plays'] - game['offensive_dropbacks']
+                if game['offensive_plays'] is not None and game['offensive_dropbacks'] is not None else None
+            )
             self.team_games[game['team_id']].append(game)
             self.historical_matchups[(game['opponent_team_id'], game['week'])] = game
         for games in self.team_games.values():
@@ -59,10 +64,15 @@ class KSeasonData:
         with get_connection().cursor(row_factory=dict_row) as cur:
             cur.execute("SELECT id, abbreviation FROM teams")
             teams = cur.fetchall()
-            cur.execute("""SELECT team_id, opponent_team_id, week, is_home,
-                points_for, total_yards, kicking_points_for,
-                points_against, total_yards_against, kicking_points_against
-                FROM team_weekly_stats WHERE season=%s AND season_type=1 ORDER BY week""", (season,))
+            cur.execute("""SELECT t.team_id, t.opponent_team_id, t.week, t.is_home,
+                t.points_for, t.total_yards, t.kicking_points_for,
+                t.passing_yards, t.rushing_yards,
+                points_against, total_yards_against, kicking_points_against,
+                o.offensive_plays, o.offensive_dropbacks, o.red_zone_trips
+                FROM team_weekly_stats t
+                LEFT JOIN team_weekly_opportunity_stats o
+                  ON o.team_id=t.team_id AND o.season=t.season AND o.week=t.week
+                WHERE t.season=%s AND t.season_type=1 ORDER BY t.week""", (season,))
             team_games = cur.fetchall()
             cur.execute("""SELECT week, home_team_id, away_team_id FROM nfl_games
                 WHERE season=%s AND game_type='REG'""", (season,))
@@ -94,4 +104,13 @@ def build_k_features(player, season, week, data=None):
             games = history[-3:] if window == 'l3' else history
             for stat in stats:
                 features[f'{prefix}_{stat}_{window}'] = average([g[stat] for g in games])
+            if prefix == 'team':
+                features[f'team_points_per_play_{window}'] = paired_rate(games, 'points_for', 'offensive_plays')
+                features[f'team_pass_yards_per_dropback_{window}'] = paired_rate(games, 'passing_yards', 'offensive_dropbacks')
+                features[f'team_rush_yards_per_play_{window}'] = paired_rate(
+                    games, 'rushing_yards', 'offensive_plays_minus_dropbacks'
+                )
+                features[f'team_kicking_points_per_red_zone_trip_{window}'] = paired_rate(
+                    games, 'kicking_points_for', 'red_zone_trips'
+                )
     return features

@@ -217,5 +217,5 @@ def load_player_values(season, week):
             teammates = [r for r in current.values() if r.player_id != report.player_id and r.team_id == report.team_id and r.position == 'QB']
             dependency = quarterback_injury_dependency(report, teammates, histories, season_ending_ids, prior_starter_ids)
             results[report.player_id] = classify_quarterback_value(report, teammates, season_ending_ids, injury_dependency=dependency)
-    cache.set(key, results, 60)
+    cache.set(key, results, 300)
     return results

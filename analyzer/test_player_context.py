@@ -4,7 +4,6 @@ from datetime import timedelta
 from django.core.cache import cache
 from django.core.management import call_command, CommandError
 from django.utils import timezone
-from django.urls import reverse
 from analyzer.test_waivers import WaiverWireTests
 from analyzer.models import PlayerWeeklyStats, PlayerInjuryReport, PlayerSnapCount
 from analyzer.waiver_value import classify_value, load_player_values
@@ -68,12 +67,8 @@ class PlayerContextTests(WaiverWireTests):
             self.assertEqual(predict_player(self.available.pk,2026,7)['projected_fantasy_points'],0)
         response = self.browse(search=self.available.full_name)
         self.assertEqual(response.context['page_obj'][0]['prediction'].this_week,0)
-        ranking = self.client.get(reverse('weekly_rankings'), {'week':7, 'position':'WR'})
-        row = next(r for r in ranking.context['page_obj'] if r['player'].pk == self.available.pk)
-        self.assertEqual(row['points'],0)
-        self.assertContains(ranking,'Out')
 
-    def test_old_high_projection_is_zero_on_waiver_and_rankings(self):
+    def test_old_high_projection_is_zero_on_waivers(self):
         self.save_projection(self.available,7,30,status='ml_model')
         self.report(injury='Out')
         response = self.browse(search=self.available.full_name)

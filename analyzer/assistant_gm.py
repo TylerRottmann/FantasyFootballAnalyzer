@@ -18,7 +18,7 @@ POSITION_WORDS = {
     "defense": "DST", "defenses": "DST", "dst": "DST", "d/st": "DST",
 }
 SKILL_POSITIONS = ("QB", "RB", "WR", "TE")
-MODEL_VERSION = "v1"
+MODEL_VERSION = "v2_stat"
 
 
 def _find_players_in_question(question, limit=2):
@@ -528,7 +528,7 @@ def _top_projected(position, ctx, exclude_rostered=False, limit=5):
         ).values("player_id")
         qs = qs.exclude(player_id__in=rostered)
     rows = []
-    for projection in qs.order_by("-projected_fantasy_points")[:60]:
+    for projection in qs:
         if ctx.league is not None:
             projection = league_projection(projection, ctx.league)
         if _points(projection) is not None:
@@ -550,7 +550,7 @@ def _format_top(position, rows, ctx, title):
 def _my_roster_items(ctx):
     """Build the same item dicts the Start/Sit page feeds the lineup optimizer."""
     from leagues.models import DefenseProjection, FantasyProjection, FantasyRoster, UserLeagueConnection
-    from leagues.services.kicker_scoring import league_projection
+    from leagues.services.kicker_scoring import league_projection, league_defense_projection
 
     connection = UserLeagueConnection.objects.filter(user=ctx.user, league=ctx.league).first()
     if connection is None:
@@ -569,7 +569,7 @@ def _my_roster_items(ctx):
         )
     }
     defenses = {
-        p.team_id: p
+        p.team_id: league_defense_projection(p, ctx.league)
         for p in DefenseProjection.objects.filter(
             team_id__in=[rp.team_id for rp in roster_players if rp.player_id is None and rp.team_id],
             season=ctx.season, week=ctx.week, model_version=MODEL_VERSION,
@@ -688,7 +688,7 @@ def _lineup_warnings(current, ctx):
 
 def _items_for_roster(roster, ctx):
     from leagues.models import DefenseProjection, FantasyProjection
-    from leagues.services.kicker_scoring import league_projection
+    from leagues.services.kicker_scoring import league_projection, league_defense_projection
 
     rps = list(roster.roster_players.select_related("player", "team"))
     projections = {
@@ -698,7 +698,7 @@ def _items_for_roster(roster, ctx):
             season=ctx.season, week=ctx.week, model_version=MODEL_VERSION)
     }
     defenses = {
-        p.team_id: p for p in DefenseProjection.objects.filter(
+        p.team_id: league_defense_projection(p, ctx.league) for p in DefenseProjection.objects.filter(
             team_id__in=[rp.team_id for rp in rps if rp.player_id is None and rp.team_id],
             season=ctx.season, week=ctx.week, model_version=MODEL_VERSION)
     }
