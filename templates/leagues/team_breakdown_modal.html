@@ -127,7 +127,7 @@
                             <tr data-position-groups="{{ player.position_groups|join:',' }}" data-rest-points="{{ player.projected_points }}" data-starter-points="{{ player.starting_points }}" data-bench-points="{{ player.bench_points }}" data-starts="{{ player.starts }}">
                                 <th scope="row" class="team-breakdown-player-cell">
                                     {% if player.headshot_url %}<img class="team-breakdown-headshot" src="{{ player.headshot_url }}" alt="">{% else %}<span class="team-breakdown-headshot player-placeholder">{{ player.name|slice:":1" }}</span>{% endif %}
-                                    <span>{{ player.name }}</span>
+                                    <span>{% if player.player_id %}<a class="player-card-link" href="{% url 'player_card' player.player_id %}">{{ player.name }}</a>{% else %}{{ player.name }}{% endif %}</span>
                                     {% if player.team_logo_url %}<img class="team-breakdown-team-logo" src="{{ player.team_logo_url }}" alt="" loading="lazy">{% endif %}
                                 </th>
                                 <td>{{ player.position }}</td>

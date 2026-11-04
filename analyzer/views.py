@@ -62,10 +62,18 @@ def adp_rankings(request):
     if search:
         players = players.filter(full_name__icontains=search)
 
-    players = players.order_by("adp_rankings__adp", "full_name", "id")
-    teams = Teams.objects.filter(
-        players__position__in=fantasy_positions
-    ).distinct().order_by("name")
+    players = players.order_by(
+        "adp_rankings__adp",
+        "full_name",
+        "id",
+    )
+
+    teams = (
+        Teams.objects
+        .filter(players__position__in=fantasy_positions)
+        .distinct()
+        .order_by("name")
+    )
 
     context = {
         "players": players,
@@ -157,4 +165,6 @@ def assistant_gm_chat(request):
             {"error": "I couldn't analyze that question right now. Please try again."},
             status=500,
         )
-    return JsonResponse({"answer": response})
+    from .assistant_gm import _find_players_in_question
+    players = _find_players_in_question(response, limit=20)
+    return JsonResponse({"answer": response, "week": new_state.get('week'), "players": [{'id': p.pk, 'name': p.full_name} for p in players]})

@@ -185,6 +185,7 @@ def trade_player_search(request):
         name = player.full_name if player else (f"{team.name} D/ST" if team else "D/ST")
         results.append({
             "roster_player_id": entry.id,
+            "player_id": entry.player_id,
             "roster_id": entry.roster_id,
             "fantasy_team": entry.roster.owner_name or f"Team {entry.roster.sleeper_roster_id}",
             "name": name,
@@ -291,6 +292,7 @@ def _roster_filter_options(rosters):
             continue
         options.append({
             "id": entry.id,
+            "profile_id": entry.player_id,
             "name": name,
             "label": f"{name} ({position})",
             "team": entry.roster.owner_name or f"Team {entry.roster.sleeper_roster_id}",

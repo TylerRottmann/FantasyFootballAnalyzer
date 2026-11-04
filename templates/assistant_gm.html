@@ -52,10 +52,30 @@
   const messages = document.getElementById("gmMessages");
   const endpoint = "{% url 'assistant_gm_chat' %}";
 
-  function addMessage(text, role) {
+  function addMessage(text, role, players = [], week = null) {
     const el = document.createElement("div");
     el.className = "gm-message " + role;
-    el.textContent = text;
+    const known = new Map(players.map(player => [player.name.toLowerCase(), player]));
+    const names = players.map(player => player.name).sort((a, b) => b.length - a.length)
+      .map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    if (!names.length) el.textContent = text;
+    else {
+      const pattern = new RegExp(`(?<![a-z])(${names.join('|')})(?![a-z])`, 'gi');
+      let cursor = 0;
+      for (const match of text.matchAll(pattern)) {
+        el.append(document.createTextNode(text.slice(cursor, match.index)));
+        const player = known.get(match[0].toLowerCase());
+        const link = document.createElement('button');
+        link.type = 'button';
+        link.className = 'player-card-link';
+        link.dataset.playerCard = player.id;
+        if (week != null) link.dataset.playerWeek = week;
+        link.textContent = match[0];
+        el.append(link);
+        cursor = match.index + match[0].length;
+      }
+      el.append(document.createTextNode(text.slice(cursor)));
+    }
     messages.appendChild(el);
     messages.scrollTop = messages.scrollHeight;
   }
@@ -78,7 +98,7 @@
         credentials: "same-origin"
       });
       const data = await response.json();
-      addMessage(data.answer || data.error || "Sorry, something went wrong.", "bot");
+      addMessage(data.answer || data.error || "Sorry, something went wrong.", "bot", data.players || [], data.week);
     } catch (error) {
       addMessage("I couldn't reach the server. Please try again.", "bot");
     } finally {

@@ -3,8 +3,10 @@ from .views import SignUpView, adp_rankings, profile, assistant_gm_page, assista
 
 from .waivers import waiver_wire
 from .rankings import weekly_rankings
+from .player_cards import player_card
 
 urlpatterns = [
+    path('players/<int:player_id>/card/', player_card, name='player_card'),
     path("rankings/", weekly_rankings, name="weekly_rankings"),
     path("waivers/", waiver_wire, name="waiver_wire"),
     path("signup/", SignUpView.as_view(), name="signup"),

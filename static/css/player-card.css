@@ -1,0 +1,64 @@
+.player-card-link { color: inherit; font: inherit; font-weight: inherit; text-align: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: none; }
+.player-card-link:hover { color: var(--gold); text-decoration: underline; text-underline-offset: 3px; }
+.player-card-link:focus-visible, .pc-tabs button:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; border-radius: 3px; }
+.player-card-dialog { width: min(960px, calc(100vw - 32px)); max-height: 88dvh; margin: auto; padding: 0; border: 1px solid var(--border); border-radius: 16px; background: var(--bg-card); color: var(--text-primary); box-shadow: 0 24px 90px #0009; }
+.player-card-dialog::backdrop { background: #000b; backdrop-filter: blur(4px); }
+body.player-card-open { overflow: hidden; }
+.player-card-shell { position: relative; padding: 30px; }
+.player-card-close { position: absolute; right: 16px; top: 14px; width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 8px; color: var(--text-secondary); background: var(--bg-hover); cursor: pointer; font-size: 24px; line-height: 1; z-index: 2; }
+.player-card-close:hover { color: var(--gold); }
+.player-card-status { padding: 36px 12px; color: var(--text-secondary); }
+.pc-header { display: flex; gap: 20px; align-items: center; padding-right: 28px; margin-bottom: 24px; }
+.pc-heading { min-width: 0; }
+.pc-header-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 18px; flex: 0 0 300px; margin: 0 0 0 auto; }
+.pc-header-facts dt { font-size: 10px; color: var(--text-secondary); margin-bottom: 5px; }
+.pc-header-facts dd { font-size: 12px; margin: 0; line-height: 1.4; overflow-wrap: anywhere; }
+.pc-headshot { position: relative; width: 88px; height: 88px; flex: 0 0 88px; display: grid; place-items: center; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; font-size: 26px; color: var(--text-secondary); }
+.pc-headshot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.pc-profile [hidden] { display: none !important; }
+.pc-heading h2 { font-size: 28px; margin: 5px 0 10px; line-height: 1.2; }
+.pc-eyebrow { color: var(--text-secondary); font-size: 11px; margin: 0; text-transform: uppercase; letter-spacing: .08em; }
+.pc-player-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--text-secondary); }
+.pc-player-meta img { width: 24px; height: 24px; object-fit: contain; }
+.pc-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 22px; }
+.pc-metrics > div { padding: 17px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg-hover); }
+.pc-metrics span, .pc-metrics small { display: block; color: var(--text-secondary); font-size: 12px; }
+.pc-metrics strong { display: block; margin: 8px 0; color: var(--gold); font-size: 29px; font-variant-numeric: tabular-nums; }
+.pc-metrics strong .pc-muted { font-size: inherit; }
+.pc-tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--border); margin-bottom: 22px; overflow-x: auto; }
+.pc-tabs button { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--text-secondary); padding: 12px 15px; font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.pc-tabs button.is-active { color: var(--gold); border-bottom-color: var(--gold); }
+.pc-panel h3 { font-size: 15px; margin: 22px 0 12px; }
+.pc-summary { font-size: 15px; line-height: 1.8; color: var(--text-primary); }
+.pc-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.pc-chips > span { font-size: 12px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; color: var(--text-secondary); }
+.pc-chips .pc-value-long { color: #4ade80; background: #22c55e12; }
+.pc-chips .pc-value-short { color: #fbbf24; background: #f59e0b12; }
+.pc-chips .pc-value-fading { color: #ffb4ab; background: #ef444412; }
+.pc-recent { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 18px; margin-top: 20px; border: 1px solid var(--border); border-radius: 9px; }
+.pc-recent span { font-size: 12px; color: var(--text-secondary); }
+.pc-recent strong { display: block; margin-top: 8px; font-size: 20px; }
+.pc-recent strong small { font-size: 11px; font-weight: 400; color: var(--text-secondary); }
+.pc-table summary { cursor: pointer; }
+.pc-table-scroll { max-width: 100%; overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+.pc-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.pc-panel { min-width: 0; }
+.pc-weeks-table { width: max-content; min-width: 100%; }
+.pc-weeks-table th:first-child, .pc-weeks-table td:first-child { position: sticky; left: 0; background: var(--bg-card); z-index: 1; }
+.pc-weeks-table th:first-child { background: var(--bg-hover); }
+.pc-table th, .pc-table td { padding: 12px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+.pc-table th { color: var(--text-secondary); background: var(--bg-hover); font-weight: 600; font-size: 11px; }
+.pc-table tr:last-child td { border-bottom: 0; }
+.pc-points { color: var(--gold); font-weight: 700; }
+.pc-muted, .pc-empty { color: var(--text-secondary); }
+.pc-stat-list { display: grid; gap: 12px; font-size: 12px; min-width: 240px; grid-template-columns: 1fr 1fr; white-space: normal; }
+.pc-stat-list > div { padding: 12px; background: var(--bg-hover); border-radius: 7px; }
+.pc-stat-list dt { color: var(--text-secondary); font-size: 11px; }
+.pc-stat-list dd { margin: 8px 0 0; }
+.pc-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.pc-section-heading h3 { margin: 0; }
+.pc-section-heading label { font-size: 12px; color: var(--text-secondary); }
+.pc-section-heading select { background: var(--bg-hover); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; padding: 7px; margin-left: 8px; }
+.player-card-page { max-width: 960px; margin: auto; }
+@media (max-width: 760px) { .pc-header { flex-wrap: wrap; } .pc-header-facts { flex-basis: 100%; margin-left: 0; } }
+@media (max-width: 600px) { .player-card-shell { padding: 22px 16px; } .pc-metrics { grid-template-columns: 1fr 1fr; gap: 8px; } .pc-heading h2 { font-size: 23px; } .pc-headshot { width: 64px; height: 64px; flex-basis: 64px; } .pc-header { gap: 12px; } .pc-recent { gap: 8px; padding: 12px; } }
