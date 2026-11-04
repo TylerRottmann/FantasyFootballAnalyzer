@@ -858,6 +858,10 @@ def _route(q, user, league, detail=False):
     if players:
         if re.search(r"\b(recent|recently|performed|performance|lately|last|history)\b", lower):
             text = _player_summary(players[0]) + "\n\n" + _projection_summary(players[0], ctx, include_recent=False)
+        elif re.search(r"\b(overview|summary|upside|downside|value|role|consistent|consistency|inconsistent|outlook|boom|bust)\b", lower):
+            from .player_profiles import build_player_profile, profile_overview_text
+            profile = build_player_profile(players[0], ctx.league, ctx.week)
+            text = profile_overview_text(profile, include_estimates=bool(re.search(r'\b(boom|bust)\b', lower)))
         else:
             text = _projection_summary(players[0], ctx)
         return text, "player", players[:1], ctx

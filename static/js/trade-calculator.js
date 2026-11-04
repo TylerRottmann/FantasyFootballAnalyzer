@@ -33,7 +33,7 @@
         return `<${removable ? "div" : "div"} class="${removable ? "selected-trade-player" : "trade-search-result"}" ${removable ? "" : `role="button" tabindex="0" ${playerData} data-add-player="${escapeHtml(player.roster_player_id)}"`}>
             <div class="trade-player-avatar">${avatar}</div>
             <div class="trade-player-details">
-                <div class="trade-player-name">${escapeHtml(player.name)}</div>
+                <div class="trade-player-name">${player.player_id ? `<button type="button" class="player-card-link" data-player-card="${escapeHtml(player.player_id)}">${escapeHtml(player.name)}</button>` : escapeHtml(player.name)}</div>
                 <div class="trade-player-meta">${escapeHtml(position)} · ${logo}${escapeHtml(player.nfl_team || "FA")} · ${age}${removable ? "" : ` · ${escapeHtml(player.fantasy_team)}`}</div>
             </div>
             <div class="trade-player-points">
@@ -140,6 +140,7 @@
             results.replaceChildren();
         });
         results.addEventListener("keydown", (event) => {
+            if (event.target.closest('.player-card-link')) return;
             if (event.target.closest("[data-points-info]")) return;
             const resultCard = event.target.closest("[data-add-player]");
             if (resultCard && (event.key === "Enter" || event.key === " ")) {

@@ -455,6 +455,7 @@ def serialize_asset(asset, new_team_projected_starts=None):
     abbreviation = team.abbreviation if team else ""
     return {
         "roster_player_id": asset["roster_player"].id,
+        "player_id": player.pk if player else None,
         "name": asset["label"],
         "position": asset["position"],
         "age": round(float(asset["age"]), 1) if asset["age"] is not None else None,

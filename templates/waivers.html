@@ -2,7 +2,7 @@
 {% load player_health %}
 {% load static %}
 {% block title %}Waiver Wire | Fantasy Football Analyzer{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'css/waivers.css' %}?v=20261028-13">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/waivers.css' %}?v=20261104-2">{% endblock %}
 {% block content %}
 <section class="waiver-page">
     <header class="waiver-header">
@@ -84,7 +84,7 @@
                                 <img src="{{ row.player.headshot_url }}" alt="" width="52" height="52" loading="lazy" onerror="this.hidden=true;this.previousElementSibling.hidden=false">
                                 {% endif %}
                             </div>
-                            <span class="waiver-player-name">{{ row.player.full_name }} {% injury_badge row.player %}</span>
+                            <span class="waiver-player-name"><a class="player-card-link" href="{% url 'player_card' row.player.id %}?week={{ projection_week }}">{{ row.player.full_name }}</a> {% injury_badge row.player %}</span>
                         </div>
                     </td>
                     <td><span class="waiver-position waiver-position-{{ row.player.position|lower }}">{{ row.player.position }}</span></td>
@@ -126,7 +126,7 @@
                     <span {% if move.pickup.player.headshot_url %}hidden{% endif %}>{{ move.pickup.player.first_name|default:""|first }}{{ move.pickup.player.last_name|default:""|first }}</span>
                     {% if move.pickup.player.headshot_url %}<img src="{{ move.pickup.player.headshot_url }}" alt="" width="52" height="52" loading="lazy" onerror="this.hidden=true;this.previousElementSibling.hidden=false">{% endif %}
                 </div>
-                <div><strong>{{ move.pickup.player.full_name }}</strong>
+                <div><strong><a class="player-card-link" href="{% url 'player_card' move.pickup.player.id %}?week={{ projection_week }}">{{ move.pickup.player.full_name }}</a></strong>
                     <span class="waiver-move-meta">{{ move.pickup.player.position }} · {{ move.pickup.player.team.abbreviation|default:"—" }} {% injury_badge move.pickup.player %}</span>
                 </div>
                 <div class="waiver-move-points">
@@ -141,7 +141,7 @@
                         <span {% if move.drop.player.headshot_url %}hidden{% endif %}>{{ move.drop.player.first_name|default:""|first }}{{ move.drop.player.last_name|default:""|first }}</span>
                         {% if move.drop.player.headshot_url %}<img src="{{ move.drop.player.headshot_url }}" alt="" width="52" height="52" loading="lazy" onerror="this.hidden=true;this.previousElementSibling.hidden=false">{% endif %}
                     </div>
-                    <div><strong>{{ move.drop.player.full_name }}</strong>
+                    <div><strong><a class="player-card-link" href="{% url 'player_card' move.drop.player.id %}?week={{ projection_week }}">{{ move.drop.player.full_name }}</a></strong>
                         <span class="waiver-move-meta">{{ move.drop.player.position }} · {{ move.drop.player.team.abbreviation|default:"—" }}</span>
                     </div>
                     <div class="waiver-move-points">
