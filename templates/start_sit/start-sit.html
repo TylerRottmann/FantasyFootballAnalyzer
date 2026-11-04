@@ -288,7 +288,7 @@
 
                                                     {% if item.player %}
 
-                                                        {{ item.player.full_name }} {% injury_badge item.player %}
+                                                        <a class="player-card-link" href="{% url 'player_card' item.player.id %}?week={{ week }}">{{ item.player.full_name }}</a> {% injury_badge item.player %}
 
                                                     {% elif item.team %}
 
@@ -554,7 +554,7 @@
 
                                             {% if item.player %}
 
-                                                {{ item.player.full_name }} {% injury_badge item.player %}
+                                                <a class="player-card-link" href="{% url 'player_card' item.player.id %}?week={{ week }}">{{ item.player.full_name }}</a> {% injury_badge item.player %}
 
                                             {% elif item.team %}
 
@@ -841,7 +841,7 @@
 
                                                     {% if item.player %}
 
-                                                        {{ item.player.full_name }} {% injury_badge item.player %}
+                                                        <a class="player-card-link" href="{% url 'player_card' item.player.id %}?week={{ week }}">{{ item.player.full_name }}</a> {% injury_badge item.player %}
 
                                                     {% elif item.team %}
 
@@ -1107,7 +1107,7 @@
 
                                             {% if item.player %}
 
-                                                {{ item.player.full_name }} {% injury_badge item.player %}
+                                                <a class="player-card-link" href="{% url 'player_card' item.player.id %}?week={{ week }}">{{ item.player.full_name }}</a> {% injury_badge item.player %}
 
                                             {% elif item.team %}
 

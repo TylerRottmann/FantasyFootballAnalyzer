@@ -37,7 +37,7 @@
 .waiver-header p, .waiver-meta { color: var(--text-secondary); line-height: 1.5; }
 .waiver-notice { padding: 18px; margin-bottom: 24px; background: var(--bg-card); border: 1px solid var(--gold-dark); border-radius: 10px; }
 .waiver-notice p { margin-bottom: 0; line-height: 1.5; }
-.waiver-page a { color: var(--gold); }
+.waiver-page a:not(.player-card-link) { color: var(--gold); }
 .waiver-filters { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; align-items: end; padding: 20px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; }
 .waiver-field { display: flex; flex-direction: column; gap: 6px; flex: 1 1 160px; min-width: 0; }
 .waiver-field label { color: var(--text-secondary); font-size: 14px; }

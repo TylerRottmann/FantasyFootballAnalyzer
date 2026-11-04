@@ -106,7 +106,7 @@
 
                             <div class="adp-player-info">
                                 <span class="adp-player-name">
-                                    {{ player.full_name }}
+                                    <a class="player-card-link" href="{% url 'player_card' player.id %}">{{ player.full_name }}</a>
                                 </span>
 
                                 {% injury_badge player %}

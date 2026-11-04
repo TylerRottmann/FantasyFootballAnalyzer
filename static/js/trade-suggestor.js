@@ -174,7 +174,7 @@
         return `<div class="trade-player-card">
             <div class="trade-player-avatar">${avatar}</div>
             <div class="trade-player-details">
-                <div class="trade-player-name">${escapeHtml(player.name)}</div>
+                <div class="trade-player-name">${player.player_id ? `<button type="button" class="player-card-link" data-player-card="${escapeHtml(player.player_id)}">${escapeHtml(player.name)}</button>` : escapeHtml(player.name)}</div>
                 <div class="trade-player-meta">${escapeHtml(position)} · ${logo}${escapeHtml(player.nfl_team || "FA")} · ${age} · ${bye}</div>
                 <div class="trade-player-meta">Fantasy team: ${escapeHtml(player.fantasy_team)}</div>
             </div>
