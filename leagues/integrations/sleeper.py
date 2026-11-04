@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.db import transaction
 
 from analyzer.models import Teams
+from leagues.services.external_cache import cache_sleeper_playoff_info
 from leagues.models import (
     FantasyLeague,
     FantasyRoster,
@@ -349,6 +350,9 @@ class SleeperLeagueService:
                 "updated_at": now,
             },
         )
+        # The league payload already contains playoff settings; cache them
+        # during connection so Power Rankings can highlight cutoffs immediately.
+        cache_sleeper_playoff_info(league, league_data)
 
         # Create any missing player records in bulk. This substantially reduces
         # database round trips compared with get_or_create for every player.

@@ -20,6 +20,10 @@ from .integrations.yahoo import YahooLeagueService
 from leagues.services.kicker_scoring import league_projection
 from leagues.services.player_availability import projection_context
 from leagues.services.schedule import confirmed_bye_team_ids
+from leagues.services.external_cache import (
+    cache_sleeper_playoff_info,
+    sleeper_playoff_cache_key,
+)
 from .models import (
     DefenseProjection,
     FantasyLeague,
@@ -54,7 +58,7 @@ def get_user_league_or_404(user, league_id):
 
 def get_sleeper_playoff_info(league):
     """Return cached playoff-team and first-round-bye counts from Sleeper."""
-    cache_key = f"sleeper_playoff_info:{league.sleeper_league_id}"
+    cache_key = sleeper_playoff_cache_key(league)
     missing = object()
     cached = cache.get(cache_key, missing)
     if cached is not missing:
@@ -65,21 +69,13 @@ def get_sleeper_playoff_info(league):
         service = SleeperLeagueService(league.sleeper_league_id)
         service.REQUEST_TIMEOUT = 3
         payload = service.get_league() or {}
-        settings_data = payload.get("settings") or {}
-        playoff_teams = int(settings_data.get("playoff_teams") or 0)
-        if playoff_teams > 0:
-            bracket_size = 1
-            while bracket_size < playoff_teams:
-                bracket_size *= 2
-            info = {
-                "playoff_teams": playoff_teams,
-                "first_round_byes": max(0, bracket_size - playoff_teams),
-            }
+        info = cache_sleeper_playoff_info(league, payload)
     except (OSError, ValueError, TypeError):
         # The rankings page remains usable if Sleeper metadata is unavailable.
         info = None
 
-    cache.set(cache_key, info, timeout=60 * 60 * 6)
+    if info is None:
+        cache.set(cache_key, None, timeout=60 * 60 * 6)
     return info
 
 
