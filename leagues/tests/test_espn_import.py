@@ -9,7 +9,11 @@ from leagues.integrations.espn import ESPNLeagueService
 
 class ESPNImportIdentityTests(unittest.TestCase):
     def test_repeat_import_reuses_existing_league_and_roster(self):
-        service = ESPNLeagueService("123456", 2026)
+        service = ESPNLeagueService(
+            "123456", 2026,
+            swid="{TEST-SWID}",
+            espn_s2="test-session",
+        )
 
         fixture = {
             "league": {
@@ -99,11 +103,28 @@ class ESPNImportIdentityTests(unittest.TestCase):
                 "123456:2026:1",
             )
 
+            connection_kwargs = (
+                connections.objects.update_or_create.call_args.kwargs
+            )
+            self.assertIs(connection_kwargs["user"], user)
+            self.assertIs(connection_kwargs["league"], league)
             self.assertEqual(
-                connections.objects.update_or_create.call_args.kwargs[
-                    "defaults"
-                ]["external_user_id"],
+                connection_kwargs["defaults"]["external_user_id"],
                 "123456:2026:1",
+            )
+
+            encrypted = connection_kwargs["defaults"][
+                "espn_credentials_encrypted"
+            ]
+            self.assertNotIn("TEST-SWID", encrypted)
+            self.assertNotIn("test-session", encrypted)
+
+            from leagues.integrations.espn_credentials import (
+                decrypt_espn_credentials,
+            )
+            self.assertEqual(
+                decrypt_espn_credentials(encrypted),
+                ("{TEST-SWID}", "test-session"),
             )
 
 
@@ -807,3 +828,40 @@ class ESPNScoringTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ESPNLineupSlotMappingTests(unittest.TestCase):
+    def setUp(self):
+        self.service = ESPNLeagueService("123456", 2026)
+
+    def test_standard_lineup_slots(self):
+        expected = {
+            0: "QB",
+            2: "RB",
+            4: "WR",
+            6: "TE",
+            16: "DEF",
+            17: "K",
+            20: "BN",
+            21: "IR",
+            23: "FLEX",
+        }
+
+        for slot_id, expected_slot in expected.items():
+            with self.subTest(slot_id=slot_id):
+                self.assertEqual(
+                    self.service._lineup_slot_name(slot_id),
+                    expected_slot,
+                )
+
+    def test_espn_op_slot_maps_to_super_flex(self):
+        self.assertEqual(
+            self.service._lineup_slot_name(7),
+            "SUPER_FLEX",
+        )
+
+    def test_unknown_slot_defaults_to_bench(self):
+        self.assertEqual(
+            self.service._lineup_slot_name(99),
+            "BN",
+        )

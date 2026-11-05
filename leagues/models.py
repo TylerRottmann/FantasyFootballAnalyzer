@@ -267,6 +267,12 @@ class UserLeagueConnection(models.Model):
         blank=True,
     )
 
+    espn_credentials_encrypted = models.TextField(
+        null=True,
+        blank=True,
+        editable=False,
+    )
+
     class Meta:
         constraints = [
             models.UniqueConstraint(

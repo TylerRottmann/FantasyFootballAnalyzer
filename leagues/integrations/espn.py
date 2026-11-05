@@ -4,6 +4,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from django.db import transaction
+from leagues.integrations.espn_credentials import encrypt_espn_credentials
 from django.utils import timezone
 
 from analyzer.models import Teams
@@ -204,6 +205,7 @@ class ESPNLeagueService:
             2: "RB",
             4: "WR",
             6: "TE",
+            7: "SUPER_FLEX",
             16: "DEF",
             17: "K",
             20: "BN",
@@ -651,15 +653,22 @@ class ESPNLeagueService:
                 my_roster_complete = True
 
         if own_roster is not None and my_roster_complete:
+            connection_defaults = {
+                "platform": self.PLATFORM,
+                "external_user_id": (
+                    f"{self.league_id}:{self.season}:{owned_team_id}"
+                ),
+            }
+
+            if self.swid and self.espn_s2:
+                connection_defaults["espn_credentials_encrypted"] = (
+                    encrypt_espn_credentials(self.swid, self.espn_s2)
+                )
+
             UserLeagueConnection.objects.update_or_create(
                 user=user,
                 league=league,
-                defaults={
-                    "platform": self.PLATFORM,
-                    "external_user_id": (
-                        f"{self.league_id}:{self.season}:{owned_team_id}"
-                    ),
-                },
+                defaults=connection_defaults,
             )
 
         return {

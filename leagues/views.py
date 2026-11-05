@@ -1172,7 +1172,26 @@ def resync_league(request):
                 raise ValueError("ESPN league identity was not found.")
 
             league_id, season = identity.external_id.rsplit(":", 1)
-            service = ESPNLeagueService(league_id, season)
+
+            espn_credentials = {}
+            if connection.espn_credentials_encrypted:
+                from leagues.integrations.espn_credentials import (
+                    decrypt_espn_credentials,
+                )
+
+                swid, espn_s2 = decrypt_espn_credentials(
+                    connection.espn_credentials_encrypted
+                )
+                espn_credentials = {
+                    "swid": swid,
+                    "espn_s2": espn_s2,
+                }
+
+            service = ESPNLeagueService(
+                league_id,
+                season,
+                **espn_credentials,
+            )
 
             try:
                 service.get_league()
@@ -1207,10 +1226,35 @@ def resync_league(request):
             f"with {platform_name}.",
         )
 
-    except Exception as exc:
+    except ValueError as exc:
+        safe_messages = (
+            "ESPN league identity was not found.",
+            "Saved ESPN credentials cannot be decrypted. Reconnect your ESPN league.",
+            "ESPN resync requires access to the league.",
+            "Your ESPN roster could not be fully resynced.",
+            "Resync is not supported for this platform.",
+        )
+        message = str(exc)
+        approved_messages = safe_messages + (
+            "ESPN resync requires access to the league. "
+            "For private leagues, reconnect using your ESPN "
+            "credentials on the Connect League page.",
+            "Your ESPN roster could not be fully resynced. "
+            "Existing roster data has been preserved where possible.",
+        )
+        if message in approved_messages:
+            messages.error(request, f"Unable to resync league: {message}")
+        else:
+            messages.error(
+                request,
+                "Unable to resync league. Please reconnect your league "
+                "and try again.",
+            )
+    except Exception:
         messages.error(
             request,
-            f"Unable to resync league: {exc}",
+            "Unable to resync league due to an unexpected error. "
+            "Please try again or reconnect your league.",
         )
 
     return redirect("start_sit")
