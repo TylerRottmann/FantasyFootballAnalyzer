@@ -118,8 +118,9 @@
                 <p class="input-help">
                     You can find your League ID on your fantasy platform.
                 </p>
+            </div>
 
-             <div class="form-group" id="season-group">
+            <div class="form-group" id="season-group">
 
                 <label for="season">
                      Season
@@ -140,24 +141,33 @@
 
             </div>
 
-            <div class="form-group" id="espn-team-group">
-
-                <label for="espn_team_id">
-                    ESPN Team ID
-                </label>
-
-                <input
-                    type="number"
-                    id="espn_team_id"
-                    name="espn_team_id"
-                    class="form-input"
-                    placeholder="Enter your ESPN team ID"
-                >
-
+            <div class="form-group" id="espn-auth-group">
+                <label for="espn_swid">ESPN SWID (private leagues only)</label>
+                <input type="password" id="espn_swid" name="espn_swid"
+                       class="form-input" autocomplete="off">
+                <label for="espn_s2">ESPN espn_s2 (private leagues only)</label>
+                <input type="password" id="espn_s2" name="espn_s2"
+                       class="form-input" autocomplete="off">
                 <p class="input-help">
-                    Required when connecting an ESPN league.
+                    Leave both blank for public leagues. Credentials are
+                    used to access your private ESPN league.
                 </p>
+            </div>
 
+            <div class="form-group" id="espn-team-group">
+                <label for="espn_team_id">Your ESPN Team</label>
+                <select id="espn_team_id" name="espn_team_id"
+                        class="form-input" disabled>
+                    <option value="">Find your teams first</option>
+                </select>
+                <input type="hidden" id="espn_connection_token"
+                       name="espn_connection_token">
+                <button type="button" id="espn-find-teams"
+                        class="connect-button">
+                    Find ESPN Teams
+                </button>
+                <p class="input-help" id="espn-lookup-status"
+                   role="status" aria-live="polite"></p>
             </div>
 
             <!-- OR -->
@@ -385,6 +395,87 @@
     const sleeperGroup = document.getElementById("sleeper-username-group");
     const seasonGroup = document.getElementById("season-group");
     const espnTeamGroup = document.getElementById("espn-team-group");
+    const espnAuthGroup = document.getElementById("espn-auth-group");
+    const espnTeamSelect = document.getElementById("espn_team_id");
+    const espnToken = document.getElementById("espn_connection_token");
+    const espnStatus = document.getElementById("espn-lookup-status");
+    const espnFindButton = document.getElementById("espn-find-teams");
+    const connectForm = espnFindButton.closest("form");
+    let espnLookupVersion = 0;
+
+    function resetEspnTeams() {
+        espnLookupVersion += 1;
+        espnTeamSelect.replaceChildren(new Option("Find your teams first", ""));
+        espnTeamSelect.disabled = true;
+        espnToken.value = "";
+        espnFindButton.disabled = false;
+        espnStatus.textContent = "";
+    }
+
+    espnFindButton.addEventListener("click", async function () {
+        resetEspnTeams();
+        const lookupVersion = espnLookupVersion;
+        espnFindButton.disabled = true;
+        espnStatus.textContent = "Loading ESPN teams...";
+
+        try {
+            const data = new FormData(connectForm);
+            const response = await fetch("{% url 'espn_team_lookup' %}", {
+                method: "POST",
+                body: data,
+                credentials: "same-origin"
+            });
+            const result = await response.json();
+
+            if (lookupVersion !== espnLookupVersion ||
+                platformSelect.value !== "espn") {
+                return;
+            }
+
+            if (!response.ok) {
+                throw new Error(result.error || "Unable to retrieve ESPN teams.");
+            }
+
+            espnTeamSelect.replaceChildren(new Option("Select your team", ""));
+            for (const team of result.teams) {
+                espnTeamSelect.add(new Option(team.name, team.id));
+            }
+            espnToken.value = result.connection_token;
+            espnTeamSelect.disabled = false;
+            espnStatus.textContent = "Select your team, then connect the league.";
+        } catch (error) {
+            if (lookupVersion === espnLookupVersion) {
+                espnStatus.textContent = error.message;
+            }
+        } finally {
+            if (lookupVersion === espnLookupVersion) {
+                espnFindButton.disabled = false;
+            }
+        }
+    });
+
+    for (const id of [
+        "league_identifier", "league_url", "season", "espn_swid", "espn_s2"
+    ]) {
+        document.getElementById(id).addEventListener("input", resetEspnTeams);
+    }
+
+    connectForm.addEventListener("submit", function (event) {
+        if (platformSelect.value !== "espn") {
+            return;
+        }
+
+        if (espnFindButton.disabled) {
+            event.preventDefault();
+            espnStatus.textContent = "Wait for the ESPN team lookup to finish.";
+            return;
+        }
+
+        if (!espnToken.value || !espnTeamSelect.value) {
+            event.preventDefault();
+            espnStatus.textContent = "Find your teams and select one first.";
+        }
+    });
 
     function updatePlatformFields() {
         const platform = platformSelect.value;
@@ -396,9 +487,15 @@
             platform === "espn" ? "block" : "none";
         espnTeamGroup.style.display =
             platform === "espn" ? "block" : "none";
+        espnAuthGroup.style.display =
+            platform === "espn" ? "block" : "none";
     }
 
-    platformSelect.addEventListener("change", updatePlatformFields);
+    platformSelect.addEventListener("change", function () {
+        resetEspnTeams();
+        espnStatus.textContent = "";
+        updatePlatformFields();
+    });
     updatePlatformFields();
 </script>
 

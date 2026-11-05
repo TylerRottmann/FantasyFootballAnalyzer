@@ -38,6 +38,59 @@ from scripts.commands.nflweek import get_current_nfl_week
 # =============================================================
 
 @login_required
+def espn_team_lookup(request):
+    """Find ESPN teams before importing a league."""
+    if request.method != "POST":
+        return JsonResponse(
+            {"error": "POST is required."},
+            status=405,
+        )
+
+    league_identifier = (
+        request.POST.get("league_identifier")
+        or request.POST.get("league_url")
+        or ""
+    ).strip()
+    season = request.POST.get("season", "").strip()
+    swid = request.POST.get("espn_swid", "").strip()
+    espn_s2 = request.POST.get("espn_s2", "").strip()
+
+    try:
+        service = ESPNLeagueService(
+            league_identifier,
+            season,
+            swid=swid,
+            espn_s2=espn_s2,
+        )
+        teams = service.get_team_choices()
+    except ValueError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+    except Exception:
+        return JsonResponse(
+            {"error": "Unable to retrieve ESPN teams. Please try again."},
+            status=502,
+        )
+
+    token = secrets.token_urlsafe(32)
+    cache.set(
+        f"espn_connect:{request.user.pk}:{token}",
+        {
+            "league_id": service.league_id,
+            "season": service.season,
+            "swid": service.swid,
+            "espn_s2": service.espn_s2,
+            "team_ids": [team["id"] for team in teams],
+        },
+        timeout=600,
+    )
+
+    return JsonResponse({
+        "teams": teams,
+        "connection_token": token,
+    })
+
+
+@login_required
 def connect_league(request):
     context = {}
 
@@ -87,31 +140,63 @@ def connect_league(request):
                 context["error"] = str(exc)
 
         elif platform == "espn":
-            season = request.POST.get("season", "").strip()
+            token = request.POST.get("espn_connection_token", "").strip()
             owned_team_id = request.POST.get("espn_team_id", "").strip()
 
-            try:
-                service = ESPNLeagueService(
-                    league_identifier,
-                    season,
-                    swid=os.environ.get("ESPN_SWID"),
-                    espn_s2=os.environ.get("ESPN_S2"),
-                )
+            lookup = (
+                cache.get(f"espn_connect:{request.user.pk}:{token}")
+                if token and len(token) <= 128
+                else None
+            )
 
-                result = service.import_league(
-                    request.user,
-                    owned_team_id=owned_team_id or None,
+            if lookup is None:
+                context["error"] = (
+                    "Your ESPN team lookup expired. "
+                    "Click Find ESPN Teams again."
                 )
+            elif owned_team_id not in lookup["team_ids"]:
+                context["error"] = (
+                    "Please select a team from the ESPN team dropdown."
+                )
+            else:
+                try:
+                    service = ESPNLeagueService(
+                        lookup["league_id"],
+                        lookup["season"],
+                        swid=lookup["swid"],
+                        espn_s2=lookup["espn_s2"],
+                    )
 
-                if result["my_roster"] is None:
+                    result = service.import_league(
+                        request.user,
+                        owned_team_id=owned_team_id,
+                    )
+
+                    if (
+                        result["my_roster"] is None
+                        or not result.get("my_roster_complete", False)
+                    ):
+                        context["error"] = (
+                            "Your selected ESPN team's roster could not be "
+                            "fully imported. Your existing roster data has "
+                            "been preserved where possible. Please try again."
+                        )
+                    else:
+                        cache.delete(
+                            f"espn_connect:{request.user.pk}:{token}"
+                        )
+                        request.session["active_league_id"] = (
+                            result["league"].id
+                        )
+                        return redirect("start_sit")
+
+                except ValueError as exc:
+                    context["error"] = str(exc)
+                except Exception:
                     context["error"] = (
-                        "ESPN league imported successfully, but we could not "
-                        "identify your team. Enter your ESPN Team ID.")
-                else:
-                    request.session["active_league_id"] = result["league"].id
-                    return redirect("start_sit")
-            except Exception as exc:
-                context["error"] = str(exc)
+                        "Unable to import the ESPN league. "
+                        "Please try again."
+                    )
 
         else:
             context["error"] = "Please select a supported platform."
@@ -654,11 +739,19 @@ def projection_details(request, player_id):
     week = max(1, min(18, week))
     league = connection.league
 
-    rostered = FantasyRosterPlayer.objects.filter(
-        roster__league=league,
-        roster__owner_sleeper_id=connection.external_user_id,
-        player_id=player_id,
-    ).exists()
+    if connection.platform == UserLeagueConnection.PLATFORM_SLEEPER:
+        rostered = FantasyRosterPlayer.objects.filter(
+            roster__league=league,
+            roster__owner_sleeper_id=connection.external_user_id,
+            player_id=player_id,
+        ).exists()
+    else:
+        rostered = FantasyRosterPlayer.objects.filter(
+            roster__league=league,
+            roster__platform_identities__platform=connection.platform,
+            roster__platform_identities__external_id=connection.external_user_id,
+            player_id=player_id,
+        ).exists()
     if not rostered:
         return JsonResponse({"error": "Player is not on your active roster."}, status=404)
 
@@ -905,30 +998,59 @@ def resync_league(request):
         )
         return redirect("start_sit")
 
-    if connection.platform != UserLeagueConnection.PLATFORM_SLEEPER:
-        messages.error(
-            request,
-            "Only Sleeper leagues can currently be resynced.",
-        )
-        return redirect("start_sit")
-
     try:
-        service = SleeperLeagueService(
-            connection.league.sleeper_league_id
-        )
+        if connection.platform == UserLeagueConnection.PLATFORM_SLEEPER:
+            service = SleeperLeagueService(
+                connection.league.sleeper_league_id
+            )
+            service.import_league(
+                request.user,
+                platform_username=request.user.sleeper_username,
+            )
+            platform_name = "Sleeper"
 
-        service.import_league(
-            request.user,
-            platform_username=request.user.sleeper_username,
-        )
+        elif connection.platform == UserLeagueConnection.PLATFORM_ESPN:
+            identity = connection.league.platform_identities.filter(
+                platform=UserLeagueConnection.PLATFORM_ESPN
+            ).first()
 
-        league = FantasyLeague.objects.get(
-            id=connection.league.id
-        )
+            if identity is None:
+                raise ValueError("ESPN league identity was not found.")
+
+            league_id, season = identity.external_id.rsplit(":", 1)
+            service = ESPNLeagueService(league_id, season)
+
+            try:
+                service.get_league()
+            except ValueError as exc:
+                raise ValueError(
+                    "ESPN resync requires access to the league. "
+                    "For private leagues, reconnect using your ESPN "
+                    "credentials on the Connect League page."
+                ) from exc
+
+            team_id = connection.external_user_id.rsplit(":", 1)[-1]
+            result = service.import_league(
+                request.user,
+                owned_team_id=team_id,
+            )
+            if (
+                result.get("my_roster") is None
+                or not result.get("my_roster_complete", False)
+            ):
+                raise ValueError(
+                    "Your ESPN roster could not be fully resynced. "
+                    "Existing roster data has been preserved where possible."
+                )
+            platform_name = "ESPN"
+
+        else:
+            raise ValueError("Resync is not supported for this platform.")
 
         messages.success(
             request,
-            f"{league.name} was successfully resynced with Sleeper.",
+            f"{connection.league.name} was successfully resynced "
+            f"with {platform_name}.",
         )
 
     except Exception as exc:
