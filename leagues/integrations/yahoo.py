@@ -24,6 +24,7 @@ from leagues.models import (
     UserLeagueConnection,
     YahooAccount,
 )
+from leagues.services.scoring_settings import normalize_yahoo_settings
 
 logger = logging.getLogger(__name__)
 
@@ -189,6 +190,10 @@ class YahooLeagueService:
     # ---------------------------------------------------------
     # Yahoo API Requests
     # ---------------------------------------------------------
+
+    def get_scoreboard(self, league_key, week):
+        encoded_key = quote(str(league_key), safe=".")
+        return self._get(f"/league/{encoded_key}/scoreboard;week={int(week)}")
 
     def _get(self, endpoint):
         access_token = self.get_valid_access_token()
@@ -464,7 +469,7 @@ class YahooLeagueService:
             "season": season,
             "ppr": ppr,
             "te_premium": te_premium,
-            "scoring_settings": {"yahoo": settings_data, "stat_modifiers": scoring},
+            "scoring_settings": normalize_yahoo_settings(settings_data),
             "starter_count": len([slot for slot in roster_positions if slot not in {"BN", "IR", "TAXI", "NA"}]),
             "roster_positions": roster_positions,
             "updated_at": now,

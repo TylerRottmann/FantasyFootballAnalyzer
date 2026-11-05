@@ -1,0 +1,25 @@
+<article class="pc-profile" data-player-profile="{{ profile.player.id }}">
+    <header class="pc-header">
+        <div class="pc-headshot" aria-hidden="true"><span {% if profile.player.headshot_url %}hidden{% endif %}>{{ profile.player.initials }}</span>{% if profile.player.headshot_url %}<img src="{{ profile.player.headshot_url }}" alt="" onerror="this.hidden=true;this.previousElementSibling.hidden=false">{% endif %}</div>
+        <div class="pc-heading"><p class="pc-eyebrow">Player overview · {{ profile.season }}</p><h2 id="player-card-title">{{ profile.player.name }}</h2>
+            <div class="pc-player-meta"><span>{{ profile.player.position|default:'—' }}</span>{% if profile.player.team %}<img src="https://a.espncdn.com/i/teamlogos/nfl/500/{{ profile.player.team|lower }}.png" alt="" onerror="this.hidden=true"><span>{{ profile.player.team }}</span>{% endif %}<span>Age {{ profile.player.age|default_if_none:'—' }}</span>{% if profile.player.injury %}<span class="injury-badge">{{ profile.player.injury }}</span>{% endif %}</div>
+        </div>
+        <dl class="pc-header-facts">{% for fact in profile.header_facts %}<div><dt>{{ fact.label }}</dt><dd>{{ fact.value|default_if_none:'—' }}</dd></div>{% endfor %}</dl>
+    </header>
+    <div class="pc-metrics">
+        <div><span>Week {{ profile.week }}</span><strong>{% include 'players/number.html' with value=profile.weekly_points %}</strong><small>Projected points</small></div>
+        <div><span>Rest of season</span><strong>{% include 'players/number.html' with value=profile.rest_of_season %}</strong><small>Weeks {{ profile.week }}–18</small></div>
+        <div><span>Boom</span><strong>{% if profile.boom_pct is not None %}{{ profile.boom_pct|floatformat:"-1" }}%{% else %}&mdash;{% endif %}</strong><small>{% if profile.boom_pct is not None %}Saved model estimate{% else %}Estimate unavailable{% endif %}</small></div>
+        <div><span>Bust</span><strong>{% if profile.bust_pct is not None %}{{ profile.bust_pct|floatformat:"-1" }}%{% else %}&mdash;{% endif %}</strong><small>{% if profile.bust_pct is not None %}Saved model estimate{% else %}Estimate unavailable{% endif %}</small></div>
+    </div>
+    <nav class="pc-tabs" aria-label="Player sections"><button type="button" data-player-tab="overview" class="is-active" aria-pressed="true">Overview</button><button type="button" data-player-tab="games" aria-pressed="false">All weeks</button></nav>
+    <section class="pc-panel" data-player-panel="overview" aria-label="Overview">
+        <div class="pc-chips"><span class="pc-value pc-value-{{ profile.value.horizon }}">{{ profile.value.label }}</span><span>{{ profile.value.trend }}</span><span>{{ profile.consistency.label }}</span></div>
+        <h3>The outlook</h3><p class="pc-summary">{{ profile.summary }}</p>
+        <div class="pc-recent"><div><span>Recent average</span><strong>{% include 'players/number.html' with value=profile.consistency.average %} <small>pts</small></strong></div><div><span>Recent low</span><strong>{% include 'players/number.html' with value=profile.consistency.low %}</strong></div><div><span>Recent high</span><strong>{% include 'players/number.html' with value=profile.consistency.high %}</strong></div></div>
+    </section>
+    <section class="pc-panel" data-player-panel="games" aria-label="All weeks" hidden>
+        <div class="pc-section-heading"><h3>All weeks</h3></div>
+        <div class="pc-table-scroll" tabindex="0" role="region" aria-label="Weekly results and projections"><table class="pc-table pc-weeks-table"><thead><tr><th>Week</th><th>Matchup</th><th>Actual points</th><th>Projected points</th>{% for column in profile.season_stat_columns %}<th>{{ column }}</th>{% endfor %}</tr></thead><tbody>{% for row in profile.season_weeks %}<tr><td>{{ row.week }}</td><td>{{ row.opponent }}</td><td class="pc-points">{% include 'players/number.html' with value=row.actual_points %}</td><td class="pc-points">{% include 'players/number.html' with value=row.projected_points %}</td>{% for cell in row.stat_cells %}<td>{% include 'players/number.html' with value=cell %}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
+    </section>
+</article>

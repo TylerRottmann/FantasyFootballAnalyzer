@@ -1,3 +1,5 @@
+import argparse
+import json
 import os
 
 import psycopg
@@ -12,7 +14,10 @@ os.environ.setdefault(
 
 django.setup()
 
-from scripts.algorithm.predictor import predict_player
+from scripts.algorithm.predictor import predict_defense, predict_player
+from scripts.algorithm.stat_targets import POSITION_STAT_TARGETS
+from leagues.services.scoring import REFERENCE_SKILL_SCORING, score_stat_line
+from scripts.algorithm.k.scoring import REFERENCE_SCORING as K_REFERENCE_SCORING
 
 
 load_dotenv()
@@ -29,7 +34,7 @@ conn = psycopg.connect(
 
 SEASONS = [2023, 2024, 2025]
 
-POSITIONS = ["QB", "RB", "WR", "TE"]
+POSITIONS = ["QB", "RB", "WR", "TE", "K", "DST"]
 
 RECENT_GAMES = 4
 SUCCESS_THRESHOLD = 3
@@ -38,9 +43,7 @@ ERROR_THRESHOLDS = [2, 3, 5, 7]
 
 def get_top_players(season, position):
     """
-    Get the top 30 players at a position for a season.
-
-    Ranking is based on total PPR fantasy points.
+    Get every player with regular-season games at a position.
     """
 
     with conn.cursor() as cur:
@@ -62,7 +65,6 @@ def get_top_players(season, position):
                 p.full_name,
                 p.position
             ORDER BY total_points DESC
-            LIMIT 30
         """, (
             season,
             position,
@@ -70,24 +72,26 @@ def get_top_players(season, position):
 
         return cur.fetchall()
 
-def get_player_games(player_id, season):
+def get_player_games(player_id, season, position):
     """
     Get all regular-season games for a player in chronological order.
     """
 
+    target_names = POSITION_STAT_TARGETS[position]
+    columns = ", ".join(target_names)
     with conn.cursor() as cur:
 
         cur.execute("""
             SELECT
                 pws.week,
                 pws.opponent_team,
-                pws.fantasy_points_ppr
+                {columns}
             FROM player_weekly_stats pws
             WHERE pws.player_id = %s
               AND pws.season = %s
               AND pws.season_type = 'REG'
             ORDER BY pws.week
-        """, (
+        """.format(columns=columns), (
             player_id,
             season,
         ))
@@ -137,7 +141,7 @@ def get_opponent_matchup(opponent, season, week, position):
 
     return result[0] if result and result[0] is not None else None
 
-def backtest_player(player_id, season, position):
+def backtest_player(player_id, season, position, scoring_settings=REFERENCE_SKILL_SCORING):
     """
     Backtest one player for one season.
     """
@@ -145,29 +149,40 @@ def backtest_player(player_id, season, position):
     games = get_player_games(
         player_id,
         season,
+        position,
     )
 
-    recent_games = []
+    first_game = True
 
     results = []
 
-    for week, opponent, actual_points in games:
+    for game in games:
+        week, opponent, *actual_values = game
+        actual_stats = dict(zip(POSITION_STAT_TARGETS[position], actual_values))
 
         # We need previous games before making a prediction.
-        if len(recent_games) < 1:
-            recent_games.append(actual_points)
+        if first_game:
+            first_game = False
             continue
 
         prediction = predict_player(
             player_id=player_id,
             season=season,
             week=week,
+            scoring_settings=scoring_settings,
         )
 
         if prediction is None:
             continue
 
-        projected = prediction["projected_fantasy_points"]
+        projected_stats = prediction.get("projected_stats")
+        if not projected_stats:
+            continue
+        try:
+            projected = score_stat_line(projected_stats, scoring_settings, position)
+            actual_points = score_stat_line(actual_stats, scoring_settings, position)
+        except (TypeError, ValueError):
+            continue
 
         if projected is None:
             continue
@@ -186,11 +201,81 @@ def backtest_player(player_id, season, position):
 
         # Only add the actual result AFTER
         # the prediction has been made.
-        recent_games.append(actual_points)
 
     return results
 
-def main():
+def backtest_dst(season, scoring_settings=REFERENCE_SKILL_SCORING):
+    """
+    Backtest every team's D/ST for one season.
+
+    D/ST is keyed by team, so it does not use get_top_players() or the
+    player-based predictor; all 32 defenses are replayed instead.
+    """
+
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT team_id, week, sacks, interceptions, fumble_recoveries,
+                   defensive_tds, special_teams_tds, safeties, points_against
+            FROM team_weekly_stats
+            WHERE season = %s
+              AND season_type = 1
+              AND dst_fantasy_points IS NOT NULL
+            ORDER BY team_id, week
+        """, (season,))
+        games = cur.fetchall()
+
+    results = []
+
+    target_names = POSITION_STAT_TARGETS["DEF"]
+    for team_id, week, *actual_values in games:
+        actual_stats = dict(zip(target_names, actual_values))
+
+        # Need at least one prior game to build features.
+        if week <= 1:
+            continue
+
+        prediction = predict_defense(team_id, season, week)
+
+        if prediction is None:
+            continue
+
+        try:
+            projected = score_stat_line(prediction.get("projected_stats", {}), scoring_settings, "DEF")
+            actual_points = score_stat_line(actual_stats, scoring_settings, "DEF")
+        except (TypeError, ValueError):
+            continue
+
+        if projected is None:
+            continue
+
+        results.append({
+            "week": week,
+            "opponent": team_id,
+            "projected": projected,
+            "actual": actual_points,
+            "difference": abs(float(projected) - float(actual_points)),
+        })
+
+    return results
+
+
+def backtest_k(season, scoring_settings=K_REFERENCE_SCORING):
+    from scripts.algorithm.k.train_k_model import build_dataset, get_players, score_rows
+    from scripts.algorithm.k.k_model import load_model, predict
+    model = load_model()
+    if model is None:
+        return []
+    X, y, baseline, rows, counts = build_dataset(season, get_players())
+    if not len(y):
+        return []
+    return [{**row, 'projected': float(projected), 'actual': float(actual),
+             'difference': abs(float(projected)-float(actual))}
+            for row, projected, actual in zip(rows, score_rows(predict(model, X), scoring_settings), score_rows(y, scoring_settings))]
+
+
+def main(seasons=SEASONS, positions=POSITIONS, scoring_settings=None):
+
+    print("Historical replay of saved models; training-season results are in-sample.")
 
     total_predictions = 0
     #successful_predictions = 0
@@ -204,7 +289,7 @@ def main():
                 for threshold in ERROR_THRESHOLDS
             },
         }
-        for position in POSITIONS
+        for position in positions
     }
 
     season_stats = {
@@ -216,35 +301,39 @@ def main():
                 for threshold in ERROR_THRESHOLDS
             },
         }
-        for season in SEASONS
+        for season in seasons
     }
 
-    for season in SEASONS:
+    for season in seasons:
 
         print()
         print(f"========== {season} ==========")
 
-        for position in POSITIONS:
+        for position in positions:
 
-            players = get_top_players(
-                season,
-                position,
-            )
-
-            print(
-                f"{position}: "
-                f"{len(players)} players"
-            )
-
-            for player in players:
-
-                player_id = player[0]
-
-                results = backtest_player(
-                    player_id,
+            if position == "K":
+                batches = [backtest_k(season, scoring_settings or K_REFERENCE_SCORING)]
+                print("K: mapped kicker games, requested scoring rules")
+            elif position == "DST":
+                batches = [backtest_dst(season, scoring_settings or REFERENCE_SKILL_SCORING)]
+                print(f"{position}: 32 defenses")
+            else:
+                players = get_top_players(
                     season,
                     position,
                 )
+
+                print(
+                    f"{position}: "
+                    f"{len(players)} players"
+                )
+
+                batches = (
+                    backtest_player(player[0], season, position, scoring_settings or REFERENCE_SKILL_SCORING)
+                    for player in players
+                )
+
+            for results in batches:
 
                 for result in results:
 
@@ -279,7 +368,7 @@ def main():
         average_error = (
                 sum(
                     position_stats[position]["absolute_error"]
-                    for position in POSITIONS
+                    for position in positions
                 )
                 / total_predictions
         )
@@ -289,7 +378,7 @@ def main():
         for threshold in ERROR_THRESHOLDS:
             count = sum(
                 position_stats[position]["within_threshold"][threshold]
-                for position in POSITIONS
+                for position in positions
             )
 
             percentage = (
@@ -304,7 +393,7 @@ def main():
     print()
     print("========== BY POSITION ==========")
 
-    for position in POSITIONS:
+    for position in positions:
 
         stats = position_stats[position]
 
@@ -335,4 +424,13 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Replay saved position models against recorded games.")
+    parser.add_argument("--seasons", type=int, nargs="+", default=SEASONS)
+    parser.add_argument("--positions", nargs="+", choices=POSITIONS, default=POSITIONS)
+    parser.add_argument("--scoring-settings", help="JSON scoring rules, e.g. '{\"pass_td\":6,\"rec\":1}'")
+    args = parser.parse_args()
+    scoring_settings = json.loads(args.scoring_settings) if args.scoring_settings else None
+    try:
+        main(args.seasons, args.positions, scoring_settings)
+    finally:
+        conn.close()

@@ -19,6 +19,18 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 
+
+def env_bool(name, default=False):
+    value = os.getenv(name)
+    return default if value is None else value.strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+def env_list(name, default=()):
+    value = os.getenv(name)
+    if value is None:
+        return list(default)
+    return [item.strip() for item in value.split(',') if item.strip()]
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
@@ -30,9 +42,17 @@ YAHOO_CLIENT_SECRET = os.getenv('YAHOO_CLIENT_SECRET')
 YAHOO_REDIRECT_URI = os.getenv('YAHOO_REDIRECT_URI')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = []
+DJANGO_ENV = os.getenv('DJANGO_ENV', 'development').strip().lower()
+DEBUG = env_bool('DJANGO_DEBUG', DJANGO_ENV not in {'prod', 'production'})
+ALLOWED_HOSTS = env_list(
+    'DJANGO_ALLOWED_HOSTS',
+    ('localhost', '127.0.0.1', '[::1]', 'testserver'),
+)
+CSRF_TRUSTED_ORIGINS = env_list('DJANGO_CSRF_TRUSTED_ORIGINS')
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT = env_bool('DJANGO_SECURE_SSL_REDIRECT', False)
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
 
 
 # Application definition
@@ -54,6 +74,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'analyzer.middleware.RequestPerformanceMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -75,7 +97,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                "leagues.context_processors.league_selector",
+                "leagues.services.context_processors.league_selector",
             ],
         },
     },
@@ -96,6 +118,54 @@ DATABASES = {
         'HOST': os.getenv('DB_HOST'),
         'PORT': os.getenv('DB_PORT'),
     }
+}
+
+_db_host = (os.getenv('DB_HOST') or '').lower()
+_pooler_host = 'pooler' in _db_host
+DATABASES['default']['CONN_MAX_AGE'] = int(
+    os.getenv('DB_CONN_MAX_AGE', '0' if _pooler_host or DEBUG else '60')
+)
+DATABASES['default']['CONN_HEALTH_CHECKS'] = True
+DATABASES['default']['DISABLE_SERVER_SIDE_CURSORS'] = env_bool(
+    'DB_DISABLE_SERVER_SIDE_CURSORS', _pooler_host,
+)
+DATABASES['default']['OPTIONS'] = {
+    **DATABASES['default'].get('OPTIONS', {}),
+    'connect_timeout': int(os.getenv('DB_CONNECT_TIMEOUT', '10')),
+}
+
+
+REDIS_URL = os.getenv('REDIS_URL', '').strip()
+if REDIS_URL:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': REDIS_URL,
+            'KEY_PREFIX': os.getenv('CACHE_KEY_PREFIX', 'ffa'),
+            'TIMEOUT': 300,
+        }
+    }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'fantasy-football-analyzer',
+            'TIMEOUT': 300,
+        }
+    }
+
+SLOW_REQUEST_LOG_THRESHOLD_MS = int(os.getenv('SLOW_REQUEST_LOG_THRESHOLD_MS', '500'))
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {'console': {'class': 'logging.StreamHandler'}},
+    'loggers': {
+        'performance.requests': {
+            'handlers': ['console'],
+            'level': os.getenv('PERFORMANCE_LOG_LEVEL', 'WARNING'),
+            'propagate': False,
+        },
+    },
 }
 
 
@@ -133,10 +203,20 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {
+        'BACKEND': (
+            'django.contrib.staticfiles.storage.StaticFilesStorage'
+            if DEBUG else 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+        ),
+    },
+}
 
 
 # Email

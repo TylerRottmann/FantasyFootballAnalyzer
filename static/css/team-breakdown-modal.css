@@ -1,0 +1,452 @@
+.team-breakdown-modal-open {
+    overflow: hidden;
+}
+
+.team-breakdown-page {
+    min-height: 70vh;
+    padding: 24px 0;
+}
+
+.team-breakdown-back {
+    display: inline-block;
+    margin-bottom: 14px;
+    color: var(--text-secondary);
+    text-decoration: none;
+}
+
+.team-breakdown-back:hover {
+    color: var(--gold);
+}
+
+.team-breakdown-backdrop {
+    position: fixed;
+    z-index: 1200;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(0, 0, 0, .76);
+}
+
+.team-breakdown-modal {
+    display: flex;
+    width: min(1120px, 100%);
+    max-height: min(92vh, 1000px);
+    flex-direction: column;
+    overflow: hidden;
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--bg-card);
+    box-shadow: 0 24px 90px rgba(0, 0, 0, .55);
+}
+
+.team-breakdown-loading {
+    min-height: 110px;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    color: var(--text-secondary);
+}
+
+.team-breakdown-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--border);
+}
+
+.team-breakdown-header h2 {
+    margin: 0;
+    font-size: 24px;
+}
+
+.team-breakdown-eyebrow {
+    margin: 0 0 5px;
+    color: var(--gold);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .12em;
+}
+
+.team-breakdown-close {
+    width: 36px;
+    height: 36px;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: transparent;
+    font-size: 25px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.team-breakdown-close:hover {
+    color: var(--gold);
+    border-color: var(--gold);
+}
+
+.team-breakdown-tabs {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 4px;
+    overflow-x: auto;
+    padding: 0 22px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(255, 255, 255, .015);
+}
+
+.team-breakdown-tab {
+    position: relative;
+    flex: 0 0 auto;
+    padding: 13px 14px 12px;
+    color: var(--text-secondary);
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.team-breakdown-tab:hover,
+.team-breakdown-tab:focus-visible {
+    color: var(--text-primary);
+}
+
+.team-breakdown-tab.is-active {
+    color: var(--gold);
+    border-bottom-color: var(--gold);
+}
+
+.team-breakdown-tab-panel[hidden] {
+    display: none;
+}
+
+.team-breakdown-content {
+    overflow-y: auto;
+    padding: 20px 22px 26px;
+}
+
+.team-breakdown-records,
+.team-breakdown-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.team-breakdown-records > div,
+.team-breakdown-stat {
+    display: flex;
+    min-height: 72px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    padding: 12px 15px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, .025);
+}
+
+.team-breakdown-records span,
+.team-breakdown-stat span {
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+
+.team-breakdown-records strong,
+.team-breakdown-stat strong {
+    color: var(--text-primary);
+    font-size: 17px;
+    font-variant-numeric: tabular-nums;
+}
+
+.team-breakdown-records > div:nth-child(2) strong,
+.team-breakdown-stat b {
+    color: var(--gold);
+}
+
+.team-breakdown-stat {
+    min-height: 86px;
+}
+
+.team-breakdown-stat b {
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+}
+
+.team-breakdown-panel {
+    overflow: hidden;
+    margin-top: 16px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: rgba(255, 255, 255, .018);
+}
+
+.team-breakdown-panel-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 15px 17px;
+    border-bottom: 1px solid var(--border);
+}
+
+.team-breakdown-panel-heading h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.team-breakdown-panel-heading p {
+    margin: 5px 0 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.team-breakdown-panel-heading label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.team-breakdown-panel-heading select {
+    padding: 7px 9px;
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--bg-card);
+    font: inherit;
+}
+
+.team-breakdown-pie-area {
+    display: flex;
+    min-height: 240px;
+    align-items: center;
+    justify-content: center;
+    gap: 42px;
+    padding: 22px;
+}
+
+.team-breakdown-pie {
+    width: 210px;
+    aspect-ratio: 1;
+    flex: 0 0 auto;
+    border: 1px solid rgba(255, 255, 255, .1);
+    border-radius: 50%;
+    background: conic-gradient(#303744 0deg 360deg);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, .2);
+}
+
+.team-breakdown-pie-legend {
+    display: grid;
+    min-width: 190px;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.team-breakdown-pie-legend li {
+    display: grid;
+    grid-template-columns: 12px 1fr auto;
+    align-items: center;
+    gap: 9px;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.team-breakdown-pie-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+}
+
+.team-breakdown-pie-legend strong {
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.team-breakdown-table-scroll {
+    overflow-x: auto;
+}
+
+.team-breakdown-schedule,
+.team-breakdown-players {
+    width: 100%;
+    min-width: 600px;
+    border-collapse: collapse;
+}
+
+.team-breakdown-players {
+    min-width: 800px;
+}
+
+.team-position-filters {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin: 0;
+    padding: 12px 16px;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.team-position-filters legend {
+    float: left;
+    margin-right: 6px;
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.team-position-filters label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--text-primary);
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.team-position-filters input {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    accent-color: var(--gold);
+}
+
+.team-position-filter-count {
+    margin-left: auto;
+    color: var(--text-secondary);
+    font-size: 10px;
+}
+
+.roster-sort-button {
+    padding: 0;
+    color: inherit;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    text-align: left;
+    text-transform: inherit;
+    letter-spacing: inherit;
+    cursor: pointer;
+}
+
+.roster-sort-button:hover,
+.roster-sort-button:focus-visible {
+    color: var(--gold);
+}
+
+.roster-sort-button span {
+    margin-left: 3px;
+    color: var(--gold);
+}
+
+.team-breakdown-players tbody tr[hidden] {
+    display: none;
+}
+
+.team-breakdown-schedule th,
+.team-breakdown-schedule td,
+.team-breakdown-players th,
+.team-breakdown-players td {
+    padding: 10px 13px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    font-size: 12px;
+}
+
+.team-breakdown-schedule thead th,
+.team-breakdown-players thead th {
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.team-breakdown-schedule tbody tr:last-child th,
+.team-breakdown-schedule tbody tr:last-child td,
+.team-breakdown-players tbody tr:last-child th,
+.team-breakdown-players tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.team-breakdown-schedule td:nth-child(3),
+.team-breakdown-schedule td:nth-child(4),
+.team-breakdown-players td:nth-child(n + 3) {
+    font-variant-numeric: tabular-nums;
+}
+
+.team-breakdown-outcome {
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.team-breakdown-outcome.win { color: #57d69a; }
+.team-breakdown-outcome.loss { color: #ff8383; }
+.team-breakdown-outcome.tie { color: var(--gold); }
+.team-breakdown-outcome.pending { color: var(--text-secondary); }
+
+.team-breakdown-player-cell {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 220px;
+    color: var(--text-primary);
+}
+
+.team-breakdown-headshot {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 auto;
+    object-fit: cover;
+    border-radius: 8px;
+    background: #262c35;
+}
+
+.player-placeholder {
+    display: grid;
+    place-items: center;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.team-breakdown-team-logo {
+    width: 23px;
+    height: 23px;
+    flex: 0 0 auto;
+    object-fit: contain;
+}
+
+.team-breakdown-empty {
+    padding: 22px !important;
+    color: var(--text-secondary);
+    text-align: center !important;
+}
+
+@media (max-width: 700px) {
+    .team-breakdown-backdrop { padding: 8px; }
+    .team-breakdown-modal { max-height: 96vh; }
+    .team-breakdown-header,
+    .team-breakdown-content { padding-right: 14px; padding-left: 14px; }
+    .team-breakdown-tabs { padding-right: 8px; padding-left: 8px; }
+    .team-breakdown-header h2 { font-size: 20px; }
+    .team-breakdown-records,
+    .team-breakdown-summary { grid-template-columns: 1fr; gap: 8px; }
+    .team-breakdown-records > div,
+    .team-breakdown-stat { min-height: 58px; }
+    .team-breakdown-panel-heading { align-items: flex-start; flex-direction: column; }
+    .team-breakdown-pie-area { flex-direction: column; gap: 20px; }
+    .team-breakdown-pie { width: min(210px, 65vw); }
+    .team-breakdown-pie-legend { width: min(290px, 100%); }
+}

@@ -1,4 +1,4 @@
-from .models import UserLeagueConnection
+from leagues.models import UserLeagueConnection
 
 
 def league_selector(request):

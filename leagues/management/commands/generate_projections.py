@@ -1,19 +1,29 @@
 from django.core.management.base import BaseCommand, CommandError
+from django.core.cache import cache
 from django.db import close_old_connections
+from django.utils import timezone
 
-from leagues.models import FantasyProjection, Player
-from scripts.algorithm.predictor import predict_player
+from analyzer.models import Teams
+from leagues.models import DefenseProjection, FantasyProjection, Player
+from scripts.algorithm.predictor import predict_defense, predict_player
+from leagues.services.player_availability import projection_context
+from scripts.algorithm.k.feature_names import TARGETS as K_TARGETS
 
 
-MODEL_VERSION = "v1"
-POSITIONS = ["QB", "RB", "WR", "TE"]
+MODEL_VERSION = "v2_stat"
+POSITIONS = ["QB", "RB", "WR", "TE", "K"]
 
 
 class Command(BaseCommand):
-    help = "Generate universal PPR fantasy football projections."
+    help = "Generate stat-line player and D/ST projections for league-specific scoring."
 
     def add_arguments(self, parser):
         parser.add_argument("--season", type=int, required=True)
+        parser.add_argument(
+            "--positions", nargs="+", choices=[*POSITIONS, "DST"],
+            default=[*POSITIONS, "DST"],
+            help="Limit generation to selected positions, such as --positions K.",
+        )
         parser.add_argument("--week", type=int)
         parser.add_argument(
             "--all-weeks",
@@ -25,6 +35,7 @@ class Command(BaseCommand):
         season = options["season"]
         week = options["week"]
         all_weeks = options["all_weeks"]
+        positions = options["positions"]
 
         if all_weeks and week is not None:
             raise CommandError(
@@ -45,11 +56,11 @@ class Command(BaseCommand):
         # Load players and their teams in one query.
         players = list(
             Player.objects.filter(
-                position__in=POSITIONS
+                position__in=[position for position in positions if position != "DST"]
             ).order_by("id")
         )
 
-        if not players:
+        if not players and "DST" not in positions:
             self.stdout.write(
                 self.style.WARNING("No eligible players found.")
             )
@@ -81,6 +92,7 @@ class Command(BaseCommand):
 
         for current_week in weeks:
             close_old_connections()
+            context = projection_context(season, current_week)
 
             self.stdout.write("")
             self.stdout.write(
@@ -105,6 +117,7 @@ class Command(BaseCommand):
                         defaults={
                             "projected_fantasy_points": 0.0,
                             "status": "inactive",
+                            "projected_stats": dict.fromkeys(K_TARGETS, 0) if player.position == "K" else {},
                         },
                     )
                     week_zeroed += 1
@@ -125,6 +138,7 @@ class Command(BaseCommand):
                         player.id,
                         season,
                         current_week,
+                        context=context,
                     )
 
                     if prediction is None:
@@ -154,6 +168,7 @@ class Command(BaseCommand):
                             "projected_fantasy_points": float(
                                 projected_points
                             ),
+                            "projected_stats": prediction.get("projected_stats", {}),
                             "status": prediction.get(
                                 "status",
                                 "projected",
@@ -169,6 +184,61 @@ class Command(BaseCommand):
                         self.style.ERROR(
                             f"Failed for {player.full_name} "
                             f"({player.position}), "
+                            f"season {season}, week {current_week}: {exc}"
+                        )
+                    )
+
+            # --------------------------------------------------
+            # D/ST: defenses are teams, so they are projected per
+            # team and saved to DefenseProjection.
+            # --------------------------------------------------
+            defense_teams = (
+                Teams.objects.filter(is_active=True).order_by("id")
+                if "DST" in positions else []
+            )
+            for team in defense_teams:
+                try:
+                    prediction = predict_defense(
+                        team.id,
+                        season,
+                        current_week,
+                    )
+
+                    projected_points = prediction.get(
+                        "projected_fantasy_points"
+                    )
+
+                    if projected_points is None:
+                        week_skipped += 1
+                        self.stdout.write(
+                            self.style.WARNING(
+                                f"Skipping {team.abbreviation} D/ST: "
+                                f"{prediction.get('status')}."
+                            )
+                        )
+                        continue
+
+                    DefenseProjection.objects.update_or_create(
+                        team=team,
+                        season=season,
+                        week=current_week,
+                        model_version=MODEL_VERSION,
+                        defaults={
+                            "projected_fantasy_points": float(
+                                projected_points
+                            ),
+                            "projected_stats": prediction.get("projected_stats", {}),
+                            "status": prediction.get("status", "projected"),
+                        },
+                    )
+
+                    week_saved += 1
+
+                except Exception as exc:
+                    week_failed += 1
+                    self.stderr.write(
+                        self.style.ERROR(
+                            f"Failed for {team.abbreviation} D/ST, "
                             f"season {season}, week {current_week}: {exc}"
                         )
                     )
@@ -196,3 +266,4 @@ class Command(BaseCommand):
         self.stdout.write(f"Zeroed: {total_zeroed}")
         self.stdout.write(f"Skipped: {total_skipped}")
         self.stdout.write(f"Failed: {total_failed}")
+        cache.set(f"projection_version:{season}", timezone.now().isoformat(), timeout=None)

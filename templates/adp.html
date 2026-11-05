@@ -1,5 +1,7 @@
+
 {% extends "base.html" %}
 {% load static %}
+{% load player_health %}
 
 {% block content %}
 
@@ -9,7 +11,7 @@
 
     <div class="adp-header">
         <div>
-            <h1>ADP Rankings</h1>
+            <h1>ADP Rankings — {{ season }}</h1>
             <p>
                 Explore fantasy football players and compare
                 Average Draft Position rankings.
@@ -20,41 +22,43 @@
     <form method="get" class="adp-filters">
 
         <input
-            type="text"
+            type="search"
             name="search"
             value="{{ search }}"
             placeholder="Search player..."
+            aria-label="Search player"
         >
 
-        <select name="position">
-            <option value="">All Positions</option>
+        <select name="scoring" aria-label="Scoring format">
+            {% for value, label in scoring_formats %}
+                <option value="{{ value }}"
+                    {% if selected_scoring == value %}selected{% endif %}>
+                    {{ label }}
+                </option>
+            {% endfor %}
+        </select>
 
+        <select name="position" aria-label="Filter by position">
+            <option value="">All Positions</option>
             {% for pos in positions %}
-                <option
-                    value="{{ pos }}"
-                    {% if selected_position == pos %}selected{% endif %}
-                >
+                <option value="{{ pos }}"
+                    {% if selected_position == pos %}selected{% endif %}>
                     {{ pos }}
                 </option>
             {% endfor %}
         </select>
 
-        <select name="team">
+        <select name="team" aria-label="Filter by NFL team">
             <option value="">All Teams</option>
-
             {% for team in teams %}
-                <option
-                    value="{{ team }}"
-                    {% if selected_team == team|stringformat:"s" %}selected{% endif %}
-                >
-                    Team {{ team }}
+                <option value="{{ team.id }}"
+                    {% if selected_team == team.id|stringformat:"s" %}selected{% endif %}>
+                    {{ team.name }}
                 </option>
             {% endfor %}
         </select>
 
-        <button type="submit">
-            Apply Filters
-        </button>
+        <button type="submit">Apply Filters</button>
 
         <a href="{% url 'adp_rankings' %}" class="clear-filters">
             Clear
@@ -65,64 +69,97 @@
     <div class="adp-table-container">
 
         <table class="adp-table">
-
             <thead>
                 <tr>
-                    <th>Rank</th>
-                    <th>Player</th>
-                    <th>Position</th>
-                    <th>Team</th>
-                    <th>Age</th>
-                    <th>ADP</th>
+                    <th scope="col">Rank</th>
+                    <th scope="col">Player</th>
+                    <th scope="col">Position</th>
+                    <th scope="col">NFL Team</th>
+                    <th scope="col">Age</th>
+                    <th scope="col">ADP</th>
                 </tr>
             </thead>
 
             <tbody>
-
                 {% for player in players %}
-
                 <tr>
-                    <td>{{ forloop.counter }}</td>
+                    <td class="adp-rank">
+                        {{ forloop.counter }}
+                    </td>
 
-                    <td class="player-name">
-                        {{ player.full_name }}
+                    <td>
+                        <div class="adp-player">
+
+                            <div class="adp-player-image">
+                                {% if player.headshot_url %}
+                                    <img
+                                        src="{{ player.headshot_url }}"
+                                        alt="{{ player.full_name }}"
+                                        loading="lazy"
+                                        onerror="this.hidden=true;this.nextElementSibling.hidden=false;"
+                                    >
+                                    <span hidden aria-hidden="true">🏈</span>
+                                {% else %}
+                                    <span aria-hidden="true">🏈</span>
+                                {% endif %}
+                            </div>
+
+                            <div class="adp-player-info">
+                                <span class="adp-player-name">
+                                    <a class="player-card-link" href="{% url 'player_card' player.id %}">{{ player.full_name }}</a>
+                                </span>
+
+                                {% injury_badge player %}
+                            </div>
+
+                        </div>
                     </td>
 
                     <td>
                         <span class="position-badge">
-                            {{ player.position|default:"—" }}
+                            {{ player.position }}
                         </span>
                     </td>
 
                     <td>
-                        {{ player.team_id|default:"—" }}
+                        {% if player.team %}
+                            <div class="adp-team">
+                                <img
+                                    src="https://a.espncdn.com/i/teamlogos/nfl/500/{{ player.team.abbreviation|lower }}.png"
+                                    alt=""
+                                    class="adp-team-logo"
+                                    loading="lazy"
+                                    onerror="this.hidden=true"
+                                >
+                                <span title="{{ player.team.name }}">
+                                    {{ player.team.abbreviation }}
+                                </span>
+                            </div>
+                        {% else %}
+                            <span class="adp-muted">FA</span>
+                        {% endif %}
                     </td>
 
                     <td>
-                        {{ player.age|default:"—" }}
+                        {{ player.age|default_if_none:"—" }}
                     </td>
 
                     <td class="adp-value">
-                        —
+                        {{ player.adp_value|floatformat:2 }}
                     </td>
                 </tr>
 
                 {% empty %}
-
                 <tr>
                     <td colspan="6" class="no-results">
-                        No players found.
+                        No players found matching your filters.
                     </td>
                 </tr>
-
                 {% endfor %}
-
             </tbody>
-
         </table>
 
     </div>
-
 </div>
 
 {% endblock %}

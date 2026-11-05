@@ -11,13 +11,14 @@
         {% block title %}Fantasy Football Analyzer{% endblock %}
     </title>
 
-    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/base.css' %}?v=20261028-2">
     <link rel="stylesheet" href="{% static 'css/leagues.css' %}">
     <link
     rel="stylesheet"
     href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
 >
     {% block extra_css %}{% endblock %}
+    <link rel="stylesheet" href="{% static 'css/player-card.css' %}?v=20261104-3">
 </head>
 
 <body>
@@ -218,13 +219,6 @@
         </a>
 
         <a
-            href="#"
-            class="nav-link"
-        >
-            ☷ Weekly Rankings
-        </a>
-
-        <a
             href="{% url 'adp_rankings' %}"
             class="nav-link"
         >
@@ -239,10 +233,24 @@
         </a>
 
         <a
-            href="#"
-            class="nav-link"
+            href="{% url 'trades' %}"
+            class="nav-link {% if request.resolver_match.url_name == 'trades' or request.resolver_match.url_name == 'trade_suggestions' or request.resolver_match.url_name == 'trade_player_search' or request.resolver_match.url_name == 'trade_calculate' %}active{% endif %}"
+        >
+            ⇄ Trades
+        </a>
+
+        <a
+            href="{% if active_league %}{% url 'power_rankings' active_league.id %}{% else %}{% url 'connect_league' %}{% endif %}"
+            class="nav-link {% if request.resolver_match.url_name == 'power_rankings' or request.resolver_match.url_name == 'team_breakdown' %}active{% endif %}"
         >
             ♜ League Power Rankings
+        </a>
+
+        <a
+            href="{% url 'assistant_gm' %}"
+            class="nav-link {% if request.resolver_match.url_name == 'assistant_gm' %}active{% endif %}"
+        >
+            <i class="bi bi-robot"></i> Assistant GM
         </a>
 
     </nav>
@@ -258,6 +266,10 @@
 
     </main>
 
+    <dialog id="player-card-dialog" class="player-card-dialog" data-url-template="{% url 'player_card' 0 %}" aria-label="Player overview">
+        <div class="player-card-shell"><button type="button" class="player-card-close" data-player-card-close aria-label="Close player overview">×</button><div data-player-card-content></div></div>
+    </dialog>
+    <script src="{% static 'js/player-card.js' %}?v=20261104-2" defer></script>
 </body>
 
 </html>

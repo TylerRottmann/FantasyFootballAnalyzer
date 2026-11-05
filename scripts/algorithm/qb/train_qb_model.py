@@ -16,8 +16,12 @@ django.setup()
 
 from leagues.models import Player
 from scripts.algorithm.features.qb_features import build_qb_features
-from scripts.algorithm.qb.qb_model import train_model, predict
+from scripts.algorithm.qb.qb_model import train_model, predict, create_model, TARGETS
+from leagues.services.scoring import REFERENCE_SKILL_SCORING, score_stat_line
 from scripts.algorithm.qb.feature_names import QB_FEATURE_NAMES
+from scripts.algorithm.rolling_evaluation import evaluate_walk_forward
+
+SEASONS = [2023, 2024, 2025]
 
 
 # ============================================================
@@ -55,11 +59,22 @@ def get_qb_games(season):
                 SELECT
                     player_id,
                     week,
-                    fantasy_points_ppr
+                    COALESCE(passing_yards, 0),
+                    COALESCE(passing_tds, 0),
+                    COALESCE(passing_interceptions, 0),
+                    COALESCE(passing_2pt_conversions, 0),
+                    COALESCE(rushing_yards, 0),
+                    COALESCE(rushing_tds, 0),
+                    COALESCE(rushing_2pt_conversions, 0),
+                    COALESCE(targets, 0), COALESCE(receptions, 0),
+                    COALESCE(receiving_yards, 0), COALESCE(receiving_tds, 0),
+                    COALESCE(receiving_2pt_conversions, 0),
+                    COALESCE(fumbles_lost, 0),
+                    COALESCE(attempts, 0),
+                    COALESCE(carries, 0)
                 FROM player_weekly_stats
                 WHERE season = %s
                   AND season_type = 'REG'
-                  AND fantasy_points_ppr IS NOT NULL
                   AND (
                       attempts > 0
                       OR passing_yards > 0
@@ -97,17 +112,11 @@ def build_dataset(season):
     print(f"Building dataset for {season}...")
     print(f"Games found: {len(games)}")
 
-    for index, (player_id, week, actual_points) in enumerate(
+    for index, game in enumerate(
         games,
         start=1,
     ):
-
-        # ----------------------------------------------------
-        # Cannot predict Week 1 from previous games
-        # ----------------------------------------------------
-
-        if week <= 1:
-            continue
+        player_id, week, *actual_stats = game
 
         player = Player.objects.filter(
             id=player_id,
@@ -150,7 +159,7 @@ def build_dataset(season):
                 row.append(float(value))
 
         X.append(row)
-        y.append(float(actual_points))
+        y.append([float(value) for value in actual_stats])
 
         # ----------------------------------------------------
         # Progress
@@ -178,33 +187,14 @@ def main():
     # BUILD ALL THREE SEASONS
     # ========================================================
 
-    X_train_2023, y_train_2023 = build_dataset(2023)
-
-    X_train_2024, y_train_2024 = build_dataset(2024)
-
-    X_train_2025, y_train_2025 = build_dataset(2025)
+    datasets = {season: build_dataset(season) for season in SEASONS}
 
     # ========================================================
     # COMBINE DATASETS
     # ========================================================
 
-    X_train = np.concatenate(
-        [
-            X_train_2023,
-            X_train_2024,
-            X_train_2025,
-        ],
-        axis=0,
-    )
-
-    y_train = np.concatenate(
-        [
-            y_train_2023,
-            y_train_2024,
-            y_train_2025,
-        ],
-        axis=0,
-    )
+    X_train = np.concatenate([datasets[season][0] for season in SEASONS], axis=0)
+    y_train = np.concatenate([datasets[season][1] for season in SEASONS], axis=0)
 
     print()
     print("=" * 60)
@@ -212,15 +202,15 @@ def main():
     print("=" * 60)
 
     print(
-        f"2023 rows: {len(X_train_2023)}"
+        f"2023 rows: {len(datasets[2023][0])}"
     )
 
     print(
-        f"2024 rows: {len(X_train_2024)}"
+        f"2024 rows: {len(datasets[2024][0])}"
     )
 
     print(
-        f"2025 rows: {len(X_train_2025)}"
+        f"2025 rows: {len(datasets[2025][0])}"
     )
 
     print(
@@ -234,6 +224,14 @@ def main():
     if len(X_train) == 0:
         print("No training data was created.")
         return
+
+    folds = evaluate_walk_forward(
+        datasets, SEASONS, create_model, predict, TARGETS, QB_FEATURE_NAMES,
+        REFERENCE_SKILL_SCORING, "QB",
+    )
+    print("Walk-forward evaluation (same held-out player-weeks for all baselines):")
+    for fold in folds:
+        print(fold)
 
     # ========================================================
     # FEATURE DIAGNOSTICS
@@ -325,25 +323,11 @@ def main():
         X_train,
     )
 
-    errors = np.abs(
-        predictions - y_train
-    )
-
-    mae = np.mean(errors)
-
-    success_rate = (
-        np.mean(errors <= 3.0)
-        * 100
-    )
-
-    print(
-        f"Training MAE: {mae:.2f}"
-    )
-
-    print(
-        f"Training success rate: "
-        f"{success_rate:.2f}%"
-    )
+    component_mae = np.mean(np.abs(predictions - y_train), axis=0)
+    print("In-sample component MAE:", dict(zip(TARGETS, np.round(component_mae, 2))))
+    scored_predictions = [score_stat_line(dict(zip(TARGETS, row)), REFERENCE_SKILL_SCORING, "QB") for row in predictions]
+    scored_actual = [score_stat_line(dict(zip(TARGETS, row)), REFERENCE_SKILL_SCORING, "QB") for row in y_train]
+    print(f"In-sample reference-score MAE: {np.mean(np.abs(np.asarray(scored_predictions) - scored_actual)):.2f}")
 
 
 if __name__ == "__main__":

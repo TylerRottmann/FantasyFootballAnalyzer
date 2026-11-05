@@ -83,13 +83,16 @@ class PlayerWeeklyStats(models.Model):
     passing_yards = models.IntegerField(blank=True, null=True)
     passing_tds = models.IntegerField(blank=True, null=True)
     passing_interceptions = models.IntegerField(blank=True, null=True)
+    passing_2pt_conversions = models.IntegerField(blank=True, null=True)
     carries = models.IntegerField(blank=True, null=True)
     rushing_yards = models.IntegerField(blank=True, null=True)
     rushing_tds = models.IntegerField(blank=True, null=True)
+    rushing_2pt_conversions = models.IntegerField(blank=True, null=True)
     targets = models.IntegerField(blank=True, null=True)
     receptions = models.IntegerField(blank=True, null=True)
     receiving_yards = models.IntegerField(blank=True, null=True)
     receiving_tds = models.IntegerField(blank=True, null=True)
+    receiving_2pt_conversions = models.IntegerField(blank=True, null=True)
     fumbles = models.IntegerField(blank=True, null=True)
     fumbles_lost = models.IntegerField(blank=True, null=True)
     fantasy_points = models.DecimalField(max_digits=10, decimal_places=5, blank=True, null=True)  # max_digits and decimal_places have been guessed, as this database handles decimal fields as float
@@ -361,6 +364,12 @@ class TeamWeeklyStats(models.Model):
     turnovers_forced = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     interceptions = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     sacks = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    forced_fumbles = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    fumble_recoveries = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    defensive_tds = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    special_teams_tds = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    safeties = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    dst_fantasy_points = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     fumbles_forced = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     third_down_attempts = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     third_down_conversions = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
@@ -445,4 +454,76 @@ class NFLGame(models.Model):
             f"{self.season} Week {self.week}: "
             f"{self.away_team.abbreviation} @ "
             f"{self.home_team.abbreviation}"
+        )
+
+class PlayerInjuryReport(models.Model):
+    player = models.ForeignKey('Players', models.CASCADE, db_constraint=False)
+    season = models.IntegerField()
+    week = models.IntegerField()
+    injury_status = models.CharField(max_length=40, blank=True)
+    injury_type = models.CharField(max_length=100, blank=True)
+    roster_status = models.CharField(max_length=40, blank=True)
+    depth_order = models.PositiveIntegerField(null=True)
+    team_id = models.IntegerField(null=True)
+    position = models.CharField(max_length=10, blank=True)
+    source = models.CharField(max_length=30, default='sleeper')
+    observed_at = models.DateTimeField()
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['player', 'season', 'week'], name='injury_player_week_unique')]
+
+
+class PlayerSnapCount(models.Model):
+    player = models.ForeignKey('Players', models.CASCADE, db_constraint=False)
+    season = models.IntegerField()
+    week = models.IntegerField()
+    team_id = models.IntegerField(null=True)
+    offense_snaps = models.PositiveIntegerField()
+    offense_share = models.FloatField()
+    source = models.CharField(max_length=30, default='nflverse_pfr')
+    imported_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['player', 'season', 'week'], name='snaps_player_week_unique')]
+
+
+class PlayerADP(models.Model):
+    SCORING_FORMATS = [
+        ("ppr", "Full PPR"),
+        ("half_ppr", "Half PPR"),
+        ("std", "Standard"),
+    ]
+
+    player = models.ForeignKey(
+        "Players",
+        on_delete=models.CASCADE,
+        db_constraint=False,
+        related_name="adp_rankings",
+    )
+    season = models.PositiveIntegerField()
+    scoring_format = models.CharField(
+        max_length=10,
+        choices=SCORING_FORMATS,
+    )
+    adp = models.DecimalField(max_digits=7, decimal_places=2)
+    source = models.CharField(max_length=30, default="sleeper")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["adp", "player_id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["player", "season", "scoring_format"],
+                name="unique_player_season_scoring_adp",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(adp__gt=0),
+                name="player_adp_positive",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.player_id} - {self.season} "
+            f"{self.scoring_format}: {self.adp}"
         )

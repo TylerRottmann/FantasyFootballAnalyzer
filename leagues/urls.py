@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import views
+from .trades import views as trade_views
 from .views import yahoo_callback, yahoo_connect
 
 
@@ -49,5 +50,24 @@ urlpatterns = [
         "resync/",
         views.resync_league,
         name="resync_league"
+    ),
+    path("trades/", trade_views.trades, name="trades"),
+    path("trades/suggestions/", trade_views.trade_suggestions, name="trade_suggestions"),
+    path("trades/player-search/", trade_views.trade_player_search, name="trade_player_search"),
+    path("trades/calculate/", trade_views.trade_calculate, name="trade_calculate"),
+    path(
+        "<int:league_id>/power-rankings/",
+        views.power_rankings,
+        name="power_rankings",
+    ),
+    path(
+        "<int:league_id>/power-rankings/sync/",
+        views.sync_matchups,
+        name="sync_matchups",
+    ),
+    path(
+        "<int:league_id>/teams/<int:roster_id>/",
+        views.team_breakdown,
+        name="team_breakdown",
     ),
 ]

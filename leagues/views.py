@@ -1,22 +1,35 @@
 import secrets
 import os
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 
 from django.core.cache import cache
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import FieldError
-from django.db.models import Avg, Q
+from django.db.models import Avg, Max, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import resolve, reverse, Resolver404
+from urllib.parse import urlsplit
+from django.utils import timezone
 import time
 from analyzer.models import NFLGame, PlayerWeeklyStats, Teams, TeamWeeklyStats
 
 from .integrations.sleeper import SleeperLeagueService
 from .integrations.yahoo import YahooLeagueService
 from .integrations.espn import ESPNLeagueService
+from leagues.services.kicker_scoring import league_projection, league_defense_projection
+from leagues.services.player_availability import projection_context
+from leagues.services.schedule import confirmed_bye_team_ids
+from leagues.services.external_cache import (
+    get_cached_sleeper_playoff_info,
+    refresh_sleeper_playoff_info,
+)
 from .models import (
+    DefenseProjection,
     FantasyLeague,
+    FantasyMatchup,
     FantasyRoster,
     FantasyProjection,
     FantasyRosterPlayer,
@@ -24,6 +37,9 @@ from .models import (
     RosterPlatformIdentity,
     UserLeagueConnection,
 )
+from .services.power_rankings import get_saved_power_rankings
+from .services.team_breakdown import build_team_breakdown
+from .services.matchup_sync import sync_connection_matchups
 
 from scripts.commands.lineup import (
     build_current_lineup,
@@ -31,6 +47,72 @@ from scripts.commands.lineup import (
     get_lineup_total,
 )
 from scripts.commands.nflweek import get_current_nfl_week
+
+
+def get_user_league_or_404(user, league_id):
+    """Return a league only when it belongs to one of the user's connections."""
+    connection = get_object_or_404(
+        UserLeagueConnection.objects.select_related("league"),
+        user=user,
+        league_id=league_id,
+    )
+    return connection.league
+
+
+def get_sleeper_playoff_info(league):
+    """Read cached settings and repair a missing cache with a short request."""
+    missing = object()
+    cached = get_cached_sleeper_playoff_info(league, missing)
+    if cached is not missing:
+        return cached
+
+    try:
+        return refresh_sleeper_playoff_info(league)
+    except Exception:
+        # The rankings page remains usable if Sleeper metadata is unavailable.
+        return None
+
+
+def get_power_rankings_snapshot(
+    league, user, current_week, connection, include_defense=True
+):
+    """Read the same cached league projection snapshot for rankings and modals."""
+    last_matchup_update = FantasyMatchup.objects.filter(
+        league=league,
+        season=league.season,
+        platform=connection.platform if connection else "",
+    ).aggregate(updated=Max("updated_at"))["updated"]
+    last_sync_timestamp = cache.get(f"matchup_sync:{league.id}:{league.season}")
+    if last_sync_timestamp is not None and (
+        last_matchup_update is None
+        or last_sync_timestamp > last_matchup_update.timestamp()
+    ):
+        last_matchup_update = datetime.fromtimestamp(
+            last_sync_timestamp,
+            tz=timezone.get_current_timezone(),
+        )
+    schedule_sync_needed = (
+        last_matchup_update is None
+        or last_matchup_update < timezone.now() - timedelta(hours=6)
+    )
+    schedule_version = last_matchup_update.isoformat() if last_matchup_update else "unsynced"
+    defense_mode = "dst-on" if include_defense else "dst-off"
+    projection_version = cache.get(f"projection_version:{league.season}", "initial")
+    league_version = league.updated_at.isoformat() if league.updated_at else "unknown"
+    cache_key = (
+        f"power_rankings:{league.id}:{user.id}:{current_week}:"
+        f"{schedule_version}:{projection_version}:{league_version}:{defense_mode}"
+    )
+    snapshot = cache.get(cache_key)
+    if snapshot is None:
+        snapshot = get_saved_power_rankings(
+            league,
+            user,
+            current_week=current_week,
+            include_defense=include_defense,
+        )
+        cache.set(cache_key, snapshot, timeout=60 * 30)
+    return snapshot, schedule_sync_needed
 
 
 # =============================================================
@@ -229,7 +311,18 @@ def select_league(request, league_id):
 
     request.session["active_league_id"] = connection.league.id
 
-    return redirect(request.META.get("HTTP_REFERER", "/"))
+    referer = request.META.get("HTTP_REFERER")
+    if referer:
+        try:
+            referred_view = resolve(urlsplit(referer).path).url_name
+        except Resolver404:
+            referred_view = None
+
+        if referred_view in {"power_rankings", "team_breakdown"}:
+            return redirect("power_rankings", league_id=connection.league.id)
+        return redirect(referer)
+
+    return redirect("start_sit")
 
 
 def _build_historical_lineups(league, roster, week, starting_positions):
@@ -255,13 +348,14 @@ def _build_historical_lineups(league, roster, week, starting_positions):
     players_by_id = {player.id: player for player in db_players}
     teams = Teams.objects.in_bulk({p.team_id for p in db_players if p.team_id})
 
+    context_for_week = projection_context(league.season, week)
     projection_map = {
-        projection.player_id: projection
-        for projection in FantasyProjection.objects.filter(
+        projection.player_id: league_projection(projection, league, context=context_for_week)
+        for projection in FantasyProjection.objects.select_related("player").filter(
             player_id__in=players_by_id,
             season=league.season,
             week=week,
-            model_version="v1",
+            model_version="v2_stat",
         )
     }
 
@@ -296,6 +390,7 @@ def _build_historical_lineups(league, roster, week, starting_positions):
             "opponent": game.away_team, "is_home": True, "game": game,
         }
 
+    bye_team_ids = confirmed_bye_team_ids(league.season, week)
     items_by_sleeper_id = {}
     player_pool = []
     for index, sleeper_id in enumerate(sleeper_ids):
@@ -305,11 +400,22 @@ def _build_historical_lineups(league, roster, week, starting_positions):
             team = Teams.objects.filter(abbreviation__iexact=sleeper_id).first()
         if player is None and team is None:
             continue
+        defense_projection = None
+        if player is None and team is not None:
+            defense_projection = DefenseProjection.objects.filter(
+                team=team, season=league.season, week=week,
+                model_version="v2_stat",
+            ).first()
+            if defense_projection:
+                defense_projection = league_defense_projection(defense_projection, league)
         item = {
             "player": player,
             "roster_player": SimpleNamespace(id=index + 1, roster_slot="BN"),
-            "prediction": projection_map.get(player.id) if player else None,
-            "matchup": matchup_by_team_id.get(player.team_id) if player else None,
+            "prediction": (
+                projection_map.get(player.id) if player else defense_projection
+            ),
+            "matchup": matchup_by_team_id.get(player.team_id if player else team.id),
+            "matchup_missing_label": "BYE" if (player.team_id if player else team.id) in bye_team_ids else "Schedule unavailable",
             "team": teams.get(player.team_id) if player else team,
             "is_defense": player is None,
             "actual_points": points_by_sleeper_id.get(sleeper_id),
@@ -464,18 +570,18 @@ def start_sit(request):
         if roster_player.player_id is not None
     ]
 
-    projections = FantasyProjection.objects.filter(
+    projections = FantasyProjection.objects.select_related("player").filter(
         player_id__in=player_ids,
         season=league.season,
         week=week,
-        model_version="v1",
+        model_version="v2_stat",
     )
 
+    context_for_week = projection_context(league.season, week)
     projection_map = {
-        projection.player_id: projection
+        projection.player_id: league_projection(projection, league, context=context_for_week)
         for projection in projections
     }
-
     projections_available = bool(projection_map)
     projections_required = not projections_available
 
@@ -499,11 +605,12 @@ def start_sit(request):
     )
 
     teams = Teams.objects.in_bulk(team_ids)
+    bye_team_ids = confirmed_bye_team_ids(league.season, week)
 
     matchups = {}
     schedule_games = (
         NFLGame.objects
-        .filter(season=league.season, week=week)
+        .filter(season=league.season, week=week, game_type="REG")
         .filter(Q(away_team_id__in=team_ids) | Q(home_team_id__in=team_ids))
         .select_related("away_team", "home_team")
         .order_by("id")
@@ -526,6 +633,21 @@ def start_sit(request):
 
     players = []
 
+    defense_projection_map = {
+        projection.team_id: league_defense_projection(projection, league)
+        for projection in DefenseProjection.objects.filter(
+            team_id__in=[
+                roster_player.team_id
+                for roster_player in roster_players
+                if roster_player.player is None
+                and roster_player.team_id is not None
+            ],
+            season=league.season,
+            week=week,
+            model_version="v2_stat",
+        )
+    }
+
     for roster_player in roster_players:
         # D/ST
         if roster_player.player is None:
@@ -535,8 +657,12 @@ def start_sit(request):
             players.append({
                 "player": None,
                 "roster_player": roster_player,
-                "prediction": None,
+                "prediction": (
+                    defense_projection_map.get(defense_team.id)
+                    if defense_team else None
+                ),
                 "matchup": matchup,
+                "matchup_missing_label": "BYE" if defense_team and defense_team.id in bye_team_ids else "Schedule unavailable",
                 "team": defense_team,
                 "is_defense": True,
             })
@@ -553,6 +679,7 @@ def start_sit(request):
             "roster_player": roster_player,
             "prediction": prediction,
             "matchup": matchup,
+            "matchup_missing_label": "BYE" if player.team_id in bye_team_ids else "Schedule unavailable",
             "team": teams.get(player.team_id),
             "is_defense": False,
         })
@@ -721,7 +848,7 @@ def start_sit(request):
 
 @login_required
 def projection_details(request, player_id):
-    """Return historical model inputs for a rostered QB or WR on demand."""
+    """Return historical model inputs for a rostered player on demand."""
     active_league_id = request.session.get("active_league_id")
     connection = (
         UserLeagueConnection.objects
@@ -787,17 +914,44 @@ def projection_details(request, player_id):
         }
         allowed_field = "wr_fantasy_points_allowed"
         recent_allowed_key = "opponent_wr_fantasy_allowed_l3"
-    elif position in {"RB", "TE"}:
-        stat_keys = ([
-            ("PPR points", "fantasy_points"), ("Rush attempts", "rushing_attempts"),
-            ("Rush yards", "rushing_yards"), ("Rush TD", "rushing_tds"),
-            ("Targets", "targets"), ("Receptions", "receptions"),
-            ("Receiving yards", "receiving_yards"), ("Receiving TD", "receiving_tds"),
-        ] if position == "RB" else [
+    elif position == "RB":
+        from scripts.algorithm.features.rb_features import build_rb_features
+        features = build_rb_features(player, league.season, week)
+        groups = {
+            "player": [
+                ("PPR points", "fantasy_points"), ("Rush attempts", "carries"),
+                ("Rush yards", "rushing_yards"), ("Rush TD", "rushing_tds"),
+                ("Targets", "targets"), ("Receptions", "receptions"),
+                ("Receiving yards", "receiving_yards"), ("Receiving TD", "receiving_tds"),
+                ("Touches", "touches"), ("Opportunities", "opportunities"),
+                ("Carry share", "carry_share"), ("Target share", "target_share"),
+                ("Catch rate", "catch_rate"),
+            ],
+            "team": [("Points", "team_points"), ("Pass yards", "team_passing_yards"),
+                     ("Rush yards", "team_rushing_yards"), ("Total yards", "team_total_yards")],
+        }
+        allowed_field = "rb_fantasy_points_allowed"
+        recent_allowed_key = "opponent_rb_fantasy_allowed_l3"
+    elif position == "K":
+        from scripts.algorithm.features.k_features import build_k_features
+        try:
+            features = build_k_features(player, league.season, week)
+        except (FileNotFoundError, ValueError):
+            return JsonResponse({"error": "Kicker source data is unavailable for this season."}, status=200)
+        groups = {
+            "player": [("FG attempts", "fg_att"), ("FG made", "fg_made"),
+                       ("FG missed (including blocked)", "fg_missed"),
+                       ("PAT made", "pat_made"), ("PAT missed (including blocked)", "pat_missed")],
+            "team": [("Points", "team_points_for"), ("Total yards", "team_total_yards")],
+        }
+        allowed_field = "kicking_points_against"
+        recent_allowed_key = "opponent_kicking_points_against_l3"
+    elif position == "TE":
+        stat_keys = [
             ("PPR points", "fantasy_points"), ("Targets", "targets"),
             ("Receptions", "receptions"), ("Receiving yards", "receiving_yards"),
             ("Receiving TD", "receiving_tds"),
-        ])
+        ]
         history = list(PlayerWeeklyStats.objects.filter(
             player_id=player_id, season=league.season, season_type="REG", week__lt=week,
         ).order_by("week"))
@@ -851,7 +1005,7 @@ def projection_details(request, player_id):
         return [
             {"label": label, "last": features.get(f"{key}_l1"),
              "last3": features.get(f"{key}_l3"), "season": features.get(f"{key}_season"),
-             "percent": key in {"target_share", "catch_rate"}}
+             "percent": key in {"carry_share", "target_share", "catch_rate"}}
             for label, key in fields
         ]
 
@@ -1005,7 +1159,7 @@ def resync_league(request):
             )
             service.import_league(
                 request.user,
-                platform_username=request.user.sleeper_username,
+                external_user_id=connection.external_user_id,
             )
             platform_name = "Sleeper"
 
@@ -1060,3 +1214,169 @@ def resync_league(request):
         )
 
     return redirect("start_sit")
+
+
+@login_required
+def power_rankings(request, league_id):
+    league = get_user_league_or_404(request.user, league_id)
+    current_week = get_current_nfl_week()
+    connection = UserLeagueConnection.objects.filter(
+        user=request.user,
+        league=league,
+    ).only("platform").first()
+    has_defense_slot = any(
+        str(position).upper() in {"DEF", "D/ST"}
+        for position in (league.roster_positions or [])
+    )
+    include_defense = (
+        request.GET.get("include_defense", "1") != "0"
+        if has_defense_slot else False
+    )
+    cached_rankings, schedule_sync_needed = get_power_rankings_snapshot(
+        league, request.user, current_week, connection, include_defense
+    )
+    rankings, league_average_points, generated_at = cached_rankings
+    playoff_info = (
+        get_sleeper_playoff_info(league)
+        if connection and connection.platform == UserLeagueConnection.PLATFORM_SLEEPER
+        else None
+    )
+    chart_positions = [
+        {"value": "QB", "label": "QB starters"},
+        {"value": "RB", "label": "RB starters"},
+        {"value": "WR", "label": "WR starters"},
+        {"value": "TE", "label": "TE starters"},
+        {"value": "K", "label": "K starters"},
+        {"value": "DEF", "label": "DEF starters"},
+        {"value": "BENCH_QB", "label": "Bench QB"},
+        {"value": "BENCH_RB", "label": "Bench RB"},
+        {"value": "BENCH_WR", "label": "Bench WR"},
+        {"value": "BENCH_TE", "label": "Bench TE"},
+        {"value": "BENCH_K", "label": "Bench K"},
+        {"value": "BENCH_DEF", "label": "Bench DEF"},
+        {"value": "BENCH_TOTAL", "label": "Bench total"},
+    ]
+    if not include_defense:
+        chart_positions = [
+            position for position in chart_positions
+            if position["value"] not in {"DEF", "BENCH_DEF"}
+        ]
+    position_chart_data = {
+        position["value"]: [
+            {
+                "team": row["team_name"],
+                "average": row["position_averages"].get(position["value"], 0.0),
+                "is_user_team": row["is_user_team"],
+            }
+            for row in rankings
+        ]
+        for position in chart_positions
+    }
+
+    return render(request, "leagues/power_rankings.html", {
+        "league": league,
+        "rankings": rankings,
+        "league_average_points": league_average_points,
+        "generated_at": generated_at,
+        "chart_positions": chart_positions,
+        "position_chart_data": position_chart_data,
+        "schedule_sync_needed": schedule_sync_needed,
+        "playoff_info": playoff_info,
+        "has_defense_slot": has_defense_slot,
+        "include_defense": include_defense,
+        "sync_matchups_url": reverse("sync_matchups", args=[league.id]),
+    })
+
+
+@login_required
+def sync_matchups(request, league_id):
+    if request.method != "POST":
+        return redirect("power_rankings", league_id=league_id)
+
+    connection = get_object_or_404(
+        UserLeagueConnection.objects.select_related("league", "user"),
+        user=request.user,
+        league_id=league_id,
+    )
+    wants_json = "application/json" in request.headers.get("Accept", "")
+    sync_cache_key = f"matchup_sync:{connection.league.id}:{connection.league.season}"
+    force_sync = request.POST.get("force") == "1"
+    last_sync = cache.get(sync_cache_key)
+    if not force_sync and last_sync is not None and timezone.now().timestamp() - last_sync < 6 * 60 * 60:
+        if wants_json:
+            return JsonResponse({"status": "fresh", "synced": 0})
+        return redirect("power_rankings", league_id=league_id)
+
+    lock_key = f"matchup_sync_lock:{connection.league.id}:{connection.league.season}"
+    if not cache.add(lock_key, True, timeout=5 * 60):
+        if wants_json:
+            return JsonResponse({"status": "running", "synced": 0})
+        return redirect("power_rankings", league_id=league_id)
+
+    try:
+        current_week = get_current_nfl_week()
+        imported = sync_connection_matchups(
+            connection,
+            current_week=current_week,
+        )
+        cache.set(sync_cache_key, timezone.now().timestamp(), timeout=6 * 60 * 60)
+        if wants_json:
+            return JsonResponse({"status": "synced", "synced": imported})
+        messages.success(request, f"Synced {imported} weekly schedule and result records for {connection.league.name}.")
+    except Exception as exc:
+        if wants_json:
+            return JsonResponse({"status": "error", "error": str(exc)}, status=502)
+        messages.error(request, f"Unable to sync schedule and results: {exc}")
+    finally:
+        cache.delete(lock_key)
+
+    return redirect("power_rankings", league_id=league_id)
+
+
+@login_required
+def team_breakdown(request, league_id, roster_id):
+    league = get_user_league_or_404(request.user, league_id)
+    roster = get_object_or_404(
+        FantasyRoster,
+        pk=roster_id,
+        league=league,
+    )
+    connection = UserLeagueConnection.objects.filter(
+        user=request.user,
+        league=league,
+    ).only("platform").first()
+    has_defense_slot = any(
+        str(position).upper() in {"DEF", "D/ST"}
+        for position in (league.roster_positions or [])
+    )
+    include_defense = (
+        request.GET.get("include_defense", "1") != "0"
+        if has_defense_slot else False
+    )
+    current_week = get_current_nfl_week()
+    (rankings, _, _), _ = get_power_rankings_snapshot(
+        league, request.user, current_week, connection, include_defense
+    )
+    breakdown = build_team_breakdown(
+        league,
+        roster,
+        current_week,
+        rankings,
+        request.user,
+        include_defense=include_defense,
+    )
+    context = {
+        "league": league,
+        "roster": roster,
+        "has_defense_slot": has_defense_slot,
+        "include_defense": include_defense,
+        **breakdown,
+    }
+    template = (
+        "leagues/team_breakdown_modal.html"
+        if request.GET.get("modal") == "1"
+        else "leagues/team_breakdown.html"
+    )
+    return render(request, template, {
+        **context,
+    })

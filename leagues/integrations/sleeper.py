@@ -6,8 +6,10 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from django.utils import timezone
+from django.db import transaction
 
 from analyzer.models import Teams
+from leagues.services.external_cache import cache_sleeper_playoff_info
 from leagues.models import (
     FantasyLeague,
     FantasyRoster,
@@ -15,6 +17,7 @@ from leagues.models import (
     Player,
     UserLeagueConnection,
 )
+from leagues.services.scoring_settings import normalize_sleeper_settings
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +26,7 @@ class SleeperLeagueService:
     BASE_URL = "https://api.sleeper.app/v1"
     REQUEST_TIMEOUT = 10
     PLAYER_LOOKUP_WORKERS = 8
+    TEAM_ABBREVIATION_ALIASES = {"LA": "LAR"}
 
     def __init__(self, league_id):
         self.league_id = str(league_id).strip()
@@ -120,6 +124,25 @@ class SleeperLeagueService:
                 for team in Teams.objects.all()
             }
         return self._team_by_abbreviation
+
+    @classmethod
+    def _canonical_team_abbreviation(cls, player_id):
+        normalized_id = str(player_id or "").strip().upper()
+        return cls.TEAM_ABBREVIATION_ALIASES.get(normalized_id, normalized_id)
+
+    @classmethod
+    def _is_team_identifier(cls, player_id, team_by_abbreviation):
+        """Return whether a Sleeper roster ID is a D/ST team code.
+
+        Sleeper uses team abbreviations as defense IDs. Some NFL team codes
+        have two letters (including KC), so the code must be matched against
+        the team table instead of relying on a fixed length.
+        """
+        normalized_id = cls._canonical_team_abbreviation(player_id)
+        return (
+            normalized_id in team_by_abbreviation
+            or (normalized_id.isalpha() and len(normalized_id) == 3)
+        )
 
     @staticmethod
     def _to_int(value):
@@ -235,7 +258,8 @@ class SleeperLeagueService:
         )
         return results
 
-    def import_league(self, user, platform_username=None):
+    @transaction.atomic
+    def import_league(self, user, platform_username=None, external_user_id=None):
         import_started = time.perf_counter()
         logger.info("Starting Sleeper league import for league %s", self.league_id)
 
@@ -253,10 +277,11 @@ class SleeperLeagueService:
         logger.info("Import stage: users %.2fs", time.perf_counter() - stage_started)
 
         now = timezone.now()
-        scoring_settings = league_data.get("scoring_settings") or {}
+        raw_scoring_settings = league_data.get("scoring_settings") or {}
+        scoring_settings = normalize_sleeper_settings(raw_scoring_settings)
         roster_positions = league_data.get("roster_positions") or []
-        ppr = scoring_settings.get("rec", 0)
-        te_premium = scoring_settings.get("bonus_rec_te", 0)
+        ppr = raw_scoring_settings.get("rec", 0)
+        te_premium = raw_scoring_settings.get("bonus_rec_te", 0)
 
         non_starting_positions = {"BN", "IR", "TAXI"}
         starting_positions = [
@@ -267,19 +292,29 @@ class SleeperLeagueService:
         starter_count = len(starting_positions)
 
         username = platform_username or user.sleeper_username
-        sleeper_user = self.find_user(users, username)
+        if external_user_id is not None:
+            sleeper_user = next((entry for entry in users if str(entry.get('user_id')) == str(external_user_id)), None)
+        else:
+            sleeper_user = self.find_user(users, username)
         if sleeper_user is None:
             raise ValueError(
-                f"Sleeper user '{username}' was not found in this league."
+                'The linked Sleeper account was not found in this league.' if external_user_id is not None
+                else f"Sleeper user '{username}' was not found in this league."
             )
+
+        # Resolve team IDs before player lookups. Sleeper uses team abbreviations
+        # for D/ST, and valid IDs include two-letter codes such as KC and GB.
+        team_by_abbreviation = self._get_team_map()
 
         # Collect all player IDs first, then resolve existing players in one query.
         all_player_ids = set()
         for roster_data in rosters:
             for sleeper_player_id in roster_data.get("players") or []:
                 player_id = str(sleeper_player_id)
-                # Sleeper represents D/ST with a three-letter team abbreviation.
-                if not (len(player_id) == 3 and player_id.isalpha()):
+                if not self._is_team_identifier(
+                    player_id,
+                    team_by_abbreviation,
+                ):
                     all_player_ids.add(player_id)
 
         stage_started = time.perf_counter()
@@ -299,9 +334,6 @@ class SleeperLeagueService:
         # never trigger individual Sleeper requests.
         missing_player_data = self._fetch_missing_player_data(missing_player_ids)
 
-        # Cache team abbreviations so every roster entry does not query Teams.
-        team_by_abbreviation = self._get_team_map()
-
         stage_started = time.perf_counter()
         league, _ = FantasyLeague.objects.update_or_create(
             sleeper_league_id=self.league_id,
@@ -320,6 +352,9 @@ class SleeperLeagueService:
                 "updated_at": now,
             },
         )
+        # The league payload already contains playoff settings; cache them
+        # during connection so Power Rankings can highlight cutoffs immediately.
+        cache_sleeper_playoff_info(league, league_data)
 
         # Create any missing player records in bulk. This substantially reduces
         # database round trips compared with get_or_create for every player.
@@ -401,9 +436,13 @@ class SleeperLeagueService:
             for sleeper_player_id in roster_data.get("players") or []:
                 player_id = str(sleeper_player_id)
 
-                # Defense/special teams entries use team abbreviations.
-                if len(player_id) == 3 and player_id.isalpha():
-                    team = team_by_abbreviation.get(player_id.upper())
+                # Defense/special teams entries are team abbreviations, not
+                # player rows. Match recognized codes at any length.
+                if self._is_team_identifier(player_id, team_by_abbreviation):
+                    team_abbreviation = self._canonical_team_abbreviation(
+                        player_id
+                    )
+                    team = team_by_abbreviation.get(team_abbreviation)
                     if team is None:
                         logger.warning(
                             "Skipping unknown Sleeper defense/team abbreviation %s",
@@ -416,7 +455,7 @@ class SleeperLeagueService:
                             roster=roster,
                             player=None,
                             team=team,
-                            roster_slot="DEF",
+                            roster_slot=starter_slots.get(player_id, "BN"),
                             created_at=now,
                         )
                     )

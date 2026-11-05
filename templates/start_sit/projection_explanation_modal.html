@@ -40,7 +40,7 @@
                 <h3>Opponent defense</h3>
                 <div class="projection-defense-grid" id="projectionDefenseStats"></div>
             </section>
-            <p class="projection-explanation-footnote">Historical averages are model inputs and matchup context, not separate predicted stat lines. The model predicts PPR points only. Defense rank: 1 = fewest points allowed (toughest); 32 = most (easiest).</p>
+            <p class="projection-explanation-footnote" id="projectionExplanationFootnote">Historical averages are model inputs and matchup context, not separate predicted stat lines. The model predicts PPR points only. Defense rank: 1 = fewest points allowed (toughest); 32 = most (easiest).</p>
         </div>
     </section>
 </div>
@@ -87,10 +87,14 @@
             document.getElementById("playerStatsSection").hidden = false;
             document.getElementById("teamStatsSection").hidden = false;
             const defense = data.defense;
+            const units = data.position === "K" ? "kicking points" : "PPR";
+            document.getElementById("projectionExplanationFootnote").textContent = data.position === "K"
+                ? "Kicker projections use your league's scoring. Allowed points shown here are scoreboard kicking points. Defense rank: 1 = fewest allowed."
+                : "Historical averages are model inputs and matchup context, not separate predicted stat lines. The model predicts PPR points only. Defense rank: 1 = fewest points allowed (toughest); 32 = most (easiest).";
             const cells = [
-                ["Matchup", data.game_status === "GAME" ? `${data.home ? "vs" : "@"} ${data.opponent || "—"}` : (data.game_status || "—")],
-                ["Last 3 allowed", statText(defense.position_allowed, false) + " PPR"],
-                ["Season allowed", statText(defense.season_allowed, false) + " PPR"],
+                ["Matchup", data.game_status === "GAME" ? `${data.home === true ? "vs" : data.home === false ? "@" : ""} ${data.opponent || "—"}` : (data.game_status || "—")],
+                ["Last 3 allowed", statText(defense.position_allowed, false) + " " + units],
+                ["Season allowed", statText(defense.season_allowed, false) + " " + units],
                 ["Defense rank", defense.rank ? `#${defense.rank} / ${defense.rank_count}` : "—"],
             ];
             const grid = document.getElementById("projectionDefenseStats");

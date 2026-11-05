@@ -1,3 +1,4 @@
+import argparse
 import os
 import nflreadpy as nfl
 import psycopg
@@ -8,6 +9,10 @@ load_dotenv()
 # --------------------------------------------------
 # Database
 # --------------------------------------------------
+
+parser = argparse.ArgumentParser(description="Import weekly team statistics and schedules.")
+parser.add_argument("--seasons", nargs="+", type=int, default=[2023, 2024, 2025])
+SEASONS = sorted(set(parser.parse_args().seasons))
 
 conn = psycopg.connect(
     host=os.getenv("DB_HOST"),
@@ -20,8 +25,6 @@ conn = psycopg.connect(
 # --------------------------------------------------
 # Load NFL data
 # --------------------------------------------------
-
-SEASONS = [2023, 2024, 2025]
 
 team_stats = nfl.load_team_stats(seasons=SEASONS)
 schedules = nfl.load_schedules(seasons=SEASONS)
