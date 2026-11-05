@@ -2,6 +2,8 @@
 
 A Django-based fantasy football analysis application.
 
+Kicker model setup and evaluation: [SCRUM-27 kicker model](scripts/algorithm/k/README.md).
+
 ## Table of Contents
 
 * [Project Setup](#project-setup)
@@ -35,10 +37,25 @@ Navigate into the project (should do this automatically):
 cd FantasyFootballAnalyzer
 ```
 
-## 2. Run the Django Server
+## 2. Install Project Dependencies
 
-```bash
-python manage.py runserver
+Use the project virtual environment so dependencies are separate from global Python.
+From the repository root in PowerShell:
+
+```powershell
+# Create the environment only if .venv does not already exist.
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe manage.py check
+```
+
+The requirements include `django-extensions`, which is enabled in `INSTALLED_APPS`.
+Keep local database configuration in the ignored `.env` file; do not commit it.
+
+## 3. Run the Django Server
+
+```powershell
+.\.venv\Scripts\python.exe manage.py runserver
 ```
 
 The application should then be available at:

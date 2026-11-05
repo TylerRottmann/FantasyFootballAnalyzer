@@ -30,7 +30,7 @@ conn = psycopg.connect(
 
 SEASONS = [2023, 2024, 2025]
 
-POSITIONS = ["QB", "RB", "WR", "TE", "DST"]
+POSITIONS = ["QB", "RB", "WR", "TE", "K", "DST"]
 
 RECENT_GAMES = 4
 SUCCESS_THRESHOLD = 3
@@ -239,6 +239,20 @@ def backtest_dst(season):
     return results
 
 
+def backtest_k(season):
+    from scripts.algorithm.k.train_k_model import build_dataset, get_players, score_rows
+    from scripts.algorithm.k.k_model import load_model, predict
+    model = load_model()
+    if model is None:
+        return []
+    X, y, baseline, rows, counts = build_dataset(season, get_players())
+    if not len(y):
+        return []
+    return [{**row, 'projected': float(projected), 'actual': float(actual),
+             'difference': abs(float(projected)-float(actual))}
+            for row, projected, actual in zip(rows, score_rows(predict(model, X)), score_rows(y))]
+
+
 def main(seasons=SEASONS, positions=POSITIONS):
 
     print("Historical replay of saved models; training-season results are in-sample.")
@@ -277,7 +291,10 @@ def main(seasons=SEASONS, positions=POSITIONS):
 
         for position in positions:
 
-            if position == "DST":
+            if position == "K":
+                batches = [backtest_k(season)]
+                print("K: mapped kicker games, reference scoring")
+            elif position == "DST":
                 batches = [backtest_dst(season)]
                 print(f"{position}: 32 defenses")
             else:

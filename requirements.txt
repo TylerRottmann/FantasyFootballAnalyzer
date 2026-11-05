@@ -4,19 +4,21 @@ certifi==2026.7.22
 charset-normalizer==3.5.1
 cloudpickle==3.1.2
 colorama==0.4.6
+django-extensions==4.1
 Django==5.1.5
 idna==3.19
 joblib==1.6.0
 narwhals==2.26.0
 nflreadpy==0.1.5
 numpy==2.5.3
+pandas==3.0.6
 platformdirs==4.11.8
-polars==1.44.2
 polars-runtime-32==1.44.2
-psycopg==3.3.5
+polars==1.44.2
 psycopg-binary==3.3.5
-pydantic==2.13.5
+psycopg==3.3.5
 pydantic-settings==2.15.0
+pydantic==2.13.5
 pydantic_core==2.46.5
 python-dotenv==1.2.3
 requests==2.34.2
@@ -29,9 +31,3 @@ typing-inspection==0.4.4
 typing_extensions==4.16.0
 tzdata==2025.1
 urllib3==2.7.0
-
-# SCRUM-39: Boom/Bust ML prediction
-scikit-learn==1.9.1
-pandas==3.0.6
-numpy==2.5.3
-joblib==1.6.0

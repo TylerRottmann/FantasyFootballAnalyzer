@@ -21,3 +21,5 @@ Thumbs.db
 # Boom/Bust v2 generated data
 *.step*.bak
 scripts/algorithm/boom_bust/.cache_v2/
+# Reproducible local kicker source snapshot
+scripts/algorithm/k/kicker_weekly.json

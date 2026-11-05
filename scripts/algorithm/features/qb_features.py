@@ -196,7 +196,8 @@ def get_qb_history(player_id, season, week):
             ),
         )
 
-        return cur.fetchall()
+        from scripts.algorithm.features.injury_history import filter_injury_history
+        return filter_injury_history(cur.fetchall(), player_id, season)
 
 
 # ============================================================
@@ -227,14 +228,14 @@ def get_player_game_context(player_id, season, week):
 
     historical_query = """
         SELECT
-            pws.opponent_team,
+            CASE WHEN pws.opponent_team = 'LA' THEN 'LAR' ELSE pws.opponent_team END,
             tws.team_id,
             tws.opponent_team_id,
             tws.is_home
         FROM player_weekly_stats pws
 
         JOIN teams opponent
-            ON opponent.abbreviation = pws.opponent_team
+            ON opponent.abbreviation = CASE WHEN pws.opponent_team = 'LA' THEN 'LAR' ELSE pws.opponent_team END
 
         JOIN team_weekly_stats tws
             ON tws.opponent_team_id = opponent.id

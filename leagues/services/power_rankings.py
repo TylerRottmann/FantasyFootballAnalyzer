@@ -1,4 +1,6 @@
 from collections import defaultdict
+from leagues.services.kicker_scoring import league_projection
+from leagues.services.player_availability import projection_context
 
 from django.db.models import Prefetch
 
@@ -156,7 +158,8 @@ def get_saved_power_rankings(league, user, current_week, include_defense=True):
     if not available_weeks:
         return [], 0.0, None
 
-    projection_map = {(row.player_id, row.week): row for row in projections}
+    context_for_week = projection_context(league.season, current_week)
+    projection_map = {(row.player_id, row.week): league_projection(row, league, context=context_for_week) for row in projections}
     defense_map = {(row.team_id, row.week): row for row in defense_projections}
     starting_positions = [
         "DEF" if str(position).upper() == "D/ST" else str(position).upper()
@@ -262,7 +265,7 @@ def get_saved_power_rankings(league, user, current_week, include_defense=True):
         return [], 0.0, generated_at
 
     team_rows.sort(key=lambda row: row["rest_of_season_points"], reverse=True)
-    position_codes = ("QB", "RB", "WR", "TE", "DEF")
+    position_codes = ("QB", "RB", "WR", "TE", "K", "DEF")
     week_averages = defaultdict(list)
     for row in team_rows:
         for week_row in row["weeks"]:
