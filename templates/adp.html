@@ -3,9 +3,11 @@
 {% load static %}
 {% load player_health %}
 
-{% block content %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/adp.css' %}?v=20261104-1">
+{% endblock %}
 
-<link rel="stylesheet" href="{% static 'css/adp.css' %}">
+{% block content %}
 
 <div class="adp-page">
 
