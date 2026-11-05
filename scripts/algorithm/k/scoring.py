@@ -19,6 +19,10 @@ def score_kicking(stats, settings):
     Yahoo's nested stat modifiers and unknown kicking rules are rejected instead
     of presenting a reference score as an exact custom-league result.
     """
+    if isinstance(settings, dict) and settings.get('schema_version'):
+        if settings.get('unsupported_rules'):
+            raise ValueError('Unsupported league scoring rules: ' + ', '.join(settings['unsupported_rules']))
+        settings = settings.get('rules', {})
     if not isinstance(settings, dict) or 'yahoo' in settings or 'stat_modifiers' in settings:
         raise ValueError('Unsupported kicker scoring settings.')
     unknown = [key for key, value in settings.items()

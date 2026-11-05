@@ -40,20 +40,26 @@ def get_dst_history(team_id, season, week):
     """
     query = """
         SELECT
-            week,
-            dst_fantasy_points,
-            sacks,
-            interceptions,
-            fumble_recoveries,
-            COALESCE(defensive_tds, 0) + COALESCE(special_teams_tds, 0),
-            points_against,
-            total_yards_against
-        FROM team_weekly_stats
-        WHERE team_id = %s
-          AND season = %s
-          AND season_type = 1
-          AND week < %s
-        ORDER BY week
+            defense.week,
+            defense.dst_fantasy_points,
+            defense.sacks,
+            defense.interceptions,
+            defense.fumble_recoveries,
+            COALESCE(defense.defensive_tds, 0) + COALESCE(defense.special_teams_tds, 0),
+            defense.points_against,
+            defense.total_yards_against,
+            offense.offensive_plays,
+            offense.offensive_dropbacks,
+            COALESCE(defense.interceptions, 0) + COALESCE(defense.fumble_recoveries, 0)
+        FROM team_weekly_stats defense
+        LEFT JOIN team_weekly_opportunity_stats offense
+          ON offense.team_id = defense.opponent_team_id
+         AND offense.season = defense.season AND offense.week = defense.week
+        WHERE defense.team_id = %s
+          AND defense.season = %s
+          AND defense.season_type = 1
+          AND defense.week < %s
+        ORDER BY defense.week
     """
     with get_connection().cursor() as cur:
         cur.execute(query, (team_id, season, week))
@@ -82,13 +88,18 @@ def get_offense_history(team_id, season, week):
             a.total_yards,
             a.passing_yards,
             d.sacks,
-            COALESCE(d.interceptions, 0) + COALESCE(d.fumble_recoveries, 0)
+            COALESCE(d.interceptions, 0) + COALESCE(d.fumble_recoveries, 0),
+            offense.offensive_plays,
+            offense.offensive_dropbacks
         FROM team_weekly_stats a
         LEFT JOIN team_weekly_stats d
             ON d.team_id = a.opponent_team_id
            AND d.season = a.season
            AND d.week = a.week
            AND d.season_type = a.season_type
+        LEFT JOIN team_weekly_opportunity_stats offense
+          ON offense.team_id = a.team_id
+         AND offense.season = a.season AND offense.week = a.week
         WHERE a.team_id = %s
           AND a.season = %s
           AND a.season_type = 1
@@ -204,6 +215,12 @@ def compute_dst_features(dst_rows, opp_offense_rows, own_offense_rows, context):
             features[f"turnovers_{name}"] = _sum_avg(
                 rows, (3, 4)
             )
+        features[f"defense_sack_rate_{name}"] = safe_rate(
+            _col(rows, 2), _col(rows, 9)
+        )
+        features[f"defense_turnovers_per_play_{name}"] = safe_rate(
+            _col(rows, 10), _col(rows, 8)
+        )
 
     for name in ("l3", "l5", "l8", "season"):
         rows = _windows(dst_rows)[name]
@@ -231,6 +248,11 @@ def compute_dst_features(dst_rows, opp_offense_rows, own_offense_rows, context):
             continue
         for stat, index in opp_stats.items():
             features[f"opponent_{stat}_{name}"] = average(_col(rows, index))
+        features[f"opponent_points_per_play_{name}"] = safe_rate(_col(rows, 1), _col(rows, 6))
+        features[f"opponent_yards_per_play_{name}"] = safe_rate(_col(rows, 2), _col(rows, 6))
+        features[f"opponent_pass_yards_per_dropback_{name}"] = safe_rate(_col(rows, 3), _col(rows, 7))
+        features[f"opponent_sack_rate_taken_{name}"] = safe_rate(_col(rows, 4), _col(rows, 7))
+        features[f"opponent_giveaways_per_play_{name}"] = safe_rate(_col(rows, 5), _col(rows, 6))
 
     # ---------------- own offense (game script / field position) -------
     for name, rows in _windows(own_offense_rows).items():
@@ -251,6 +273,16 @@ def _sum_avg(rows, indexes):
             continue
         totals.append(sum(float(v) for v in vals))
     return average(totals)
+
+
+def safe_rate(numerators, denominators):
+    """Aggregate a stable rate over paired game-level observations."""
+    pairs = [
+        (float(n), float(d)) for n, d in zip(numerators, denominators)
+        if n is not None and d is not None
+    ]
+    total = sum(d for _n, d in pairs)
+    return sum(n for n, _d in pairs) / total if total > 0 else None
 
 
 # ============================================================

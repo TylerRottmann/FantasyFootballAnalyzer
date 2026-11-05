@@ -11,7 +11,7 @@ from leagues.models import (
     FantasyRosterPlayer,
     UserLeagueConnection,
 )
-from leagues.services.kicker_scoring import league_projection
+from leagues.services.kicker_scoring import league_projection, league_defense_projection
 from leagues.services.power_rankings import REGULAR_SEASON_WEEKS
 from scripts.commands.lineup import get_projection
 
@@ -65,21 +65,21 @@ def build_trade_universe(league, user, current_week):
         season=league.season,
         week__gte=current_week,
         week__lte=REGULAR_SEASON_WEEKS,
-        model_version="v1",
+        model_version="v2_stat",
     ).select_related("player"))
     defense_projections = list(DefenseProjection.objects.filter(
         team_id__in=defense_team_ids,
         season=league.season,
         week__gte=current_week,
         week__lte=REGULAR_SEASON_WEEKS,
-        model_version="v1",
+        model_version="v2_stat",
     ).select_related("team"))
     projection_map = {
         (row.player_id, row.week): league_projection(row, league)
         for row in projections
     }
     defense_map = {
-        (row.team_id, row.week): row
+        (row.team_id, row.week): league_defense_projection(row, league)
         for row in defense_projections
     }
     weeks = sorted({row.week for row in projections + defense_projections})

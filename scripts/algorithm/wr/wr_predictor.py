@@ -3,6 +3,8 @@ import numpy as np
 from scripts.algorithm.features.wr_features import build_wr_features
 from scripts.algorithm.wr.feature_names import WR_FEATURE_NAMES
 from scripts.algorithm.wr.wr_model import load_model, predict
+from scripts.algorithm.wr.wr_model import TARGETS
+from leagues.services.scoring import REFERENCE_SKILL_SCORING, score_stat_line
 
 
 def build_model_row(features):
@@ -26,8 +28,7 @@ def build_model_row(features):
 
 def predict_wr(player, season, week):
     """
-    Generate a WR fantasy projection (PPR) using the trained
-    machine-learning model.
+    Generate a WR projected stat line and a reference fantasy score.
     """
 
     features = build_wr_features(
@@ -61,9 +62,14 @@ def predict_wr(player, season, week):
 
     X = build_model_row(features)
 
-    projected_fantasy_points = float(
-        predict(model, X)[0]
-    )
+    stat_values = predict(model, X)[0]
+    projected_stats = {name: float(value) for name, value in zip(TARGETS, stat_values)}
+    uncertainty = model.predict_uncertainty(X)
+    if uncertainty is not None:
+        projected_stats["_uncertainty"] = {
+            name: float(value) for name, value in zip(TARGETS, uncertainty[0])
+        }
+    projected_fantasy_points = score_stat_line(projected_stats, REFERENCE_SKILL_SCORING, "WR")
 
     return {
         "player_id": player.id,
@@ -75,5 +81,6 @@ def predict_wr(player, season, week):
             2,
         ),
         "status": "ml_model",
+        "projected_stats": projected_stats,
         "features": features,
     }

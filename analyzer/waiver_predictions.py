@@ -27,7 +27,7 @@ def load_waiver_predictions(player_ids, league, week):
     forecasts.temporary_role_player_ids = {pid for pid, value in context['values'].items() if value.horizon == 'short'}
     projections = FantasyProjection.objects.select_related('player').filter(
         player_id__in=player_ids, season=league.season,
-        week__gte=week, week__lte=18, model_version='v1',
+        week__gte=week, week__lte=18, model_version='v2_stat',
     )
     for saved in projections:
         projection = league_projection(saved, league, context=context)
@@ -46,7 +46,14 @@ def load_waiver_predictions(player_ids, league, week):
     if live_week(league.season, week):
         from leagues.models import Player
         for player in Player.objects.filter(pk__in=player_ids):
-            _, factor = availability(player, league.season, week, reports=context['reports'])
+            _, factor = availability(
+                player,
+                league.season,
+                week,
+                reports=context['reports'],
+                duration_profiles=context['duration_profiles'],
+                absence_start_weeks=context['absence_start_weeks'],
+            )
             if factor == 0:
                 forecasts[(player.pk, week)] = 0.0
                 if player.pk not in season_absences:

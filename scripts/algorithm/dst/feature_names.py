@@ -111,6 +111,20 @@ DST_ALL_FEATURE_NAMES = [
 # Kept under the old name too so existing imports keep working.
 DST_FEATURE_NAMES = DST_ALL_FEATURE_NAMES
 
+DST_MATCHUP_FEATURE_NAMES = [
+    f"{prefix}_{stat}_{window}"
+    for window in ("l3", "l5", "l8", "season")
+    for prefix, stats in (
+        ("defense", ("sack_rate", "turnovers_per_play")),
+        ("opponent", (
+            "points_per_play", "yards_per_play", "pass_yards_per_dropback",
+            "sack_rate_taken", "giveaways_per_play",
+        )),
+    )
+    for stat in stats
+]
+DST_ALL_FEATURE_NAMES += DST_MATCHUP_FEATURE_NAMES
+
 # Small, low-noise subset (season + l5 windows only). With ~1,500 training
 # rows and a very noisy target, fewer inputs generalize better than all 71.
 DST_SLIM_FEATURE_NAMES = [
@@ -128,6 +142,20 @@ DST_SLIM_FEATURE_NAMES = [
     "opponent_total_yards_season",
     "opponent_giveaways_season",
     "opponent_sacks_taken_season",
+    "defense_sack_rate_l5",
+    "defense_sack_rate_season",
+    "defense_turnovers_per_play_l5",
+    "defense_turnovers_per_play_season",
+    "opponent_points_per_play_l5",
+    "opponent_points_per_play_season",
+    "opponent_yards_per_play_l5",
+    "opponent_yards_per_play_season",
+    "opponent_pass_yards_per_dropback_l5",
+    "opponent_pass_yards_per_dropback_season",
+    "opponent_sack_rate_taken_l5",
+    "opponent_sack_rate_taken_season",
+    "opponent_giveaways_per_play_l5",
+    "opponent_giveaways_per_play_season",
     "team_points_for_season",
     "is_home",
     "games_played",
