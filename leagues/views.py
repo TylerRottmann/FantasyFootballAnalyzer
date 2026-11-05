@@ -1,3 +1,4 @@
+from django.views.decorators.csrf import ensure_csrf_cookie
 import secrets
 from datetime import datetime, timedelta
 from types import SimpleNamespace
@@ -1149,6 +1150,7 @@ def sync_matchups(request, league_id):
 
 
 @login_required
+@ensure_csrf_cookie
 def team_breakdown(request, league_id, roster_id):
     league = get_user_league_or_404(request.user, league_id)
     roster = get_object_or_404(

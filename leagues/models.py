@@ -581,3 +581,44 @@ class TeamWeekProjection(models.Model):
                 name="unique_team_week_projection",
             )
         ]
+
+
+class BoomBustWeeklyPrediction(models.Model):
+    """Stored pregame Boom/Bust v2 prediction for one player and NFL week."""
+
+    player_id = models.IntegerField()
+    season = models.PositiveIntegerField()
+    week = models.PositiveSmallIntegerField()
+    position = models.CharField(max_length=2)
+    model_version = models.CharField(max_length=50)
+
+    boom_probability = models.FloatField()
+    bust_probability = models.FloatField()
+    normal_probability = models.FloatField()
+
+    baseline = models.FloatField(null=True, blank=True)
+    baseline_source = models.CharField(max_length=100, blank=True)
+    opponent_team = models.CharField(max_length=10, blank=True)
+    is_home = models.BooleanField(null=True, blank=True)
+
+    prediction_data = models.JSONField(default=dict)
+    generated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "boom_bust_weekly_predictions"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["player_id", "season", "week", "model_version"],
+                name="unique_boom_bust_v2_player_week",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(week__gte=1, week__lte=18),
+                name="boom_bust_v2_valid_week",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["season", "week", "position"],
+                name="boom_bust_v2_week_idx",
+            ),
+        ]

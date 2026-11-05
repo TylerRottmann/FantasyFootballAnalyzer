@@ -4,10 +4,12 @@ import logging
 
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
 from analyzer.models import Players
 from leagues.models import FantasyRosterPlayer, UserLeagueConnection
+
+from leagues.services.boom_bust_storage_v2 import save_boom_bust_prediction_v2
 
 from scripts.algorithm.boom_bust.boom_bust_context_v2 import (
     GameContextUnavailable,
@@ -17,6 +19,7 @@ from scripts.algorithm.boom_bust.boom_bust_kickoff_v2 import (
     GameAlreadyStarted,
 )
 from scripts.algorithm.boom_bust.boom_bust_predict_v2 import (
+    PlayerUnavailableForPrediction,
     predict_boom_bust_v2,
 )
 
@@ -28,6 +31,10 @@ SUPPORTED_POSITIONS = frozenset({"QB", "RB", "WR", "TE"})
 @login_required
 @require_GET
 def boom_bust_prediction_v2(request, player_id):
+    return _generate_authorized_boom_bust_v2(request, player_id)
+
+
+def _generate_authorized_boom_bust_v2(request, player_id):
     """Return calibrated pregame probabilities for an authorized player."""
 
     active_league_id = request.session.get("active_league_id")
@@ -101,6 +108,12 @@ def boom_bust_prediction_v2(request, player_id):
             week=week,
         )
 
+    except PlayerUnavailableForPrediction as error:
+        return JsonResponse(
+            {"error": str(error)},
+            status=409,
+        )
+
     except GameAlreadyStarted:
         return JsonResponse(
             {"error": "Predictions close at scheduled kickoff."},
@@ -146,3 +159,48 @@ def boom_bust_prediction_v2(request, player_id):
         )
 
     return JsonResponse(result)
+
+
+
+@login_required
+@require_POST
+def save_boom_bust_prediction_v2_view(request, player_id):
+    """Explicitly persist an authorized pregame Boom/Bust prediction.
+
+    Reuse the GET view's roster authorization, week validation,
+    kickoff restrictions, and prediction generation. Do not trust
+    prediction values supplied by the browser.
+    """
+    prediction_response = _generate_authorized_boom_bust_v2(request, player_id)
+
+    if prediction_response.status_code != 200:
+        return prediction_response
+
+    import json
+
+    try:
+        result = json.loads(prediction_response.content)
+        prediction, created = save_boom_bust_prediction_v2(result)
+    except ValueError:
+        return JsonResponse(
+            {"error": "Unable to validate prediction for storage."},
+            status=422,
+        )
+    except Exception:
+        logger.exception(
+            "Boom/Bust v2 storage failure for player_id=%s",
+            player_id,
+        )
+        return JsonResponse(
+            {"error": "Unable to save prediction."},
+            status=500,
+        )
+
+    return JsonResponse({
+        "saved": True,
+        "created": created,
+        "player_id": prediction.player_id,
+        "season": prediction.season,
+        "week": prediction.week,
+        "model_version": prediction.model_version,
+    })

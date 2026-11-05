@@ -1,9 +1,13 @@
 """Standalone, schedule-verified Boom/Bust v2 inference."""
 
 import math
+from datetime import datetime, timezone
 
 import pandas as pd
 
+from scripts.algorithm.boom_bust.boom_bust_availability_v2 import (
+    load_availability_context_v2,
+)
 from scripts.algorithm.boom_bust.boom_bust_artifacts_v2 import (
     POSITIONS,
 )
@@ -27,6 +31,43 @@ from scripts.algorithm.boom_bust.boom_bust_kickoff_v2 import (
 from scripts.algorithm.boom_bust.boom_bust_storage_v2 import (
     load_model_artifact,
 )
+
+
+class PlayerUnavailableForPrediction(Exception):
+    """Player has a verified designation that prevents participation."""
+
+
+def validate_player_availability_v2(availability):
+    """Reject confirmed unavailable players; preserve uncertain designations."""
+    if not isinstance(availability, dict):
+        return
+
+    injury = str(availability.get("injury_status") or "").strip().upper()
+    roster = str(availability.get("roster_status") or "").strip().upper()
+
+    blocked_injuries = {
+        "OUT",
+        "IR",
+        "INJURED RESERVE",
+        "PUP",
+        "RESERVE/PUP",
+        "NFI",
+        "RESERVE/NFI",
+        "SUSPENDED",
+    }
+
+    blocked_roster = {
+        "INACTIVE",
+        "INJURED RESERVE",
+        "IR",
+        "SUSPENDED",
+    }
+
+    if injury in blocked_injuries or roster in blocked_roster:
+        raise PlayerUnavailableForPrediction(
+            "Player is currently listed as unavailable "
+            f"(injury={injury or 'unknown'}, roster={roster or 'unknown'})."
+        )
 
 
 def prepare_prediction_frame(features, feature_columns):
@@ -75,13 +116,25 @@ def predict_boom_bust_v2(player, season, week):
 
     validate_prediction_context(schedule, player)
 
+    prediction_time = datetime.now(timezone.utc)
+
     validate_before_kickoff(
         season=season,
         week=week,
         team_id=schedule["team_id"],
         opponent_team_id=schedule["opponent_team_id"],
         is_home=schedule["is_home"],
+        now=prediction_time,
     )
+
+    availability = load_availability_context_v2(
+        player_id=player.id,
+        season=season,
+        week=week,
+        as_of=prediction_time,
+    )
+
+    validate_player_availability_v2(availability)
 
     profile = load_pregame_scoring_profile(player, season, week)
 
@@ -160,6 +213,8 @@ def predict_boom_bust_v2(player, season, week):
         raise ValueError("Unexpected probability classes.")
 
     return {
+        "availability": availability,
+        "availability_affects_probabilities": False,
         "player_id": player.id,
         "position": player.position,
         "season": season,
