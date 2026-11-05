@@ -7,7 +7,7 @@ from django.urls import reverse_lazy
 from django.views.generic import CreateView
 
 from .forms import CustomUserCreationForm, ProfileForm, SettingsForm
-from .models import Players, PlayerWeeklyStats, Teams, PlayerADP
+from .models import Players, PlayerWeeklyStats, Teams
 from .assistant_gm import answer_with_state
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,6 @@ def adp_rankings(request):
 
     scoring_format = request.GET.get("scoring", "ppr").strip().lower()
     valid_formats = {value for value, _ in scoring_formats}
-
     if scoring_format not in valid_formats:
         scoring_format = "ppr"
 

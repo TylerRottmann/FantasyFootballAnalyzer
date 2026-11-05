@@ -17,7 +17,6 @@ django.setup()
 from leagues.models import Player
 from scripts.algorithm.features.wr_features import build_wr_features
 from scripts.algorithm.wr.feature_names import (
-    TARGET_SHARE_FEATURE_NAMES,
     WR_FEATURE_NAMES,
 )
 from scripts.algorithm.wr.wr_model import (
@@ -25,13 +24,12 @@ from scripts.algorithm.wr.wr_model import (
     predict,
     train_model,
 )
+from scripts.algorithm.wr.wr_model import TARGETS
+from leagues.services.scoring import REFERENCE_SKILL_SCORING, score_stat_line
+from scripts.algorithm.rolling_evaluation import evaluate_walk_forward
 
 
 SEASONS = [2023, 2024, 2025]
-
-# The most recent season is held out for an honest accuracy check
-# before the final model is retrained on every season.
-HOLDOUT_SEASON = 2025
 
 SUCCESS_THRESHOLD = 3.0
 
@@ -74,11 +72,18 @@ def get_wr_games(season, wr_ids):
                 SELECT
                     player_id,
                     week,
-                    fantasy_points_ppr
+                    COALESCE(passing_yards, 0), COALESCE(passing_tds, 0),
+                    COALESCE(passing_interceptions, 0), COALESCE(passing_2pt_conversions, 0),
+                    COALESCE(carries, 0),
+                    COALESCE(rushing_yards, 0), COALESCE(rushing_tds, 0),
+                    COALESCE(rushing_2pt_conversions, 0),
+                    COALESCE(targets, 0), COALESCE(receptions, 0),
+                    COALESCE(receiving_yards, 0), COALESCE(receiving_tds, 0),
+                    COALESCE(receiving_2pt_conversions, 0),
+                    COALESCE(fumbles_lost, 0)
                 FROM player_weekly_stats
                 WHERE season = %s
                   AND season_type = 'REG'
-                  AND fantasy_points_ppr IS NOT NULL
                   AND player_id = ANY(%s)
                 ORDER BY player_id, week
                 """,
@@ -112,14 +117,11 @@ def build_dataset(season, players_by_id):
     print(f"Building dataset for {season}...")
     print(f"Games found: {len(games)}")
 
-    for index, (player_id, week, actual_points) in enumerate(
+    for index, game in enumerate(
         games,
         start=1,
     ):
-
-        # Cannot predict Week 1 from previous games.
-        if week <= 1:
-            continue
+        player_id, week, *actual_stats = game
 
         player = players_by_id.get(player_id)
 
@@ -152,12 +154,12 @@ def build_dataset(season, players_by_id):
                 row.append(float(value))
 
         X.append(row)
-        y.append(float(actual_points))
+        y.append([float(value) for value in actual_stats])
 
         if index % 500 == 0:
             print(f"Processed {index}/{len(games)}")
 
-    return np.array(X), np.array(y)
+    return np.asarray(X, dtype=float).reshape(-1, len(WR_FEATURE_NAMES)), np.asarray(y, dtype=float).reshape(-1, len(TARGETS))
 
 
 # ============================================================
@@ -165,7 +167,12 @@ def build_dataset(season, players_by_id):
 # ============================================================
 
 def report(label, predictions, actual):
-    errors = np.abs(predictions - actual)
+    def score_rows(rows):
+        return np.asarray([
+            score_stat_line(dict(zip(TARGETS, row)), REFERENCE_SKILL_SCORING, "WR")
+            for row in rows
+        ])
+    errors = np.abs(score_rows(predictions) - score_rows(actual))
 
     print(
         f"{label:<34} "
@@ -271,69 +278,15 @@ def main():
         return
 
     # --------------------------------------------------------
-    # HOLDOUT CHECK (train on earlier seasons, test on latest)
+    # Rolling-origin evaluation: each later season is held out once.
     # --------------------------------------------------------
-
-    train_seasons = [s for s in SEASONS if s != HOLDOUT_SEASON]
-
-    X_holdout, y_holdout = datasets[HOLDOUT_SEASON]
-
-    train_parts = [
-        datasets[s] for s in train_seasons if len(datasets[s][0])
-    ]
-
-    if len(X_holdout) > 0 and train_parts:
-
-        X_train = np.concatenate([p[0] for p in train_parts], axis=0)
-        y_train = np.concatenate([p[1] for p in train_parts], axis=0)
-
-        # create_model() (not train_model) so the holdout model
-        # is NOT written to disk.
-        holdout_model = create_model()
-        holdout_model.fit(X_train, y_train)
-
-        print()
-        print("=" * 60)
-        print(
-            f"HOLDOUT: trained on {train_seasons}, "
-            f"tested on {HOLDOUT_SEASON}"
-        )
-        print("=" * 60)
-
-        report(
-            "WR model (all features)",
-            predict(holdout_model, X_holdout),
-            y_holdout,
-        )
-
-        # Same model, same data, but with the target share columns
-        # removed, to show what target share is actually adding.
-        base_columns = [
-            index
-            for index, name in enumerate(WR_FEATURE_NAMES)
-            if name not in TARGET_SHARE_FEATURE_NAMES
-        ]
-
-        base_model = create_model()
-        base_model.fit(X_train[:, base_columns], y_train)
-
-        report(
-            "WR model (no target share)",
-            predict(base_model, X_holdout[:, base_columns]),
-            y_holdout,
-        )
-
-        # Baseline: just use the player's last-3-game average.
-        l3_index = WR_FEATURE_NAMES.index("fantasy_points_l3")
-        l3 = X_holdout[:, l3_index]
-        has_l3 = ~np.isnan(l3)
-
-        if has_l3.any():
-            report(
-                "Baseline (last-3 average)",
-                l3[has_l3],
-                y_holdout[has_l3],
-            )
+    folds = evaluate_walk_forward(
+        datasets, SEASONS, create_model, predict, TARGETS, WR_FEATURE_NAMES,
+        REFERENCE_SKILL_SCORING, "WR",
+    )
+    print("Walk-forward evaluation (same held-out rows for model and baselines):")
+    for fold in folds:
+        print(fold)
 
     # --------------------------------------------------------
     # FINAL MODEL (all seasons) -> saved to wr_model.pkl

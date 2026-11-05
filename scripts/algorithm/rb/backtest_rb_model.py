@@ -19,7 +19,7 @@ def main(season, output=None):
     if len(y) == 0:
         raise ValueError("No usable RB games are available for this backtest season.")
     result = {
-        "scoring": "PPR", "training_seasons": training_seasons,
+        "scoring": "reference_league_settings", "training_seasons": training_seasons,
         "test_season": season, "dataset": counts,
         "first_test_week": min(row["week"] for row in rows),
         "last_test_week": max(row["week"] for row in rows),

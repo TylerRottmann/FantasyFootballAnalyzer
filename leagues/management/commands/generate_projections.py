@@ -1,5 +1,7 @@
 from django.core.management.base import BaseCommand, CommandError
+from django.core.cache import cache
 from django.db import close_old_connections
+from django.utils import timezone
 
 from analyzer.models import Teams
 from leagues.models import DefenseProjection, FantasyProjection, Player
@@ -8,12 +10,12 @@ from leagues.services.player_availability import projection_context
 from scripts.algorithm.k.feature_names import TARGETS as K_TARGETS
 
 
-MODEL_VERSION = "v1"
+MODEL_VERSION = "v2_stat"
 POSITIONS = ["QB", "RB", "WR", "TE", "K"]
 
 
 class Command(BaseCommand):
-    help = "Generate PPR skill-position, reference kicker, and defense projections."
+    help = "Generate stat-line player and D/ST projections for league-specific scoring."
 
     def add_arguments(self, parser):
         parser.add_argument("--season", type=int, required=True)
@@ -225,6 +227,7 @@ class Command(BaseCommand):
                             "projected_fantasy_points": float(
                                 projected_points
                             ),
+                            "projected_stats": prediction.get("projected_stats", {}),
                             "status": prediction.get("status", "projected"),
                         },
                     )
@@ -263,3 +266,4 @@ class Command(BaseCommand):
         self.stdout.write(f"Zeroed: {total_zeroed}")
         self.stdout.write(f"Skipped: {total_skipped}")
         self.stdout.write(f"Failed: {total_failed}")
+        cache.set(f"projection_version:{season}", timezone.now().isoformat(), timeout=None)

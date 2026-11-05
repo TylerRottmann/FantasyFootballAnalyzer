@@ -15,9 +15,10 @@ django.setup()
 from leagues.models import Player
 from scripts.algorithm.features.k_features import KSeasonData, build_k_features, DATA_PATH
 from scripts.algorithm.k.feature_names import K_FEATURE_NAMES, TARGETS
-from scripts.algorithm.k.k_model import train_model, predict
+from scripts.algorithm.k.k_model import create_model, train_model, predict
 from scripts.algorithm.k.k_predictor import build_model_row
 from scripts.algorithm.k.scoring import REFERENCE_SCORING, score_kicking
+from scripts.algorithm.rolling_evaluation import evaluate_walk_forward
 
 def build_dataset(season, players, data=None):
     data = data if data is not None else KSeasonData.load(season)
@@ -71,10 +72,11 @@ def main(projection_season):
     data = {s: build_dataset(s, players) for s in seasons}
     if any(not len(d[1]) for d in data.values()):
         raise ValueError('All three prior seasons need usable kicker history.')
-    X = np.concatenate([data[s][0] for s in seasons[:-1]])
-    y = np.concatenate([data[s][1] for s in seasons[:-1]])
-    evaluation_model = train_model(X, y, seasons[:-1], save=False)
-    holdout = evaluate(evaluation_model, data[seasons[-1]])
+    fold_evaluations = evaluate_walk_forward(
+        data, seasons, create_model, predict, TARGETS, K_FEATURE_NAMES,
+        REFERENCE_SCORING, "K", recent_baseline_index=2,
+    )
+    print(json.dumps(fold_evaluations, indent=2))
     X_all = np.concatenate([data[s][0] for s in seasons])
     y_all = np.concatenate([data[s][1] for s in seasons])
     empty = [name for i, name in enumerate(K_FEATURE_NAMES) if np.isnan(X_all[:, i]).all()]
@@ -88,7 +90,7 @@ def main(projection_season):
               'source_sha256': hashlib.sha256(DATA_PATH.read_bytes()).hexdigest(),
               'source_coverage': json.loads(DATA_PATH.read_text(encoding='utf-8'))['coverage'],
               'datasets': {s: data[s][4] for s in seasons},
-              'holdout': {'training_seasons': seasons[:-1], 'test_season': seasons[-1], **holdout}}
+              'walk_forward_evaluations': fold_evaluations}
     Path(__file__).with_name('k_model_metrics.json').write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
     print(json.dumps(report, indent=2))
     return report

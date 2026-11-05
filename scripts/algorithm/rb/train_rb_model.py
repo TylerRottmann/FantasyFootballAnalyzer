@@ -17,6 +17,9 @@ from scripts.algorithm.features.rb_features import RBSeasonData, build_rb_featur
 from scripts.algorithm.rb.feature_names import RB_FEATURE_NAMES
 from scripts.algorithm.rb.rb_model import create_model, predict, train_model
 from scripts.algorithm.rb.rb_predictor import build_model_row
+from scripts.algorithm.rb.rb_model import TARGETS
+from leagues.services.scoring import REFERENCE_SKILL_SCORING, score_stat_line
+from scripts.algorithm.rolling_evaluation import evaluate_walk_forward
 
 
 METRICS_PATH = Path(__file__).with_name("rb_model_metrics.json")
@@ -45,14 +48,16 @@ def build_dataset(season, players_by_id, data=None):
                 counts["missing_target"] += 1
                 continue
             features = build_rb_features(player, season, game["week"], data)
-            if features["games_played"] == 0:
+            if (features["games_played"] == 0
+                    and features.get("prior_season_games", 0) == 0
+                    and features.get("position_prior_avg_ppr_points") is None):
                 counts["no_history"] += 1
                 continue
             if features["game_status"] != "GAME":
                 counts["missing_matchup"] += 1
                 continue
             X.append(build_model_row(features)[0])
-            y.append(float(actual))
+            y.append([float(game.get(name) or 0) for name in TARGETS])
             rows.append({"player_id": player_id, "week": game["week"]})
     counts["usable_games"] = len(y)
     print(f"{season} dataset: {counts}", flush=True)
@@ -76,15 +81,26 @@ def metrics(predictions, actual):
 
 
 def compare_baseline(model, X, y):
-    """Compare predictions on exactly the same rows as the last-three-game baseline."""
-    predictions = predict(model, X)
-    baseline = X[:, RB_FEATURE_NAMES.index("fantasy_points_l3")]
-    available = np.isfinite(baseline)
-    result = {"model_all_rows": metrics(predictions, y)}
-    if available.any():
-        result["model_baseline_rows"] = metrics(predictions[available], y[available])
-        result["last_three_average"] = metrics(baseline[available], y[available])
-    return result
+    """Compare stat lines after scoring both with the same reference rules."""
+    def score_matrix(matrix):
+        return np.asarray([
+            score_stat_line(dict(zip(TARGETS, row)), REFERENCE_SKILL_SCORING, "RB")
+            for row in matrix
+        ])
+    actual_points = score_matrix(y)
+    model_points = score_matrix(predict(model, X))
+    baseline_matrix = np.column_stack([
+        X[:, RB_FEATURE_NAMES.index(f"{name}_l3")]
+        if f"{name}_l3" in RB_FEATURE_NAMES else np.zeros(len(X))
+        for name in TARGETS
+    ])
+    missing = ~np.isfinite(baseline_matrix)
+    for column, name in enumerate(TARGETS):
+        baseline_matrix[missing[:, column], column] = 0.0
+    return {
+        "model_reference_scoring": metrics(model_points, actual_points),
+        "last_three_stat_average_reference_scoring": metrics(score_matrix(baseline_matrix), actual_points),
+    }
 
 
 def main(projection_season):
@@ -93,14 +109,13 @@ def main(projection_season):
     datasets = {season: build_dataset(season, players) for season in seasons}
     if any(len(datasets[season][1]) == 0 for season in seasons):
         raise ValueError("Each of the previous three seasons must contain usable RB training data.")
-    X_train = np.concatenate([datasets[season][0] for season in seasons[:-1]])
-    y_train = np.concatenate([datasets[season][1] for season in seasons[:-1]])
-    X_holdout, y_holdout = datasets[seasons[-1]][:2]
-    # The evaluation model is never saved over the production artifact.
-    evaluation_model = create_model()
-    evaluation_model.fit(X_train, y_train)
-    holdout = compare_baseline(evaluation_model, X_holdout, y_holdout)
-    print(f"Holdout {seasons[-1]} (trained on {seasons[:-1]}):\n{json.dumps(holdout, indent=2)}", flush=True)
+    fold_evaluations = evaluate_walk_forward(
+        {season: datasets[season][:2] for season in seasons}, seasons,
+        create_model, predict, TARGETS, RB_FEATURE_NAMES,
+        REFERENCE_SKILL_SCORING, "RB",
+    )
+    print("Walk-forward evaluations:", flush=True)
+    print(json.dumps(fold_evaluations, indent=2), flush=True)
 
     X_all = np.concatenate([datasets[season][0] for season in seasons])
     y_all = np.concatenate([datasets[season][1] for season in seasons])
@@ -109,7 +124,7 @@ def main(projection_season):
         raise ValueError(f"RB features have no source values: {empty_features}")
     model = train_model(X_all, y_all, seasons)
     report = {
-        "scoring": "PPR",
+        "scoring": "reference_league_settings",
         "projection_season": projection_season,
         "training_seasons": seasons,
         "features": len(RB_FEATURE_NAMES),
@@ -118,8 +133,8 @@ def main(projection_season):
             "joblib": joblib.__version__,
         },
         "datasets": {str(season): datasets[season][3] for season in seasons},
-        "holdout": {"training_seasons": seasons[:-1], "test_season": seasons[-1], **holdout},
-        "final_training_fit_in_sample": metrics(predict(model, X_all), y_all),
+        "walk_forward_evaluations": fold_evaluations,
+        "final_training_fit_in_sample": compare_baseline(model, X_all, y_all)["model_reference_scoring"],
     }
     METRICS_PATH.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(f"Saved RB model trained on {seasons}; final training fit is in-sample.", flush=True)

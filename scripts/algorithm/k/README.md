@@ -9,10 +9,11 @@ reference score for training comparisons and universal projection storage.
 
 `generate_projections` now includes kickers and stores their component stat line
 in `FantasyProjection.projected_stats`. Start/sit (including historical lineups),
-power rankings, and team breakdown rescore a copy of each kicker projection with
+power rankings, and team breakdown score a copy of each player projection with
 the selected league's imported settings. The saved record is not modified when
-another league uses different weights. Other positions retain their existing
-PPR behavior. The existing lineup optimizer supports the `K` slot.
+another league uses different weights. QB, RB, WR, TE, and D/ST now store
+projected stat components for the same league-specific scoring path. The
+existing lineup optimizer supports the `K` slot.
 
 Supported Sleeper rules include generic and distance-band field goals/misses,
 50+ and 60+ bonuses, PAT makes/misses, FG yardage, and FG yards over 30. Rules

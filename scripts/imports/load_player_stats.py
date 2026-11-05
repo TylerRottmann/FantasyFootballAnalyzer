@@ -127,15 +127,18 @@ with conn.cursor() as cur:
                 passing_yards,
                 passing_tds,
                 passing_interceptions,
+                passing_2pt_conversions,
 
                 carries,
                 rushing_yards,
                 rushing_tds,
+                rushing_2pt_conversions,
 
                 targets,
                 receptions,
                 receiving_yards,
                 receiving_tds,
+                receiving_2pt_conversions,
 
                 fumbles,
                 fumbles_lost,
@@ -146,9 +149,9 @@ with conn.cursor() as cur:
 
             VALUES (
                 %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s,
-                %s, %s, %s,
+                %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s,
+                %s, %s, %s, %s, %s,
                 %s, %s,
                 %s, %s
             )
@@ -209,6 +212,11 @@ with conn.cursor() as cur:
                         player_weekly_stats.passing_interceptions
                     ),
 
+                passing_2pt_conversions = COALESCE(
+                    EXCLUDED.passing_2pt_conversions,
+                    player_weekly_stats.passing_2pt_conversions
+                ),
+
                 carries =
                     COALESCE(
                         EXCLUDED.carries,
@@ -226,6 +234,11 @@ with conn.cursor() as cur:
                         EXCLUDED.rushing_tds,
                         player_weekly_stats.rushing_tds
                     ),
+
+                rushing_2pt_conversions = COALESCE(
+                    EXCLUDED.rushing_2pt_conversions,
+                    player_weekly_stats.rushing_2pt_conversions
+                ),
 
                 targets =
                     COALESCE(
@@ -251,6 +264,11 @@ with conn.cursor() as cur:
                         player_weekly_stats.receiving_tds
                     ),
 
+                receiving_2pt_conversions = COALESCE(
+                    EXCLUDED.receiving_2pt_conversions,
+                    player_weekly_stats.receiving_2pt_conversions
+                ),
+
                 fumbles =
                     COALESCE(
                         EXCLUDED.fumbles,
@@ -262,6 +280,7 @@ with conn.cursor() as cur:
                         EXCLUDED.fumbles_lost,
                         player_weekly_stats.fumbles_lost
                     ),
+
 
                 fantasy_points =
                     COALESCE(
@@ -291,15 +310,18 @@ with conn.cursor() as cur:
             stat.get("passing_yards"),
             stat.get("passing_tds"),
             stat.get("passing_interceptions"),
+            stat.get("passing_2pt_conversions"),
 
             stat.get("carries"),
             stat.get("rushing_yards"),
             stat.get("rushing_tds"),
+            stat.get("rushing_2pt_conversions"),
 
             stat.get("targets"),
             stat.get("receptions"),
             stat.get("receiving_yards"),
             stat.get("receiving_tds"),
+            stat.get("receiving_2pt_conversions"),
 
             fumbles,
             fumbles_lost,

@@ -107,15 +107,29 @@
     "team_points_for_l3",
     "team_total_yards_l3",
     "team_kicking_points_for_l3",
+    "team_offensive_plays_l3",
+    "team_offensive_dropbacks_l3",
+    "team_red_zone_trips_l3",
     "opponent_points_against_l3",
     "opponent_total_yards_against_l3",
     "opponent_kicking_points_against_l3",
     "team_points_for_season",
     "team_total_yards_season",
     "team_kicking_points_for_season",
+    "team_offensive_plays_season",
+    "team_offensive_dropbacks_season",
+    "team_red_zone_trips_season",
     "opponent_points_against_season",
     "opponent_total_yards_against_season",
-    "opponent_kicking_points_against_season"
+    "opponent_kicking_points_against_season",
+    "team_points_per_play_l3",
+    "team_pass_yards_per_dropback_l3",
+    "team_rush_yards_per_play_l3",
+    "team_kicking_points_per_red_zone_trip_l3",
+    "team_points_per_play_season",
+    "team_pass_yards_per_dropback_season",
+    "team_rush_yards_per_play_season",
+    "team_kicking_points_per_red_zone_trip_season"
   ],
   "targets": [
     "fg_made_0_19",
@@ -149,6 +163,26 @@
   },
   "numpy_version": "2.5.3",
   "sklearn_version": "1.9.1",
+  "python_version": "3.14.3",
+  "joblib_version": "1.6.0",
+  "source_sha256": "d78dc4a32e56e9346cfa6cde46084ff6a4f8089f78c737032eb6926e1cc99b50",
+  "source_coverage": {
+    "source_regular_season_rows": {
+      "2023": 543,
+      "2024": 543,
+      "2025": 543,
+      "2026": 243
+    },
+    "skipped": {
+      "unmapped_player": 31
+    },
+    "usable_by_season": {
+      "2023": 543,
+      "2024": 543,
+      "2025": 534,
+      "2026": 221
+    }
+  },
   "datasets": {
     "2023": {
       "recorded_games": 543,
@@ -172,55 +206,65 @@
       "usable_games": 494
     }
   },
-  "holdout": {
-    "training_seasons": [
-      2023,
-      2024
-    ],
-    "test_season": 2025,
-    "reference_model": {
-      "predictions": 494,
-      "mae": 4.00996239026801,
-      "rmse": 5.007595137536922,
-      "bias": -0.17517452939911665,
-      "within_points_percent": {
-        "2": 27.125506072874494,
-        "3": 44.33198380566802,
-        "5": 69.4331983805668,
-        "7": 83.60323886639675
+  "walk_forward_evaluations": [
+    {
+      "test_season": 2024,
+      "training_seasons": [
+        2023
+      ],
+      "coverage": 500,
+      "total_test_rows": 500,
+      "model": {
+        "coverage": 500,
+        "mae": 4.086107143869361,
+        "rmse": 4.990694078581233,
+        "bias": -0.23280240652170653,
+        "within_3_points_pct": 40.2
+      },
+      "last_three_game_baseline": {
+        "coverage": 500,
+        "mae": 4.575666666666666,
+        "rmse": 5.7850813880762875,
+        "bias": 0.3056666666666665,
+        "within_3_points_pct": 41.6
+      },
+      "training_position_average_baseline": {
+        "coverage": 500,
+        "mae": 3.841452380952381,
+        "rmse": 4.769727678044202,
+        "bias": -0.24169841269841277,
+        "within_3_points_pct": 46.400000000000006
       }
     },
-    "reference_last_three_average": {
-      "predictions": 494,
-      "mae": 4.380566801619433,
-      "rmse": 5.516598680224117,
-      "bias": 0.15182186234817793,
-      "within_points_percent": {
-        "2": 30.364372469635626,
-        "3": 44.93927125506073,
-        "5": 66.59919028340082,
-        "7": 81.78137651821862
+    {
+      "test_season": 2025,
+      "training_seasons": [
+        2023,
+        2024
+      ],
+      "coverage": 494,
+      "total_test_rows": 494,
+      "model": {
+        "coverage": 494,
+        "mae": 3.9952095722441787,
+        "rmse": 4.976146717847108,
+        "bias": -0.0879721325945804,
+        "within_3_points_pct": 44.12955465587044
+      },
+      "last_three_game_baseline": {
+        "coverage": 494,
+        "mae": 4.380566801619433,
+        "rmse": 5.516598680224117,
+        "bias": 0.15182186234817793,
+        "within_3_points_pct": 44.93927125506073
+      },
+      "training_position_average_baseline": {
+        "coverage": 494,
+        "mae": 3.900841976224656,
+        "rmse": 4.8627373929795805,
+        "bias": -0.266520960691646,
+        "within_3_points_pct": 45.95141700404859
       }
     }
-  },
-  "python_version": "3.14.0",
-  "joblib_version": "1.6.0",
-  "source_sha256": "d2027f49c3f5e7520d5b3ae26adb6ebf2505122e694ed9fa813f003814c343c4",
-  "source_coverage": {
-    "source_regular_season_rows": {
-      "2023": 543,
-      "2024": 543,
-      "2025": 543,
-      "2026": 186
-    },
-    "skipped": {
-      "unmapped_player": 27
-    },
-    "usable_by_season": {
-      "2023": 543,
-      "2024": 543,
-      "2025": 534,
-      "2026": 168
-    }
-  }
+  ]
 }

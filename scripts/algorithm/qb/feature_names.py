@@ -193,3 +193,32 @@ QB_FEATURE_NAMES = [
 
     "is_home",
 ]
+
+# Workload, pressure, and team play-volume data imported from nflverse.
+_OPPORTUNITY_WINDOWS = ("l1", "l3", "l5", "l8", "season")
+QB_FEATURE_NAMES += [
+    f"{name}_{window}"
+    for window in _OPPORTUNITY_WINDOWS
+    for name in ("qb_dropbacks", "qb_hit_rate", "scramble_rate")
+] + [
+    f"team_{name}_{window}"
+    for window in ("l3", "l5", "l8", "season")
+    for name in ("offensive_plays", "offensive_dropbacks", "red_zone_trips")
+]
+QB_FEATURE_NAMES += [
+    f"team_{name}_{window}"
+    for window in ("l3", "l5", "l8", "season")
+    for name in ("pass_yards_per_dropback", "rush_yards_per_play")
+] + [
+    "opponent_turnovers_forced_l3",
+    "opponent_sack_rate_l3",
+    "opponent_pass_yards_allowed_per_dropback_l3",
+    "opponent_rush_yards_allowed_per_play_l3",
+]
+QB_FEATURE_NAMES += [
+    "prior_season_games", "prior_season_ppr_points", "prior_season_targets",
+    "prior_season_carries", "prior_season_snap_share", "prior_season_is_player_history",
+    "team_changed_since_prior_season",
+    "position_prior_avg_ppr_points", "position_prior_avg_targets",
+    "position_prior_avg_carries", "position_prior_avg_snap_share",
+]
