@@ -156,6 +156,7 @@ document.getElementById("include-defense-toggle").addEventListener("change", eve
 
 {% if rankings %}
 <script src="{% static 'js/team-breakdown-modal.js' %}" defer></script>
+<script src="{% static 'js/boom-bust-v2.js' %}" defer></script>
 <script>
 (() => {
     const data = JSON.parse(document.getElementById("position-chart-data").textContent);
