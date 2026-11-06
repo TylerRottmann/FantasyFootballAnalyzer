@@ -12,9 +12,15 @@
         <div><span>Boom</span><strong>{% if profile.boom_pct is not None %}{{ profile.boom_pct|floatformat:"-1" }}%{% else %}&mdash;{% endif %}</strong><small>{% if profile.boom_pct is not None %}Saved model estimate{% else %}Estimate unavailable{% endif %}</small></div>
         <div><span>Bust</span><strong>{% if profile.bust_pct is not None %}{{ profile.bust_pct|floatformat:"-1" }}%{% else %}&mdash;{% endif %}</strong><small>{% if profile.bust_pct is not None %}Saved model estimate{% else %}Estimate unavailable{% endif %}</small></div>
     </div>
+    <div class="pc-metrics pc-rank-metrics" aria-label="Projection ranks">
+        <div><span>Week {{ profile.week }} overall rank</span><strong>{% if profile.ranks.weekly_overall is not None %}#{{ profile.ranks.weekly_overall }}{% else %}&mdash;{% endif %}</strong><small>All positions</small></div>
+        <div><span>Week {{ profile.week }} position rank</span><strong>{% if profile.ranks.weekly_position is not None %}#{{ profile.ranks.weekly_position }}{% else %}&mdash;{% endif %}</strong><small>Among {{ profile.player.position|default:'all' }} players</small></div>
+        <div><span>Rest-of-season overall rank</span><strong>{% if profile.ranks.rest_of_season_overall is not None %}#{{ profile.ranks.rest_of_season_overall }}{% else %}&mdash;{% endif %}</strong><small>All positions</small></div>
+        <div><span>Rest-of-season position rank</span><strong>{% if profile.ranks.rest_of_season_position is not None %}#{{ profile.ranks.rest_of_season_position }}{% else %}&mdash;{% endif %}</strong><small>Among {{ profile.player.position|default:'all' }} players</small></div>
+    </div>
     <nav class="pc-tabs" aria-label="Player sections"><button type="button" data-player-tab="overview" class="is-active" aria-pressed="true">Overview</button><button type="button" data-player-tab="games" aria-pressed="false">All weeks</button></nav>
     <section class="pc-panel" data-player-panel="overview" aria-label="Overview">
-        <div class="pc-chips"><span class="pc-value pc-value-{{ profile.value.horizon }}">{{ profile.value.label }}</span><span>{{ profile.value.trend }}</span><span>{{ profile.consistency.label }}</span></div>
+        <div class="pc-chips"><span class="pc-value pc-value-{{ profile.value.horizon }}">{{ profile.value.label }}</span><span>{{ profile.value.trend }}</span><span>{{ profile.consistency.label }}</span>{% if profile.market_signal %}<span class="pc-market-signal pc-market-signal-{{ profile.market_signal }}">{{ profile.market_signal|upper }}</span>{% else %}<span class="pc-market-signal pc-market-signal-unavailable">Market signal unavailable</span>{% endif %}</div>
         <h3>The outlook</h3><p class="pc-summary">{{ profile.summary }}</p>
         <div class="pc-recent"><div><span>Recent average</span><strong>{% include 'players/number.html' with value=profile.consistency.average %} <small>pts</small></strong></div><div><span>Recent low</span><strong>{% include 'players/number.html' with value=profile.consistency.low %}</strong></div><div><span>Recent high</span><strong>{% include 'players/number.html' with value=profile.consistency.high %}</strong></div></div>
     </section>

@@ -8,7 +8,14 @@ from statistics import mean, pstdev
 from django.utils import timezone
 from django.db.models import Q
 
-from .models import PlayerADP, PlayerInjuryReport, PlayerSnapCount, PlayerWeeklyStats, NFLGame
+from .models import (
+    PlayerADP,
+    PlayerInjuryReport,
+    PlayerMarketRank,
+    PlayerSnapCount,
+    PlayerWeeklyStats,
+    NFLGame,
+)
 from .waiver_predictions import load_waiver_predictions, predict_waiver_player
 from .waiver_value import load_player_values, PlayerValue
 from leagues.models import FantasyProjection
@@ -92,6 +99,12 @@ def build_player_profile(player, league, week, history_season=None):
     values = load_player_values(season, week)
     value = values.get(player.pk, PlayerValue())
     forecasts = load_waiver_predictions([player.pk], league, week) if league else {}
+    rank_snapshot = PlayerMarketRank.objects.filter(
+        league_id=league.pk,
+        player_id=player.pk,
+        season=season,
+        week=week,
+    ).first() if league else None
     saved = list(FantasyProjection.objects.select_related('player').filter(player_id=player.pk, season=season,
         model_version='v1', week__gte=1, week__lte=18).order_by('week'))
     by_week = {row.week: row for row in saved}
@@ -216,6 +229,13 @@ def build_player_profile(player, league, week, history_season=None):
             'injury': label, 'status': player.status, 'updated_at': player.updated_at.isoformat() if player.updated_at else None},
         'season': season, 'week': week, 'history_season': history_season, 'history_seasons': sorted(seasons, reverse=True),
         'weekly_points': prediction.this_week, 'rest_of_season': prediction.rest_of_season,
+        'ranks': {
+            'weekly_overall': rank_snapshot.weekly_overall_rank if rank_snapshot else None,
+            'weekly_position': rank_snapshot.weekly_position_rank if rank_snapshot else None,
+            'rest_of_season_overall': rank_snapshot.rest_of_season_overall_rank if rank_snapshot else None,
+            'rest_of_season_position': rank_snapshot.rest_of_season_position_rank if rank_snapshot else None,
+        },
+        'market_signal': rank_snapshot.market_signal if rank_snapshot and rank_snapshot.market_signal else None,
         'boom_pct': _saved_probability(stats, 'boom'), 'bust_pct': _saved_probability(stats, 'bust'),
         'value': {'horizon': value.horizon, 'label': value.value_label, 'trend': value.short_label, 'reason': value.reason},
         'summary': summary, 'consistency': consistency, 'projections': weekly, 'game_log': history, 'season_weeks': season_weeks,
@@ -252,6 +272,9 @@ def profile_overview_text(profile, include_estimates=False):
     season = profile['rest_of_season']
     parts.append(f'Week {profile["week"]}: {weekly:.1f} projected points.' if weekly is not None else f'Week {profile["week"]} projection is unavailable.')
     parts.append(f'Rest of season: {season:.1f} projected points.' if season is not None else 'Rest-of-season total is unavailable; forecasts may be incomplete or the role/return timing uncertain.')
+    signal = profile.get('market_signal')
+    if signal:
+        parts.append(f'Market signal: {signal.capitalize()} (compared with Sleeper rest-of-season ranks).')
     if include_estimates:
         for kind in ('boom', 'bust'):
             value = profile[kind + '_pct']

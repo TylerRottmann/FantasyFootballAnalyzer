@@ -35,6 +35,11 @@ body.player-card-open { overflow: hidden; }
 .pc-chips .pc-value-long { color: #4ade80; background: #22c55e12; }
 .pc-chips .pc-value-short { color: #fbbf24; background: #f59e0b12; }
 .pc-chips .pc-value-fading { color: #ffb4ab; background: #ef444412; }
+.pc-market-signal { font-weight: 800; letter-spacing: .04em; }
+.pc-market-signal-buy { color: #62d89b !important; background: #22c55e12; border-color: #22c55e55 !important; }
+.pc-market-signal-hold { color: #facc15 !important; background: #facc1512; border-color: #facc1555 !important; }
+.pc-market-signal-sell { color: #ff8b8b !important; background: #ef444412; border-color: #ef444455 !important; }
+.pc-market-signal-unavailable { color: var(--text-secondary) !important; }
 .pc-recent { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 18px; margin-top: 20px; border: 1px solid var(--border); border-radius: 9px; }
 .pc-recent span { font-size: 12px; color: var(--text-secondary); }
 .pc-recent strong { display: block; margin-top: 8px; font-size: 20px; }

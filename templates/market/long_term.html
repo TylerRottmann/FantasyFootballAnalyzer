@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% load static player_health %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/market.css' %}">
+<main class="market-page">
+    <header class="market-heading">
+        <div>
+            <h1>Market</h1>
+            {% if active_league %}
+                <p>Compare long-term value using <strong>{{ active_league.name }}</strong> scoring · {{ market_season }}</p>
+            {% else %}
+                <p>Compare ADP and rest-of-season projections.</p>
+            {% endif %}
+        </div>
+        <div class="market-context">
+            <span>Week {{ market_week }}</span>
+            {% if active_league %}<span>ADP basis: {{ adp_scoring_label }}</span>{% endif %}
+        </div>
+    </header>
+
+    {% include "market/_tabs.html" %}
+    {% include "market/_filters.html" %}
+
+    <p class="market-signal-help">Buy / sell compares rest-of-season ranks within the player's position. A signal requires a gap of at least 5 spots, widening by 5% of the average same-position rank for lower-ranked players.</p>
+
+    {% if market_error %}<div class="market-notice">{{ market_error }}</div>{% endif %}
+    {% if active_league and not has_ros_data %}<div class="market-notice">Rest-of-season projections are incomplete. Import all remaining weeks to calculate full totals.</div>{% endif %}
+
+    <div class="market-table-wrap">
+        <table class="market-table market-long-table">
+            <thead><tr>
+                <th>Player</th>
+                <th>Position</th>
+                <th>NFL team</th>
+                <th><a class="{% if sort == 'adp' %}market-sort-header{% endif %}" href="{{ sort_urls.adp }}">Sleeper ADP{% if sort == 'adp' %} <span>{% if direction == 'asc' %}↑{% else %}↓{% endif %}</span>{% endif %}</a></th>
+                <th><a href="{{ sort_urls.adp }}">ADP rank</a></th>
+                <th><a class="{% if sort == 'our_ros' %}market-sort-header{% endif %}" href="{{ sort_urls.our_ros }}">Rest-of-season projection{% if sort == 'our_ros' %} <span>{% if direction == 'asc' %}↑{% else %}↓{% endif %}</span>{% endif %}</a></th>
+                <th><a href="{{ sort_urls.our_ros }}">Rank</a></th>
+                <th><a class="{% if sort == 'sleeper_ros' %}market-sort-header{% endif %}" href="{{ sort_urls.sleeper_ros }}">Sleeper rest-of-season projection{% if sort == 'sleeper_ros' %} <span>{% if direction == 'asc' %}↑{% else %}↓{% endif %}</span>{% endif %}</a></th>
+                <th><a href="{{ sort_urls.sleeper_ros }}">Sleeper rank</a></th>
+                <th>Market view</th>
+            </tr></thead>
+            <tbody>
+                {% for row in page_obj %}
+                <tr>
+                    <td>{% include "market/_player.html" %}</td>
+                    <td><span class="market-position">{% if row.position == 'DST' %}D/ST{% else %}{{ row.position }}{% endif %}</span></td>
+                    <td>{% if row.team %}<span class="market-team">{{ row.team.abbreviation }}</span>{% else %}<span class="market-muted">FA</span>{% endif %}</td>
+                    <td class="market-number {% if sort == 'adp' %}market-sort-active{% endif %}">{% if row.adp is not None %}{{ row.adp|floatformat:2 }}{% else %}—{% endif %}</td>
+                    <td class="market-rank">{% if row.adp_rank %}{{ row.adp_rank }}{% else %}—{% endif %}</td>
+                    <td class="market-number {% if sort == 'our_ros' %}market-sort-active{% endif %}">{% if row.our_ros is not None %}{{ row.our_ros|floatformat:1 }}{% else %}—{% endif %}</td>
+                    <td class="market-rank">{% if row.our_ros_rank %}{{ row.our_ros_rank }}{% else %}—{% endif %}</td>
+                    <td class="market-number {% if sort == 'sleeper_ros' %}market-sort-active{% endif %}">{% if row.sleeper_ros is not None %}{{ row.sleeper_ros|floatformat:1 }}{% else %}—{% endif %}</td>
+                    <td class="market-rank">{% if row.sleeper_ros_rank %}{{ row.sleeper_ros_rank }}{% else %}—{% endif %}</td>
+                    <td class="market-signal-cell">
+                        {% if row.market_signal %}
+                            <span class="market-signal market-signal-{{ row.market_signal }}">{{ row.market_signal|upper }}</span>
+                        {% else %}—{% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="10" class="market-empty">No players match these filters.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "market/_pagination.html" %}
+</main>
+{% endblock %}

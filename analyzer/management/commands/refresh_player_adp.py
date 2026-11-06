@@ -17,7 +17,7 @@ FORMATS = {
     "std": "adp_std",
 }
 
-POSITIONS = {"QB", "RB", "WR", "K"}
+POSITIONS = {"QB", "RB", "WR", "TE", "K"}
 
 MINIMUM_EXISTING_COVERAGE = Decimal("0.80")
 

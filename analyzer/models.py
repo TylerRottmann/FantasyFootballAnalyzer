@@ -527,3 +527,127 @@ class PlayerADP(models.Model):
             f"{self.player_id} - {self.season} "
             f"{self.scoring_format}: {self.adp}"
         )
+
+
+class PlayerMarketProjection(models.Model):
+    """Weekly Sleeper projections, with a stored remaining-season total."""
+
+    POSITIONS = [
+        ("QB", "Quarterback"),
+        ("RB", "Running Back"),
+        ("WR", "Wide Receiver"),
+        ("TE", "Tight End"),
+        ("K", "Kicker"),
+        ("DST", "Defense / Special Teams"),
+    ]
+
+    entity_key = models.CharField(max_length=80)
+    external_id = models.CharField(max_length=100)
+    player = models.ForeignKey(
+        "Players",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="market_projections",
+    )
+    team = models.ForeignKey(
+        "Teams",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="market_projections",
+    )
+    position = models.CharField(max_length=3, choices=POSITIONS)
+    season = models.PositiveSmallIntegerField()
+    week = models.PositiveSmallIntegerField()
+    sleeper_ppr = models.DecimalField(max_digits=9, decimal_places=3, default=0)
+    sleeper_half_ppr = models.DecimalField(max_digits=9, decimal_places=3, default=0)
+    sleeper_standard = models.DecimalField(max_digits=9, decimal_places=3, default=0)
+    rest_of_season_ppr = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+    rest_of_season_half_ppr = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+    rest_of_season_standard = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+    projected_stats = models.JSONField(default=dict)
+    projection_available = models.BooleanField(default=False)
+    source = models.CharField(max_length=30, default="sleeper")
+    source_provider = models.CharField(max_length=50, blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "player_market_projections"
+        ordering = ["season", "week", "position", "entity_key"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["entity_key", "season", "week"],
+                name="unique_market_projection_entity_week",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(week__gte=1, week__lte=18),
+                name="market_projection_valid_week",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(player__isnull=False, team__isnull=True)
+                    | models.Q(player__isnull=True, team__isnull=False)
+                ),
+                name="market_projection_one_entity",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["season", "week", "position"],
+                name="market_proj_filter_idx",
+            ),
+        ]
+
+
+class PlayerMarketRank(models.Model):
+    """Precomputed league-scored market ranks for player profile lookups."""
+
+    MARKET_SIGNALS = [
+        ("buy", "Buy"),
+        ("hold", "Hold"),
+        ("sell", "Sell"),
+    ]
+
+    league_id = models.BigIntegerField()
+    player = models.ForeignKey(
+        "Players",
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="market_ranks",
+    )
+    season = models.PositiveSmallIntegerField()
+    week = models.PositiveSmallIntegerField()
+    weekly_overall_rank = models.PositiveIntegerField(null=True, blank=True)
+    weekly_position_rank = models.PositiveIntegerField(null=True, blank=True)
+    rest_of_season_overall_rank = models.PositiveIntegerField(null=True, blank=True)
+    rest_of_season_position_rank = models.PositiveIntegerField(null=True, blank=True)
+    sleeper_rest_of_season_position_rank = models.PositiveIntegerField(null=True, blank=True)
+    market_signal = models.CharField(
+        max_length=4,
+        choices=MARKET_SIGNALS,
+        blank=True,
+        default="",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "player_market_ranks"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["league_id", "player", "season", "week"],
+                name="unique_market_rank_league_player_week",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(week__gte=1, week__lte=18),
+                name="market_rank_valid_week",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["league_id", "season", "week"],
+                name="market_rank_lookup_idx",
+            ),
+        ]

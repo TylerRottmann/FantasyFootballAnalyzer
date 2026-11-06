@@ -219,10 +219,10 @@
         </a>
 
         <a
-            href="{% url 'adp_rankings' %}"
-            class="nav-link"
+            href="{% url 'market_short_term' %}"
+            class="nav-link {% if request.resolver_match.url_name == 'market_short_term' or request.resolver_match.url_name == 'market_long_term' or request.resolver_match.url_name == 'market' or request.resolver_match.url_name == 'adp_rankings' %}active{% endif %}"
         >
-            ↗ ADP
+            ↗ Market
         </a>
 
         <a
