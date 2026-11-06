@@ -138,18 +138,37 @@ class KStartSitTests(TestCase):
         from django.utils import timezone
         self.generate()
         self.league.roster_positions=['K','DEF','BN']
+        self.league.scoring_settings={
+            'fgm': 3,
+            'xpm': 2,
+            'fgmiss': -1,
+            'sack': 1,
+            'int': 2,
+            'def_td': 6,
+        }
         self.league.save()
-        for team,slot,points in ((self.home,'DEF',8.5),(self.away,'BN',11.5)):
+        for team,slot,sacks,interceptions,expected in (
+            (self.home,'DEF',2,2,12.0),
+            (self.away,'BN',3,3,15.0),
+        ):
             FantasyRosterPlayer.objects.create(
                 roster=self.roster,team=team,player=None,roster_slot=slot,
                 created_at=timezone.now())
             DefenseProjection.objects.update_or_create(
-                team=team,season=2026,week=2,model_version='v1',
-                defaults={'projected_fantasy_points':points,'status':'ml_model'})
+                team=team,season=2026,week=2,model_version='v2_stat',
+                defaults={
+                    'projected_fantasy_points': expected,
+                    'projected_stats': {
+                        'sacks': sacks,
+                        'interceptions': interceptions,
+                        'defensive_tds': 1,
+                    },
+                    'status': 'ml_model',
+                })
         response=self.page()
         self.assertEqual(response.status_code,200)
-        self.assertContains(response,'8.5')
-        self.assertContains(response,'11.5')
+        self.assertContains(response,'12.0')
+        self.assertContains(response,'15.0')
         self.assertNotContains(response,'data-player-name=""')
         self.assertContains(response,'projection-details/')
 

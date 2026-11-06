@@ -127,12 +127,121 @@ def normalize_yahoo_settings(raw):
     }
 
 
+
+# Verified ESPN offensive stat IDs. Additional IDs require explicit mapping.
+ESPN_STAT_RULES = {
+    3: "pass_yd",
+    4: "pass_td",
+    19: "pass_2pt",
+    20: "pass_int",
+    24: "rush_yd",
+    25: "rush_td",
+    26: "rush_2pt",
+    42: "rec_yd",
+    43: "rec_td",
+    44: "rec_2pt",
+    53: "rec",
+    72: "fum_lost",
+}
+
+
+def normalize_espn_settings(raw):
+    """Normalize supported ESPN stat IDs without guessing unknown rules."""
+    if not isinstance(raw, dict):
+        raise ValueError("ESPN scoring settings must be an object.")
+
+    scoring = raw.get("scoringSettings", raw)
+    if not isinstance(scoring, dict):
+        raise ValueError("ESPN scoringSettings must be an object.")
+
+    items = scoring.get("scoringItems")
+    if not isinstance(items, list):
+        raise ValueError("ESPN scoringItems must be a list.")
+
+    rules = {}
+    position_overrides = {}
+    unsupported = []
+
+    for item in items:
+        if not isinstance(item, dict):
+            unsupported.append("malformed_item")
+            continue
+
+        stat_id = item.get("statId")
+        try:
+            stat_id = int(stat_id)
+        except (TypeError, ValueError):
+            unsupported.append(f"invalid_stat_id:{stat_id}")
+            continue
+
+        value = _number(item.get("points"))
+        if value is None:
+            unsupported.append(f"invalid_points:{stat_id}")
+            continue
+
+        canonical = ESPN_STAT_RULES.get(stat_id)
+        if canonical is None:
+            overrides = item.get("pointsOverrides") or {}
+            if not isinstance(overrides, dict):
+                unsupported.append(f"invalid_position_overrides:{stat_id}")
+                continue
+
+            if value:
+                unsupported.append(f"statId:{stat_id}")
+
+            for position_id, override_value in overrides.items():
+                number = _number(override_value)
+                if number is None:
+                    unsupported.append(
+                        f"invalid_position_override:{stat_id}:{position_id}"
+                    )
+                elif number != value:
+                    position_overrides.setdefault(str(position_id), {})[
+                        f"_unsupported_statId:{stat_id}"
+                    ] = number
+            continue
+
+        if canonical in rules and rules[canonical] != value:
+            unsupported.append(f"conflicting_statId:{stat_id}")
+            continue
+
+        rules[canonical] = value
+
+        overrides = item.get("pointsOverrides") or {}
+        if not isinstance(overrides, dict):
+            unsupported.append(f"invalid_position_overrides:{stat_id}")
+            continue
+
+        for position_id, override_value in overrides.items():
+            number = _number(override_value)
+            if number is None:
+                unsupported.append(f"invalid_position_override:{stat_id}:{position_id}")
+                continue
+
+            position_overrides.setdefault(str(position_id), {})[canonical] = number
+
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "source": "espn",
+        "rules": rules,
+        "position_overrides": position_overrides,
+        "unsupported_rules": sorted(set(unsupported)),
+        "raw": raw,
+    }
+
 def normalize_scoring_settings(raw, source=None):
     """Normalize an imported scoring payload based on its platform."""
     source = (source or "").lower()
     if source == "yahoo" or (isinstance(raw, dict) and "yahoo" in raw):
         payload = raw.get("yahoo", raw) if isinstance(raw, dict) else {}
         return normalize_yahoo_settings(payload)
+    if source == "espn" or (
+        not source
+        and isinstance(raw, dict)
+        and isinstance(raw.get("scoringSettings"), dict)
+        and "scoringItems" in raw["scoringSettings"]
+    ):
+        return normalize_espn_settings(raw)
     return normalize_sleeper_settings(raw)
 
 

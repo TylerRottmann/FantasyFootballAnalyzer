@@ -63,6 +63,24 @@ def _rules(scoring_settings, position=None):
     rules = settings.get("rules", {})
     if not isinstance(rules, dict):
         raise ValueError("League scoring rules are malformed.")
+
+    if settings.get("source") == "espn":
+        position_ids = {
+            "QB": "1",
+            "RB": "2",
+            "WR": "3",
+            "TE": "4",
+            "K": "5",
+            "DEF": "16",
+            "DST": "16",
+            "D/ST": "16",
+        }
+        position_id = position_ids.get(str(position or "").upper())
+        overrides = settings.get("position_overrides", {})
+
+        if position_id and position_id in overrides:
+            rules = {**rules, **overrides[position_id]}
+
     return rules
 
 
@@ -89,6 +107,53 @@ def score_stat_line(stat_line, scoring_settings, position=None):
     uncertainty = uncertainty if isinstance(uncertainty, dict) else {}
     # Metadata is kept beside component stats in stored projections.
     stat_line = {key: value for key, value in stat_line.items() if not str(key).startswith("_")}
+    settings = _normalized_settings(scoring_settings)
+    if settings.get("source") == "espn":
+        unsupported = settings.get("unsupported_rules", [])
+        global_unsupported = [
+            rule for rule in unsupported
+            if rule.startswith(("statId:", "invalid_", "malformed_", "conflicting_"))
+        ]
+
+        # ESPN IDs identified as kicker or defensive/return scoring.
+        # Do not treat these as unsupported ordinary offensive stats.
+        non_offensive_espn_ids = {
+            63, 77, 80, 85, 86, 93, 101, 102, 103,
+            104, 198, 201, 206, 209,
+        }
+
+        if str(position or "").upper() in {"QB", "RB", "WR", "TE"}:
+            global_unsupported = [
+                rule for rule in global_unsupported
+                if not (
+                    rule.startswith("statId:")
+                    and rule[7:].isdigit()
+                    and int(rule[7:]) in non_offensive_espn_ids
+                )
+            ]
+
+        rules_for_position = _rules(scoring_settings, position)
+        position_unsupported = [
+            name for name, value in rules_for_position.items()
+            if name.startswith("_unsupported_statId:") and value
+        ]
+
+        if str(position or "").upper() in {"QB", "RB", "WR", "TE"}:
+            position_unsupported = [
+                name for name in position_unsupported
+                if not (
+                    name.removeprefix("_unsupported_statId:").isdigit()
+                    and int(name.removeprefix("_unsupported_statId:"))
+                    in non_offensive_espn_ids
+                )
+            ]
+
+        if global_unsupported or position_unsupported:
+            raise ValueError(
+                "Unsupported ESPN scoring rules: "
+                + ", ".join(global_unsupported + position_unsupported)
+            )
+
     rules = _rules(scoring_settings, position)
     if position == "K" or "fg_made_0_19" in stat_line:
         from scripts.algorithm.k.scoring import score_kicking

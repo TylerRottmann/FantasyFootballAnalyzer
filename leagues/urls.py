@@ -23,7 +23,11 @@ urlpatterns = [
         views.select_league,
         name="select_league",
     ),
-
+    path(
+        "select-connection/<int:connection_id>/",
+         views.select_league_connection,
+         name="select_league_connection",
+    ),
     path(
         "start-sit/",
         views.start_sit,

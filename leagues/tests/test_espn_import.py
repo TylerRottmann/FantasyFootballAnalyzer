@@ -47,6 +47,7 @@ class ESPNImportIdentityTests(unittest.TestCase):
             patch.object(
                 service, "get_league_data", return_value=fixture
             ),
+            patch("leagues.integrations.espn.Teams"),
             patch(
                 "leagues.integrations.espn.LeaguePlatformIdentity"
             ) as league_model,
@@ -170,6 +171,7 @@ class ESPNImportIdentityTests(unittest.TestCase):
 
         with (
             patch.object(service, "get_league_data", return_value=fixture),
+            patch("leagues.integrations.espn.Teams"),
             patch("leagues.integrations.espn.LeaguePlatformIdentity") as leagues,
             patch("leagues.integrations.espn.RosterPlatformIdentity") as rosters,
             patch("leagues.integrations.espn.FantasyLeague") as league_model,
@@ -293,6 +295,7 @@ class ESPNImportIdentityTests(unittest.TestCase):
 
         with (
             patch.object(service, "get_league_data", return_value=fixture),
+            patch("leagues.integrations.espn.Teams"),
             patch("leagues.integrations.espn.LeaguePlatformIdentity") as leagues,
             patch("leagues.integrations.espn.RosterPlatformIdentity") as rosters,
             patch("leagues.integrations.espn.Player") as players,
@@ -365,6 +368,7 @@ class ESPNImportIdentityTests(unittest.TestCase):
 
         with (
             patch.object(service, "get_league_data", return_value=fixture),
+            patch("leagues.integrations.espn.Teams"),
             patch("leagues.integrations.espn.LeaguePlatformIdentity") as leagues,
             patch("leagues.integrations.espn.RosterPlatformIdentity") as rosters,
             patch("leagues.integrations.espn.Player") as players,
@@ -437,6 +441,7 @@ class ESPNImportIdentityTests(unittest.TestCase):
 
         with (
             patch.object(service, "get_league_data", return_value=fixture),
+            patch("leagues.integrations.espn.Teams"),
             patch("leagues.integrations.espn.LeaguePlatformIdentity") as leagues,
             patch("leagues.integrations.espn.RosterPlatformIdentity") as rosters,
             patch("leagues.integrations.espn.Player") as players,
@@ -536,6 +541,7 @@ class ESPNCrossTeamCompletenessTests(unittest.TestCase):
 
         with (
             patch.object(service, "get_league_data", return_value=fixture),
+            patch("leagues.integrations.espn.Teams"),
             patch("leagues.integrations.espn.LeaguePlatformIdentity") as leagues,
             patch("leagues.integrations.espn.RosterPlatformIdentity") as rosters,
             patch("leagues.integrations.espn.Player") as players,
@@ -607,6 +613,7 @@ class ESPNImportScoringTests(unittest.TestCase):
         })
 
         with (
+            patch("leagues.integrations.espn.Teams"),
             patch("leagues.integrations.espn.LeaguePlatformIdentity") as league_ids,
             patch("leagues.integrations.espn.FantasyLeague") as leagues,
             patch("leagues.integrations.espn.RosterPlatformIdentity") as roster_ids,
@@ -656,6 +663,7 @@ class ESPNMissingRosterTests(unittest.TestCase):
 
         with (
             patch.object(service, "get_league_data", return_value=fixture),
+            patch("leagues.integrations.espn.Teams"),
             patch("leagues.integrations.espn.LeaguePlatformIdentity") as league_ids,
             patch("leagues.integrations.espn.RosterPlatformIdentity") as roster_ids,
             patch("leagues.integrations.espn.FantasyRosterPlayer") as roster_players,
@@ -724,6 +732,7 @@ class ESPNMissingRosterTests(unittest.TestCase):
                     patch.object(
                         service, "get_league_data", return_value=fixture
                     ),
+                    patch("leagues.integrations.espn.Teams"),
                     patch(
                         "leagues.integrations.espn.LeaguePlatformIdentity"
                     ) as league_ids,

@@ -264,12 +264,15 @@ def connect_league(request):
                             "been preserved where possible. Please try again."
                         )
                     else:
+                        connection = UserLeagueConnection.objects.get(
+                            user=request.user,
+                            league=result["league"],
+                        )
+                        request.session["active_league_id"] = connection.league_id
+                        request.session["active_connection_id"] = connection.id
+
                         cache.delete(
-                            f"espn_connect:{request.user.pk}:{token}"
-                        )
-                        request.session["active_league_id"] = (
-                            result["league"].id
-                        )
+                             f"espn_connect:{request.user.pk}:{token}")
                         return redirect("start_sit")
 
                 except ValueError as exc:
@@ -296,6 +299,25 @@ def connect_league(request):
 # =============================================================
 # SELECT LEAGUE
 # =============================================================
+@login_required
+def select_league_connection(request, connection_id):
+    connection = (
+        UserLeagueConnection.objects
+        .filter(
+            id=connection_id,
+            user=request.user,
+        )
+        .select_related("league")
+        .first()
+    )
+
+    if connection is None:
+        return redirect("connect_league")
+
+    request.session["active_league_id"] = connection.league.id
+    request.session["active_connection_id"] = connection.id
+
+    return redirect("start_sit")
 
 @login_required
 def select_league(request, league_id):
@@ -310,17 +332,8 @@ def select_league(request, league_id):
         return redirect("connect_league")
 
     request.session["active_league_id"] = connection.league.id
+    request.session["active_connection_id"] = connection.id
 
-    referer = request.META.get("HTTP_REFERER")
-    if referer:
-        try:
-            referred_view = resolve(urlsplit(referer).path).url_name
-        except Resolver404:
-            referred_view = None
-
-        if referred_view in {"power_rankings", "team_breakdown"}:
-            return redirect("power_rankings", league_id=connection.league.id)
-        return redirect(referer)
 
     return redirect("start_sit")
 
@@ -475,10 +488,22 @@ def _build_historical_lineups(league, roster, week, starting_positions):
 @login_required
 def start_sit(request):
     active_league_id = request.session.get("active_league_id")
+    active_connection_id = request.session.get("active_connection_id")
 
     connection = None
 
-    if active_league_id:
+    if active_connection_id:
+        connection = (
+            UserLeagueConnection.objects
+            .filter(
+                id=active_connection_id,
+                user=request.user,
+            )
+            .select_related("league")
+            .first()
+        )
+
+    if connection is None and active_league_id:
         connection = (
             UserLeagueConnection.objects
             .filter(
@@ -503,6 +528,9 @@ def start_sit(request):
 
     league = connection.league
     request.session["active_league_id"] = league.id
+    request.session["active_connection_id"] = connection.id
+
+    # FIND USER'S ROSTER
 
     # ---------------------------------------------------------
     # FIND USER'S ROSTER

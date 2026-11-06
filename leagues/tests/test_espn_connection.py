@@ -55,6 +55,7 @@ class ESPNConnectionViewTests(unittest.TestCase):
         ):
             cache.get.return_value = self.lookup
             service.return_value.import_league.return_value = result
+            connections.objects.get.return_value.league_id = 10
 
             response = connect_league(request)
 

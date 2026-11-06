@@ -42,10 +42,41 @@ def league_defense_projection(projection, league):
         result.status = 'stats_not_found'
         return result
     try:
+        from leagues.services.scoring_settings import normalize_scoring_settings
+        settings = normalize_scoring_settings(league.scoring_settings)
+
+        if settings.get('source') == 'espn':
+            from leagues.services.espn_dst_scoring import score_espn_dst
+
+            from leagues.services.espn_dst_yards import estimate_yards_allowed
+            from scripts.algorithm.features.dst_features import build_dst_features
+
+            features = build_dst_features(
+                projection.team_id,
+                projection.season,
+                projection.week,
+            )
+            yards_estimate = estimate_yards_allowed(features)
+
+            scored = score_espn_dst(
+                stats,
+                league.scoring_settings,
+                yards_estimate=yards_estimate,
+            )
+            result.projected_fantasy_points = scored['supported_points']
+            if not scored['complete']:
+                result.status = 'partial_scoring'
+                result.usable_partial_scoring = (
+                    yards_estimate is not None
+                    and set(scored['unsupported_stat_ids'])
+                    <= {93, 97, 206, 209}
+                )
+            return result
+
         result.projected_fantasy_points = round(
             score_stat_line(stats, league.scoring_settings, 'DEF'), 2
         )
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, KeyError):
         result.projected_fantasy_points = None
         result.status = 'unsupported_scoring'
     return result

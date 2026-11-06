@@ -45,10 +45,21 @@ class ESPNLeagueService:
             raise ValueError("Enter an ESPN fantasy football URL.")
 
         ids = parse_qs(parsed.query).get("leagueId", [])
-        if len(ids) != 1 or not ids[0].isdecimal():
+
+        if len(ids) == 1 and ids[0].isdecimal():
+            return ids[0]
+
+        if ids:
             raise ValueError("Could not find a valid leagueId in the ESPN URL.")
 
-        return ids[0]
+        path_match = re.search(
+            r"/(?:league|leagues)/(\d+)(?:/|$)",
+            parsed.path,
+        )
+        if path_match:
+            return path_match.group(1)
+
+        raise ValueError("Could not find a valid leagueId in the ESPN URL.")
 
     def __init__(self, league_id, season, swid=None, espn_s2=None):
         self.league_id = self.parse_league_id(league_id)
@@ -214,6 +225,29 @@ class ESPNLeagueService:
         }
         return slots.get(slot_id, "BN")
 
+    @staticmethod
+    def _normalized_player_name(name):
+        normalized = re.sub(
+            r"[^a-z0-9 ]", " ", str(name or "").lower()
+        )
+        words = normalized.split()
+        if words and words[-1] in {"jr", "sr", "ii", "iii", "iv"}:
+            words.pop()
+        return "".join(words)
+
+    @staticmethod
+    def _resolve_defense(player_data, team_cache):
+        name = str(player_data.get("fullName") or "").strip()
+        if not name.endswith(" D/ST"):
+            return None
+
+        nickname = name[:-5].strip().casefold()
+        matches = [
+            team for team in team_cache
+            if str(team.name or "").split()[-1].casefold() == nickname
+        ]
+        return matches[0] if len(matches) == 1 else None
+
     def _resolve_player(
         self,
         player_data,
@@ -222,83 +256,70 @@ class ESPNLeagueService:
         identities_preloaded=False,
     ):
         espn_id = str(player_data.get("id") or "").strip()
-
         if not espn_id:
             return None
 
-        identity_cache = (
-            identity_cache
-            if identity_cache is not None
-            else {}
-        )
+        if identity_cache is None:
+            identity_cache = {}
 
         if espn_id in identity_cache:
             return identity_cache[espn_id]
 
         identity = (
-            None
-            if identities_preloaded
+            None if identities_preloaded
             else PlayerPlatformIdentity.objects.filter(
                 platform=self.PLATFORM,
                 external_id=espn_id,
             ).select_related("player").first()
         )
-
         if identity:
             identity_cache[espn_id] = identity.player
             return identity.player
 
-        full_name = (player_data.get("fullName") or "").strip()
-
+        full_name = str(player_data.get("fullName") or "").strip()
         if not full_name:
             return None
-
-        normalized_name = re.sub(
-            r"[^a-z0-9]",
-            "",
-            full_name.lower(),
-        )
 
         position = self._position_name(
             player_data.get("defaultPositionId")
         )
+        def same_position(player):
+            return (
+                not position
+                or str(player.position or "").upper() == position
+            )
+
+        def exact_name(name):
+            return re.sub(r"[^a-z0-9]", "", str(name or "").lower())
 
         candidates = [
-            player
-            for player in player_cache
-            if re.sub(
-                r"[^a-z0-9]",
-                "",
-                (player.full_name or "").lower(),
-            ) == normalized_name
+            player for player in player_cache
+            if same_position(player)
+            and exact_name(player.full_name) == exact_name(full_name)
         ]
 
-        if position and position != "DEF":
-            position_matches = [
-                candidate
-                for candidate in candidates
-                if (candidate.position or "").upper() == position
+        if not candidates:
+            normalized = self._normalized_player_name(full_name)
+            candidates = [
+                player for player in player_cache
+                if same_position(player)
+                and self._normalized_player_name(player.full_name)
+                == normalized
             ]
-
-            if position_matches:
-                candidates = position_matches
 
         if len(candidates) != 1:
             identity_cache[espn_id] = None
             return None
 
         player = candidates[0]
-
         PlayerPlatformIdentity.objects.get_or_create(
             platform=self.PLATFORM,
             external_id=espn_id,
-            defaults={
-                "player": player,
-            },
+            defaults={"player": player},
         )
-
         identity_cache[espn_id] = player
         return player
+
     @staticmethod
     def _scoring_details(settings):
         """Extract ESPN reception scoring without assuming a PPR format."""
@@ -341,7 +362,6 @@ class ESPNLeagueService:
     @transaction.atomic
     def import_league(self, user, owned_team_id=None):
         data = self.get_league_data()
-
         league_data = data["league"]
         teams = data["teams"]
         roster_teams = data["rosters"]
@@ -429,6 +449,7 @@ class ESPNLeagueService:
         )
 
         player_cache = list(Player.objects.all())
+        team_cache = list(Teams.objects.all())
 
         all_espn_player_ids = []
 
@@ -606,19 +627,33 @@ class ESPNLeagueService:
                     team_unresolved_players += 1
                     continue
 
-                player = self._resolve_player(
-                    player_data,
-                    player_cache,
-                    player_identity_cache,
-                    identities_preloaded=True,
+                is_defense = (
+                    self._position_name(
+                        player_data.get("defaultPositionId")
+                    ) == "DEF"
                 )
 
-                if player:
+                defense_team = (
+                    self._resolve_defense(player_data, team_cache)
+                    if is_defense else None
+                )
+
+                player = (
+                    None if is_defense
+                    else self._resolve_player(
+                        player_data,
+                        player_cache,
+                        player_identity_cache,
+                        identities_preloaded=True,
+                    )
+                )
+
+                if player or defense_team:
                     normalized_players.append(
                         FantasyRosterPlayer(
                             roster=roster,
                             player=player,
-                            team=None,
+                            team=defense_team,
                             roster_slot=self._lineup_slot_name(
                                 entry.get("lineupSlotId")
                             ),
