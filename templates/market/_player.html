@@ -1,0 +1,29 @@
+{% load player_health %}
+<div class="market-player">
+    <div class="market-avatar">
+        {% if row.player and row.player.headshot_url %}
+            <img src="{{ row.player.headshot_url }}" alt="" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false;">
+            <span hidden aria-hidden="true">🏈</span>
+        {% elif row.team %}
+            <img src="https://a.espncdn.com/i/teamlogos/nfl/500/{{ row.team.abbreviation|lower }}.png" alt="" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false;">
+            <span hidden aria-hidden="true">🏈</span>
+        {% else %}
+            <span aria-hidden="true">🏈</span>
+        {% endif %}
+    </div>
+    <div class="market-player-copy">
+        {% if row.player %}
+            <span class="market-name-line">
+                <a class="market-player-name player-card-link" href="{% url 'player_card' row.player.id %}">{{ row.display_name }}</a>
+                {% market_injury_badge row.player %}
+            </span>
+        {% else %}
+            <span class="market-name-line"><span class="market-player-name">{{ row.display_name }}</span></span>
+        {% endif %}
+        <span class="market-player-meta">
+            {% if row.position == 'DST' %}D/ST{% else %}{{ row.position }}{% endif %}
+            · {% if row.team %}{{ row.team.abbreviation }}{% else %}FA{% endif %}
+            {% if row.age %} · Age {{ row.age }}{% endif %}
+        </span>
+    </div>
+</div>
