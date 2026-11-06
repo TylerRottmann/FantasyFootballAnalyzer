@@ -37,6 +37,8 @@ def env_list(name, default=()):
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SECRET_KEY')
 
+ESPN_CREDENTIALS_ENCRYPTION_KEY = os.getenv("ESPN_CREDENTIALS_ENCRYPTION_KEY")
+
 YAHOO_CLIENT_ID = os.getenv('YAHOO_CLIENT_ID')
 YAHOO_CLIENT_SECRET = os.getenv('YAHOO_CLIENT_SECRET')
 YAHOO_REDIRECT_URI = os.getenv('YAHOO_REDIRECT_URI')

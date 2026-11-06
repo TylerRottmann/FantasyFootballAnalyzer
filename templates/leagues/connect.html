@@ -61,12 +61,12 @@
                     name="platform"
                     class="form-input"
                 >
-                    <option value="sleeper">
+                    <option value="sleeper" {% if selected_platform == "sleeper" %}selected{% endif %}>
                         Sleeper
                     </option>
 
-                    <option value="espn" disabled>
-                        ESPN — Coming Soon
+                    <option value="espn" {% if selected_platform == "espn" %}selected{% endif %}>
+                        ESPN
                     </option>
 
                     <option value="yahoo" disabled>
@@ -78,7 +78,7 @@
 
 
             <!-- PLATFORM USERNAME -->
-            <div class="form-group">
+            <div class="form-group" id="sleeper-username-group">
 
                 <label for="platform_username">
                     Sleeper Username
@@ -91,7 +91,6 @@
                     class="form-input"
                     value="{{ request.user.sleeper_username }}"
                     placeholder="Enter your Sleeper username"
-                    required
                 >
 
                 <p class="input-help">
@@ -119,9 +118,57 @@
                 <p class="input-help">
                     You can find your League ID on your fantasy platform.
                 </p>
+            </div>
+
+            <div class="form-group" id="season-group">
+
+                <label for="season">
+                     Season
+                </label>
+
+                <input
+                    type="number"
+                    id="season"
+                    name="season"
+                    class="form-input"
+                    value="2026"
+                    placeholder="2026"
+                >
+
+                <p class="input-help">
+                    Required when connecting an ESPN league.
+                </p>
 
             </div>
 
+            <div class="form-group" id="espn-auth-group">
+                <label for="espn_swid">ESPN SWID (private leagues only)</label>
+                <input type="password" id="espn_swid" name="espn_swid"
+                       class="form-input" autocomplete="off">
+                <label for="espn_s2">ESPN espn_s2 (private leagues only)</label>
+                <input type="password" id="espn_s2" name="espn_s2"
+                       class="form-input" autocomplete="off">
+                <p class="input-help">
+                    Leave both blank for public leagues. Credentials are
+                    used to access your private ESPN league.
+                </p>
+            </div>
+
+            <div class="form-group" id="espn-team-group">
+                <label for="espn_team_id">Your ESPN Team</label>
+                <select id="espn_team_id" name="espn_team_id"
+                        class="form-input" disabled>
+                    <option value="">Find your teams first</option>
+                </select>
+                <input type="hidden" id="espn_connection_token"
+                       name="espn_connection_token">
+                <button type="button" id="espn-find-teams"
+                        class="connect-button">
+                    Find ESPN Teams
+                </button>
+                <p class="input-help" id="espn-lookup-status"
+                   role="status" aria-live="polite"></p>
+            </div>
 
             <!-- OR -->
             <div class="or-divider">
@@ -275,7 +322,7 @@
                                     {% else %}
 
                                         <a
-                                            href="{% url 'select_league' connection.league.id %}"
+                                            href="{% url 'select_league_connection' connection.id %}"
                                             class="select-league-button"
                                         >
                                             Select League
@@ -342,6 +389,114 @@
 
     }, 10000);
 
+</script>
+<script>
+    const platformSelect = document.getElementById("platform");
+    const sleeperGroup = document.getElementById("sleeper-username-group");
+    const seasonGroup = document.getElementById("season-group");
+    const espnTeamGroup = document.getElementById("espn-team-group");
+    const espnAuthGroup = document.getElementById("espn-auth-group");
+    const espnTeamSelect = document.getElementById("espn_team_id");
+    const espnToken = document.getElementById("espn_connection_token");
+    const espnStatus = document.getElementById("espn-lookup-status");
+    const espnFindButton = document.getElementById("espn-find-teams");
+    const connectForm = espnFindButton.closest("form");
+    let espnLookupVersion = 0;
+
+    function resetEspnTeams() {
+        espnLookupVersion += 1;
+        espnTeamSelect.replaceChildren(new Option("Find your teams first", ""));
+        espnTeamSelect.disabled = true;
+        espnToken.value = "";
+        espnFindButton.disabled = false;
+        espnStatus.textContent = "";
+    }
+
+    espnFindButton.addEventListener("click", async function () {
+        resetEspnTeams();
+        const lookupVersion = espnLookupVersion;
+        espnFindButton.disabled = true;
+        espnStatus.textContent = "Loading ESPN teams...";
+
+        try {
+            const data = new FormData(connectForm);
+            const response = await fetch("{% url 'espn_team_lookup' %}", {
+                method: "POST",
+                body: data,
+                credentials: "same-origin"
+            });
+            const result = await response.json();
+
+            if (lookupVersion !== espnLookupVersion ||
+                platformSelect.value !== "espn") {
+                return;
+            }
+
+            if (!response.ok) {
+                throw new Error(result.error || "Unable to retrieve ESPN teams.");
+            }
+
+            espnTeamSelect.replaceChildren(new Option("Select your team", ""));
+            for (const team of result.teams) {
+                espnTeamSelect.add(new Option(team.name, team.id));
+            }
+            espnToken.value = result.connection_token;
+            espnTeamSelect.disabled = false;
+            espnStatus.textContent = "Select your team, then connect the league.";
+        } catch (error) {
+            if (lookupVersion === espnLookupVersion) {
+                espnStatus.textContent = error.message;
+            }
+        } finally {
+            if (lookupVersion === espnLookupVersion) {
+                espnFindButton.disabled = false;
+            }
+        }
+    });
+
+    for (const id of [
+        "league_identifier", "league_url", "season", "espn_swid", "espn_s2"
+    ]) {
+        document.getElementById(id).addEventListener("input", resetEspnTeams);
+    }
+
+    connectForm.addEventListener("submit", function (event) {
+        if (platformSelect.value !== "espn") {
+            return;
+        }
+
+        if (espnFindButton.disabled) {
+            event.preventDefault();
+            espnStatus.textContent = "Wait for the ESPN team lookup to finish.";
+            return;
+        }
+
+        if (!espnToken.value || !espnTeamSelect.value) {
+            event.preventDefault();
+            espnStatus.textContent = "Find your teams and select one first.";
+        }
+    });
+
+    function updatePlatformFields() {
+        const platform = platformSelect.value;
+
+        sleeperGroup.style.display =
+            platform === "sleeper" ? "block" : "none";
+
+        seasonGroup.style.display =
+            platform === "espn" ? "block" : "none";
+        espnTeamGroup.style.display =
+            platform === "espn" ? "block" : "none";
+        espnAuthGroup.style.display =
+            platform === "espn" ? "block" : "none";
+    }
+
+    platformSelect.addEventListener("change", function () {
+        resetEspnTeams();
+        espnStatus.textContent = "";
+        updatePlatformFields();
+    });
+    updatePlatformFields();
 </script>
 
 

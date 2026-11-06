@@ -9,20 +9,5 @@ class Migration(migrations.Migration):
         ('analyzer', '0001_initial'),
     ]
 
-    operations = [
-        migrations.AddField(
-            model_name='customuser',
-            name='email_notifications',
-            field=models.BooleanField(default=False),
-        ),
-        migrations.AddField(
-            model_name='customuser',
-            name='nickname',
-            field=models.CharField(blank=True, max_length=50),
-        ),
-        migrations.AddField(
-            model_name='customuser',
-            name='sleeper_username',
-            field=models.CharField(blank=True, max_length=50),
-        ),
-    ]
+    # Duplicate fields are defined by the parallel 0002 migration.
+    operations = []

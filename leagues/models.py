@@ -8,6 +8,8 @@ class FantasyLeague(models.Model):
     sleeper_league_id = models.CharField(
         max_length=100,
         unique=True,
+        null=True,
+        blank=True,
     )
 
     name = models.CharField(
@@ -65,7 +67,10 @@ class FantasyRoster(models.Model):
     )
 
     # Existing Sprint 1 field.
-    sleeper_roster_id = models.IntegerField()
+    sleeper_roster_id = models.IntegerField(
+        null=True,
+        blank=True,
+    )
 
     # Existing Sprint 1 field.
     owner_sleeper_id = models.CharField(
@@ -94,7 +99,8 @@ class FantasyRoster(models.Model):
 class Player(models.Model):
     id = models.BigAutoField(primary_key=True)
 
-    sleeper_id = models.CharField(max_length=100, unique=True)
+    sleeper_id = models.CharField(max_length=100, unique=True, null=True,
+    blank=True,)
 
     first_name = models.CharField(
         max_length=255,
@@ -259,6 +265,12 @@ class UserLeagueConnection(models.Model):
         max_length=100,
         null=True,
         blank=True,
+    )
+
+    espn_credentials_encrypted = models.TextField(
+        null=True,
+        blank=True,
+        editable=False,
     )
 
     class Meta:

@@ -4,6 +4,22 @@ def get_projection(item):
     if prediction is None:
         return 0.0
 
+    # Incomplete league-specific scores must not be treated as
+    # complete projections in lineup totals or recommendations.
+    status = (
+        prediction.get("status")
+        if isinstance(prediction, dict)
+        else getattr(prediction, "status", None)
+    )
+    if status == "partial_scoring":
+        usable = (
+            prediction.get("usable_partial_scoring", False)
+            if isinstance(prediction, dict)
+            else getattr(prediction, "usable_partial_scoring", False)
+        )
+        if usable is not True:
+            return 0.0
+
     # Prediction object
     if hasattr(prediction, "projected_fantasy_points"):
         value = prediction.projected_fantasy_points

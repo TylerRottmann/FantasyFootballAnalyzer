@@ -36,7 +36,12 @@ def team_game(week, team_id=10, opponent_id=20, **changes):
         "rushing_yards": 100, "total_yards": 300,
         "rb_fantasy_points_allowed": 15, "rushing_yards_against": 90,
         "passing_yards_against": 210, "points_against": 21,
-        "total_yards_against": 300, **changes,
+        "total_yards_against": 300,
+        "offensive_plays": None,
+        "offensive_dropbacks": None,
+        "opponent_offensive_plays": None,
+        "opponent_offensive_dropbacks": None,
+        **changes,
     }
 
 
