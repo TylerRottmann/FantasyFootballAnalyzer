@@ -39,11 +39,12 @@ POSITIONS = ["QB", "RB", "WR", "TE", "K", "DST"]
 RECENT_GAMES = 4
 SUCCESS_THRESHOLD = 3
 ERROR_THRESHOLDS = [2, 3, 5, 7]
+TOP_PLAYERS_PER_POSITION = 30
 
 
 def get_top_players(season, position):
     """
-    Get every player with regular-season games at a position.
+    Get the top players by season fantasy points at a position.
     """
 
     with conn.cursor() as cur:
@@ -64,10 +65,12 @@ def get_top_players(season, position):
                 p.id,
                 p.full_name,
                 p.position
-            ORDER BY total_points DESC
+            ORDER BY total_points DESC NULLS LAST, p.id
+            LIMIT %s
         """, (
             season,
             position,
+            TOP_PLAYERS_PER_POSITION,
         ))
 
         return cur.fetchall()
@@ -78,7 +81,16 @@ def get_player_games(player_id, season, position):
     """
 
     target_names = POSITION_STAT_TARGETS[position]
-    columns = ", ".join(target_names)
+    # Model outputs use the descriptive name ``passing_attempts``, while the
+    # player_weekly_stats table stores that count in its ``attempts`` column.
+    # Alias it back to the model name so the actual stat line stays aligned
+    # with POSITION_STAT_TARGETS when it is zipped below.
+    columns = ", ".join(
+        "pws.attempts AS passing_attempts"
+        if name == "passing_attempts"
+        else f"pws.{name}"
+        for name in target_names
+    )
     with conn.cursor() as cur:
 
         cur.execute("""
@@ -206,10 +218,10 @@ def backtest_player(player_id, season, position, scoring_settings=REFERENCE_SKIL
 
 def backtest_dst(season, scoring_settings=REFERENCE_SKILL_SCORING):
     """
-    Backtest every team's D/ST for one season.
+    Backtest the top D/ST units by season fantasy points.
 
-    D/ST is keyed by team, so it does not use get_top_players() or the
-    player-based predictor; all 32 defenses are replayed instead.
+    D/ST is keyed by team, so select the top units in SQL before replaying
+    their games.
     """
 
     with conn.cursor() as cur:
@@ -220,8 +232,18 @@ def backtest_dst(season, scoring_settings=REFERENCE_SKILL_SCORING):
             WHERE season = %s
               AND season_type = 1
               AND dst_fantasy_points IS NOT NULL
+              AND team_id IN (
+                  SELECT team_id
+                  FROM team_weekly_stats
+                  WHERE season = %s
+                    AND season_type = 1
+                    AND dst_fantasy_points IS NOT NULL
+                  GROUP BY team_id
+                  ORDER BY SUM(dst_fantasy_points) DESC NULLS LAST, team_id
+                  LIMIT %s
+              )
             ORDER BY team_id, week
-        """, (season,))
+        """, (season, season, TOP_PLAYERS_PER_POSITION))
         games = cur.fetchall()
 
     results = []
@@ -268,9 +290,28 @@ def backtest_k(season, scoring_settings=K_REFERENCE_SCORING):
     X, y, baseline, rows, counts = build_dataset(season, get_players())
     if not len(y):
         return []
-    return [{**row, 'projected': float(projected), 'actual': float(actual),
-             'difference': abs(float(projected)-float(actual))}
-            for row, projected, actual in zip(rows, score_rows(predict(model, X), scoring_settings), score_rows(y, scoring_settings))]
+    actual_scores = score_rows(y, scoring_settings)
+    points_by_player = {}
+    for row, actual in zip(rows, actual_scores):
+        points_by_player[row['player_id']] = (
+            points_by_player.get(row['player_id'], 0.0) + float(actual)
+        )
+    top_player_ids = {
+        player_id
+        for player_id, _ in sorted(
+            points_by_player.items(),
+            key=lambda item: (-item[1], item[0]),
+        )[:TOP_PLAYERS_PER_POSITION]
+    }
+    selected = [
+        index for index, row in enumerate(rows)
+        if row['player_id'] in top_player_ids
+    ]
+    projected_scores = score_rows(predict(model, X[selected]), scoring_settings)
+    return [{**rows[row_index], 'projected': float(projected_scores[index]),
+             'actual': float(actual_scores[row_index]),
+             'difference': abs(float(projected_scores[index])-float(actual_scores[row_index]))}
+            for index, row_index in enumerate(selected)]
 
 
 def main(seasons=SEASONS, positions=POSITIONS, scoring_settings=None):
@@ -313,10 +354,10 @@ def main(seasons=SEASONS, positions=POSITIONS, scoring_settings=None):
 
             if position == "K":
                 batches = [backtest_k(season, scoring_settings or K_REFERENCE_SCORING)]
-                print("K: mapped kicker games, requested scoring rules")
+                print(f"K: top {TOP_PLAYERS_PER_POSITION} kickers by season points")
             elif position == "DST":
                 batches = [backtest_dst(season, scoring_settings or REFERENCE_SKILL_SCORING)]
-                print(f"{position}: 32 defenses")
+                print(f"{position}: top {TOP_PLAYERS_PER_POSITION} defenses by season points")
             else:
                 players = get_top_players(
                     season,
@@ -325,7 +366,7 @@ def main(seasons=SEASONS, positions=POSITIONS, scoring_settings=None):
 
                 print(
                     f"{position}: "
-                    f"{len(players)} players"
+                    f"{len(players)} players (top {TOP_PLAYERS_PER_POSITION})"
                 )
 
                 batches = (
