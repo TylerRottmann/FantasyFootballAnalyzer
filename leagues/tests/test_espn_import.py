@@ -110,7 +110,7 @@ class ESPNImportIdentityTests(unittest.TestCase):
             self.assertIs(connection_kwargs["user"], user)
             self.assertIs(connection_kwargs["league"], league)
             self.assertEqual(
-                connection_kwargs["defaults"]["external_user_id"],
+                connection_kwargs["external_user_id"],
                 "123456:2026:1",
             )
 

@@ -1,6 +1,7 @@
 from collections import defaultdict
 from leagues.services.kicker_scoring import league_projection, league_defense_projection
 from leagues.services.player_availability import projection_context
+from leagues.services.roster_identity import resolve_connection_roster
 
 from django.db.models import Prefetch
 
@@ -99,7 +100,7 @@ def find_below_average_weeks(team_week_rows, league_week_averages, margin=0.20):
     return alerts
 
 
-def get_saved_power_rankings(league, user, current_week, include_defense=True):
+def get_saved_power_rankings(league, user, current_week, include_defense=True, *, connection=None):
     """Build league rankings from the saved per-player weekly projections."""
     rosters = list(
         FantasyRoster.objects.filter(league=league)
@@ -171,11 +172,13 @@ def get_saved_power_rankings(league, user, current_week, include_defense=True):
             position for position in starting_positions
             if str(position).upper() != "DEF"
         ]
-    connection = UserLeagueConnection.objects.filter(
-        user=user,
-        league=league,
-    ).only("external_user_id").first()
-    user_external_id = str(connection.external_user_id) if connection and connection.external_user_id else None
+    if connection is None:
+        connection = UserLeagueConnection.objects.filter(
+            user=user,
+            league=league,
+        ).first()
+    user_roster = resolve_connection_roster(connection)
+    user_roster_id = user_roster.id if user_roster else None
 
     team_rows = []
     generated_at = max(row.updated_at for row in projections + defense_projections)
@@ -254,8 +257,8 @@ def get_saved_power_rankings(league, user, current_week, include_defense=True):
         team_rows.append({
             "roster_id": roster.id,
             "team_name": roster.owner_name or f"Team {roster.sleeper_roster_id}",
-            "is_user_team": user_external_id is not None
-                and str(roster.owner_sleeper_id) == user_external_id,
+            "is_user_team": user_roster_id is not None
+                and roster.id == user_roster_id,
             "rest_of_season_points": sum(row["projected_points"] for row in weekly_rows),
             "position_totals": dict(position_totals),
             "weeks": weekly_rows,

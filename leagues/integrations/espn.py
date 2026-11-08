@@ -700,10 +700,18 @@ class ESPNLeagueService:
                     encrypt_espn_credentials(self.swid, self.espn_s2)
                 )
 
+            external_user_id = connection_defaults["external_user_id"]
+
             UserLeagueConnection.objects.update_or_create(
                 user=user,
                 league=league,
-                defaults=connection_defaults,
+                platform=self.PLATFORM,
+                external_user_id=external_user_id,
+                defaults={
+                    key: value
+                    for key, value in connection_defaults.items()
+                    if key != "external_user_id"
+                },
             )
 
         return {

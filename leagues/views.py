@@ -99,8 +99,9 @@ def get_power_rankings_snapshot(
     defense_mode = "dst-on" if include_defense else "dst-off"
     projection_version = cache.get(f"projection_version:{league.season}", "initial")
     league_version = league.updated_at.isoformat() if league.updated_at else "unknown"
+    connection_id = connection.id if connection else "none"
     cache_key = (
-        f"power_rankings:{league.id}:{user.id}:{current_week}:"
+        f"power_rankings:{league.id}:{user.id}:{connection_id}:{current_week}:"
         f"{schedule_version}:{projection_version}:{league_version}:{defense_mode}"
     )
     snapshot = cache.get(cache_key)
@@ -110,6 +111,7 @@ def get_power_rankings_snapshot(
             user,
             current_week=current_week,
             include_defense=include_defense,
+            connection=connection,
         )
         cache.set(cache_key, snapshot, timeout=60 * 30)
     return snapshot, schedule_sync_needed
@@ -200,6 +202,7 @@ def connect_league(request):
                 connection = UserLeagueConnection.objects.get(
                     user=request.user,
                     league=result["league"],
+                    platform=UserLeagueConnection.PLATFORM_SLEEPER,
                 )
 
                 roster = FantasyRoster.objects.filter(
@@ -216,6 +219,7 @@ def connect_league(request):
                     request.session["active_league_id"] = (
                         result["league"].id
                     )
+                    request.session["active_connection_id"] = connection.id
                     return redirect("start_sit")
 
             except Exception as exc:
@@ -267,6 +271,12 @@ def connect_league(request):
                         connection = UserLeagueConnection.objects.get(
                             user=request.user,
                             league=result["league"],
+                            platform=UserLeagueConnection.PLATFORM_ESPN,
+                            external_user_id=(
+                                f"{lookup['league_id']}:"
+                                f"{lookup['season']}:"
+                                f"{owned_team_id}"
+                            ),
                         )
                         request.session["active_league_id"] = connection.league_id
                         request.session["active_connection_id"] = connection.id
@@ -321,19 +331,22 @@ def select_league_connection(request, connection_id):
 
 @login_required
 def select_league(request, league_id):
-    connection = (
+    connections = list(
         UserLeagueConnection.objects
         .filter(user=request.user, league_id=league_id)
-        .select_related("league")
-        .first()
+        .select_related("league")[:2]
     )
 
-    if connection is None:
+    if len(connections) != 1:
+        messages.warning(
+            request,
+            "Please select a specific team from your connected leagues."
+        )
         return redirect("connect_league")
 
-    request.session["active_league_id"] = connection.league.id
+    connection = connections[0]
+    request.session["active_league_id"] = connection.league_id
     request.session["active_connection_id"] = connection.id
-
 
     return redirect("start_sit")
 
@@ -487,41 +500,9 @@ def _build_historical_lineups(league, roster, week, starting_positions):
 
 @login_required
 def start_sit(request):
-    active_league_id = request.session.get("active_league_id")
-    active_connection_id = request.session.get("active_connection_id")
+    from leagues.services.active_connection import get_active_connection
 
-    connection = None
-
-    if active_connection_id:
-        connection = (
-            UserLeagueConnection.objects
-            .filter(
-                id=active_connection_id,
-                user=request.user,
-            )
-            .select_related("league")
-            .first()
-        )
-
-    if connection is None and active_league_id:
-        connection = (
-            UserLeagueConnection.objects
-            .filter(
-                user=request.user,
-                league_id=active_league_id,
-            )
-            .select_related("league")
-            .first()
-        )
-
-    if connection is None:
-        connection = (
-            UserLeagueConnection.objects
-            .filter(user=request.user)
-            .select_related("league")
-            .order_by("-league__updated_at")
-            .first()
-        )
+    connection = get_active_connection(request)
 
     if connection is None:
         return redirect("connect_league")
@@ -877,13 +858,9 @@ def start_sit(request):
 @login_required
 def projection_details(request, player_id):
     """Return historical model inputs for a rostered player on demand."""
-    active_league_id = request.session.get("active_league_id")
-    connection = (
-        UserLeagueConnection.objects
-        .filter(user=request.user, league_id=active_league_id)
-        .select_related("league")
-        .first()
-    ) if active_league_id else None
+    from leagues.services.active_connection import get_active_connection
+
+    connection = get_active_connection(request, fallback_to_recent=False)
     if connection is None:
         return JsonResponse({"error": "Select a connected league first."}, status=404)
 
@@ -1157,20 +1134,18 @@ def resync_league(request):
     if request.method != "POST":
         return redirect("start_sit")
 
-    active_league_id = request.session.get("active_league_id")
+    from leagues.services.active_connection import get_active_connection
 
-    if active_league_id is None:
+    if not (
+        request.session.get("active_connection_id")
+        or request.session.get("active_league_id")
+    ):
         messages.error(request, "No active league is selected.")
         return redirect("start_sit")
 
-    connection = (
-        UserLeagueConnection.objects
-        .filter(
-            user=request.user,
-            league_id=active_league_id,
-        )
-        .select_related("league")
-        .first()
+    connection = get_active_connection(
+        request,
+        fallback_to_recent=False,
     )
 
     if connection is None:
@@ -1292,10 +1267,22 @@ def resync_league(request):
 def power_rankings(request, league_id):
     league = get_user_league_or_404(request.user, league_id)
     current_week = get_current_nfl_week()
-    connection = UserLeagueConnection.objects.filter(
-        user=request.user,
-        league=league,
-    ).only("platform").first()
+    from leagues.services.active_connection import get_active_connection
+
+    connection = get_active_connection(request, fallback_to_recent=False)
+    if connection is None or connection.league_id != league.id:
+        matching_connections = list(
+            UserLeagueConnection.objects
+            .filter(user=request.user, league=league)
+            .order_by("id")[:2]
+        )
+        if len(matching_connections) != 1:
+            messages.warning(
+                request,
+                "Please select a specific team from your connected leagues."
+            )
+            return redirect("connect_league")
+        connection = matching_connections[0]
     has_defense_slot = any(
         str(position).upper() in {"DEF", "D/ST"}
         for position in (league.roster_positions or [])
@@ -1413,10 +1400,22 @@ def team_breakdown(request, league_id, roster_id):
         pk=roster_id,
         league=league,
     )
-    connection = UserLeagueConnection.objects.filter(
-        user=request.user,
-        league=league,
-    ).only("platform").first()
+    from leagues.services.active_connection import get_active_connection
+
+    connection = get_active_connection(request, fallback_to_recent=False)
+    if connection is None or connection.league_id != league.id:
+        matching_connections = list(
+            UserLeagueConnection.objects
+            .filter(user=request.user, league=league)
+            .order_by("id")[:2]
+        )
+        if len(matching_connections) != 1:
+            messages.warning(
+                request,
+                "Please select a specific team from your connected leagues."
+            )
+            return redirect("connect_league")
+        connection = matching_connections[0]
     has_defense_slot = any(
         str(position).upper() in {"DEF", "D/ST"}
         for position in (league.roster_positions or [])
@@ -1435,6 +1434,7 @@ def team_breakdown(request, league_id, roster_id):
         current_week,
         rankings,
         request.user,
+        connection=connection,
         include_defense=include_defense,
     )
     context = {

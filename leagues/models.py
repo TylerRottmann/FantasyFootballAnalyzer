@@ -276,9 +276,18 @@ class UserLeagueConnection(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
+                fields=["user", "league", "external_user_id"],
+                condition=models.Q(
+                    platform="espn",
+                    external_user_id__isnull=False,
+                ),
+                name="unique_user_espn_team_connection",
+            ),
+            models.UniqueConstraint(
                 fields=["user", "league"],
-                name="unique_user_league_connection",
-            )
+                condition=~models.Q(platform="espn"),
+                name="unique_user_non_espn_league_connection",
+            ),
         ]
 
     def __str__(self):

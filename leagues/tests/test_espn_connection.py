@@ -124,13 +124,13 @@ class ESPNResyncViewTests(unittest.TestCase):
         )
 
         with (
-            patch("leagues.views.UserLeagueConnection") as connections,
+            patch("leagues.services.active_connection.get_active_connection") as active_connection,
             patch("leagues.views.ESPNLeagueService") as service,
             patch("leagues.views.messages") as messages,
             patch("leagues.views.redirect") as redirect,
         ):
-            connections.PLATFORM_ESPN = "espn"
-            connections.objects.filter.return_value.select_related.return_value.first.return_value = connection
+
+            active_connection.return_value = connection
             service.return_value.get_league.return_value = {"id": "123456"}
             service.return_value.import_league.return_value = {
                 "my_roster": SimpleNamespace(id=20),
@@ -198,7 +198,7 @@ class ESPNPrivateResyncTests(unittest.TestCase):
         connection = self.make_connection("encrypted-test-value")
 
         with (
-            patch("leagues.views.UserLeagueConnection") as connections,
+            patch("leagues.services.active_connection.get_active_connection") as active_connection,
             patch("leagues.views.ESPNLeagueService") as service,
             patch(
                 "leagues.integrations.espn_credentials.decrypt_espn_credentials",
@@ -207,8 +207,8 @@ class ESPNPrivateResyncTests(unittest.TestCase):
             patch("leagues.views.messages") as messages,
             patch("leagues.views.redirect"),
         ):
-            connections.PLATFORM_ESPN = "espn"
-            connections.objects.filter.return_value.select_related.return_value.first.return_value = connection
+
+            active_connection.return_value = connection
 
             service.return_value.get_league.return_value = {"id": "123456"}
             service.return_value.import_league.return_value = {
@@ -237,7 +237,7 @@ class ESPNPrivateResyncTests(unittest.TestCase):
         connection = self.make_connection("invalid-encrypted-value")
 
         with (
-            patch("leagues.views.UserLeagueConnection") as connections,
+            patch("leagues.services.active_connection.get_active_connection") as active_connection,
             patch("leagues.views.ESPNLeagueService") as service,
             patch(
                 "leagues.integrations.espn_credentials.decrypt_espn_credentials",
@@ -249,8 +249,8 @@ class ESPNPrivateResyncTests(unittest.TestCase):
             patch("leagues.views.messages") as messages,
             patch("leagues.views.redirect"),
         ):
-            connections.PLATFORM_ESPN = "espn"
-            connections.objects.filter.return_value.select_related.return_value.first.return_value = connection
+
+            active_connection.return_value = connection
 
             resync_league(request)
 
@@ -270,18 +270,18 @@ class ESPNPrivateResyncTests(unittest.TestCase):
         request = self.make_request()
 
         with (
-            patch("leagues.views.UserLeagueConnection") as connections,
+            patch("leagues.services.active_connection.get_active_connection") as active_connection,
             patch("leagues.views.ESPNLeagueService") as service,
             patch("leagues.views.messages") as messages,
             patch("leagues.views.redirect") as redirect,
         ):
-            connections.objects.filter.return_value.select_related.return_value.first.return_value = None
+            active_connection.return_value = None
 
             resync_league(request)
 
-            connections.objects.filter.assert_called_once_with(
-                user=request.user,
-                league_id=10,
+            active_connection.assert_called_once_with(
+                request,
+                fallback_to_recent=False,
             )
             service.assert_not_called()
             messages.error.assert_called_once()

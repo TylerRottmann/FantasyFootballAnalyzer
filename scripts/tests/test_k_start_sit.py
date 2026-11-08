@@ -5,7 +5,7 @@ from unittest import skipUnless
 from django.core.management import call_command
 from django.db import connection
 from django.urls import reverse
-from leagues.models import FantasyProjection, FantasyRosterPlayer
+from leagues.models import FantasyProjection, FantasyRosterPlayer, UserLeagueConnection
 from scripts.algorithm.features.k_features import KSeasonData
 from scripts.algorithm.predictor import predict_player
 from scripts.tests import test_rb_start_sit as rb_fixture
@@ -110,7 +110,18 @@ class KStartSitTests(TestCase):
         best=max(r['projected_fantasy_points'] for r in expected.values())
         self.assertAlmostEqual(rows[0]['weeks'][0]['projected_points'],best)
         self.assertIn('K',rows[0]['position_averages'])
-        details=build_team_breakdown(self.league,self.roster,2,rows,self.user)
+        selected_connection = UserLeagueConnection.objects.get(
+            user=self.user,
+            league=self.league,
+        )
+        details = build_team_breakdown(
+            self.league,
+            self.roster,
+            2,
+            rows,
+            self.user,
+            connection=selected_connection,
+        )
         self.assertIn('K',details['position_codes'])
         player_rows={p['name']:p for p in details['players']}
         for player in (self.low,self.high):

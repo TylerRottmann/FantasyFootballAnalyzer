@@ -1,4 +1,5 @@
-from leagues.models import UserLeagueConnection, RosterPlatformIdentity
+from leagues.models import RosterPlatformIdentity
+from leagues.services.active_connection import get_active_connection
 
 
 def league_selector(request):
@@ -6,65 +7,45 @@ def league_selector(request):
         return {
             "connected_leagues": [],
             "active_league": None,
+            "active_connection": None,
+            "active_team_name": None,
         }
 
     connections = list(
-        UserLeagueConnection.objects
-        .filter(user=request.user)
+        request.user.league_connections
         .select_related("league")
-        .order_by("-league__updated_at")
+        .order_by("-league__updated_at", "-id")
     )
 
     if not connections:
         return {
             "connected_leagues": [],
             "active_league": None,
+            "active_connection": None,
+            "active_team_name": None,
         }
 
-    active_connection_id = request.session.get("active_connection_id")
-    active_league_id = request.session.get("active_league_id")
+    active_connection = get_active_connection(request)
 
-    active_connection = None
-
-    if  active_connection_id:
-            active_connection = next(
-            (
-                connection
-                for connection in connections
-                if connection.id == active_connection_id
-            ),
-            None,
-    )
-
-    if active_connection is None and active_league_id:
-        active_connection = next(
-            (
-                connection
-                for connection in connections
-                if connection.league_id == active_league_id
-            ),
-            None,
-    )
-
-    # If no valid league is selected, use the first connected league.
-    if active_connection is None:
-        active_connection = connections[0]
+    # Keep the session synchronized with the resolved connection.
+    if active_connection is not None:
+        request.session["active_connection_id"] = active_connection.id
+        request.session["active_league_id"] = active_connection.league_id
 
     espn_connections = [
         connection for connection in connections
         if connection.platform == "espn"
     ]
 
-    espn_ids = [
-        connection.external_user_id
-        for connection in espn_connections
-    ]
-
     identities = RosterPlatformIdentity.objects.filter(
         platform="espn",
-        external_id__in=espn_ids,
-        roster__league__in=[
-            connection.league for connection in espn_connections
+        external_id__in=[
+            connection.external_user_id
+            for connection in espn_connections
+            if connection.external_user_id
+        ],
+        roster__league_id__in=[
+            connection.league_id for connection in espn_connections
         ],
     ).select_related("roster")
 
@@ -75,16 +56,30 @@ def league_selector(request):
     }
 
     for connection in connections:
-        connection.display_team_name = team_names.get(
-            (connection.league_id, connection.external_user_id),
-            connection.league.name,
-        )
+        connection.display_team_name = (
+            team_names.get(
+                (connection.league_id, connection.external_user_id)
+            )
+            if connection.platform == "espn"
+            else None
+        ) or connection.league.name
 
-    active_team_name = active_connection.display_team_name
+    active_team_name = next(
+        (
+            connection.display_team_name
+            for connection in connections
+            if active_connection is not None
+            and connection.id == active_connection.id
+        ),
+        None,
+    )
 
     return {
         "active_team_name": active_team_name,
         "connected_leagues": connections,
-        "active_league": active_connection.league,
+        "active_league": (
+            active_connection.league
+            if active_connection is not None else None
+        ),
         "active_connection": active_connection,
     }

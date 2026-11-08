@@ -579,9 +579,10 @@ class YahooLeagueService:
         if own_roster is None:
             raise ValueError("Yahoo could not identify your team in this league.")
         UserLeagueConnection.objects.update_or_create(
-            user=user, league=league,
+            user=user,
+            league=league,
+            platform=self.PLATFORM,
             defaults={
-                "platform": self.PLATFORM,
                 "external_user_id": own_roster.owner_sleeper_id,
             },
         )

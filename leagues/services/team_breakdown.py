@@ -7,7 +7,6 @@ from leagues.models import (
     FantasyMatchup,
     FantasyProjection,
     FantasyRosterPlayer,
-    UserLeagueConnection,
 )
 from leagues.services.power_rankings import REGULAR_SEASON_WEEKS
 from scripts.commands.lineup import build_optimized_lineup, get_projection
@@ -17,7 +16,8 @@ POSITION_CODES = ("QB", "RB", "WR", "TE", "K", "DEF")
 
 
 def build_team_breakdown(
-    league, roster, current_week, weekly_rankings, user, include_defense=True
+    league, roster, current_week, weekly_rankings, user,
+    connection, include_defense=True
 ):
     """Build the rest-of-season team, schedule, and player breakdown payload."""
     roster_players = list(
@@ -139,10 +139,6 @@ def build_team_breakdown(
         "whole_team": _position_breakdown(whole_team_points_by_position),
     }
 
-    connection = UserLeagueConnection.objects.filter(
-        user=user,
-        league=league,
-    ).only("platform").first()
     matchups = list(FantasyMatchup.objects.filter(
         league=league,
         roster=roster,
