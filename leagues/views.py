@@ -194,6 +194,7 @@ def select_league(request, league_id):
         return redirect("connect_league")
 
     request.session["active_league_id"] = connection.league.id
+    request.session["active_connection_id"] = connection.id
 
     referer = request.META.get("HTTP_REFERER")
     if referer:
@@ -1216,16 +1217,36 @@ def team_breakdown(request, league_id, roster_id):
         request.user,
         include_defense=include_defense,
     )
-    prediction_connection = UserLeagueConnection.objects.filter(
-        user=request.user,
-        league=league,
-    ).only("external_user_id").first()
     can_predict_roster = (
         request.session.get("active_league_id") == league.id
-        and prediction_connection is not None
-        and bool(prediction_connection.external_user_id)
-        and roster.owner_sleeper_id == prediction_connection.external_user_id
+        and UserLeagueConnection.objects.filter(
+            user=request.user,
+            league=league,
+        ).exists()
     )
+    if can_predict_roster:
+        from leagues.models import BoomBustWeeklyPrediction
+
+        player_ids = [
+            player["player_id"]
+            for player in breakdown["players"]
+            if player.get("player_id")
+            and player.get("position") in {"QB", "RB", "WR", "TE"}
+        ]
+        saved_predictions = (
+            BoomBustWeeklyPrediction.objects.filter(
+                player_id__in=player_ids,
+                season=league.season,
+                week=current_week,
+            ).order_by("-generated_at", "-id")
+        )
+        prediction_map = {}
+        for prediction in saved_predictions:
+            prediction_map.setdefault(prediction.player_id, prediction)
+
+        for player in breakdown["players"]:
+            player["boom_bust"] = prediction_map.get(player.get("player_id"))
+
     context = {
         "supported_boom_bust_positions": ("QB", "RB", "WR", "TE"),
         "boom_bust_v2_enabled": can_predict_roster,

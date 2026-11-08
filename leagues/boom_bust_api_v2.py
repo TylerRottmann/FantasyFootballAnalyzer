@@ -1,4 +1,4 @@
-"""Authenticated, roster-authorized Boom/Bust v2 prediction API."""
+"""Authenticated Boom/Bust v2 prediction API for connected leagues."""
 
 import logging
 
@@ -7,7 +7,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 
 from analyzer.models import Players
-from leagues.models import BoomBustWeeklyPrediction, FantasyRosterPlayer, UserLeagueConnection
+from leagues.models import BoomBustWeeklyPrediction, UserLeagueConnection
 
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ def boom_bust_prediction_v2(request, player_id):
 
 
 def _generate_authorized_boom_bust_v2(request, player_id):
-    """Return calibrated pregame probabilities for an authorized player."""
+    """Return saved pregame probabilities for a connected league."""
 
     active_league_id = request.session.get("active_league_id")
 
@@ -61,18 +61,6 @@ def _generate_authorized_boom_bust_v2(request, player_id):
         )
 
     league = connection.league
-
-    rostered = FantasyRosterPlayer.objects.filter(
-        roster__league=league,
-        roster__owner_sleeper_id=connection.external_user_id,
-        player_id=player_id,
-    ).exists()
-
-    if not rostered:
-        return JsonResponse(
-            {"error": "Player is not on your active roster."},
-            status=404,
-        )
 
     # analyzer.Players and leagues.Player map to the same
     # PostgreSQL 'players' table, verified in Step 305.

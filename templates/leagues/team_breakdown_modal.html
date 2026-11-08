@@ -134,12 +134,12 @@
                                 {% if boom_bust_v2_enabled %}
                                 <td>
                                     {% if player.player_id and player.position in supported_boom_bust_positions %}
-                                    <button type="button" class="boom-bust-v2-button"
-                                            data-boom-bust-v2-url="{% url 'boom_bust_prediction_v2' player.player_id %}"
-                                            data-boom-bust-v2-week="{{ boom_bust_v2_week }}">
-                                        Predict
-                                    </button>
-                                    <div class="boom-bust-v2-result" role="status" aria-live="polite"></div>
+                                    {% if player.boom_bust %}
+                                    <span>Boom: {% widthratio player.boom_bust.boom_probability 1 100 %}%</span>
+                                    <span>Bust: {% widthratio player.boom_bust.bust_probability 1 100 %}%</span>
+                                    {% else %}
+                                    <span>Not available</span>
+                                    {% endif %}
                                     {% else %}—{% endif %}
                                 </td>
                                 {% endif %}

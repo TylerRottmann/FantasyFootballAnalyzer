@@ -22,17 +22,20 @@ from scripts.algorithm.boom_bust.boom_bust_predict_v2 import PlayerUnavailableFo
 logger = logging.getLogger(__name__)
 
 
-def generate_week(season, week):
+def generate_week(season, week, dry_run=False):
     players = Players.objects.filter(
         position__in=["QB", "RB", "WR", "TE"],
         team__isnull=False,
     ).order_by("id").iterator(chunk_size=200)
 
-    counts = {"saved": 0, "updated": 0, "skipped": 0, "failed": 0}
+    counts = {"saved": 0, "updated": 0, "would_save": 0, "skipped": 0, "failed": 0}
 
     for player in players:
         try:
             result = predict_boom_bust_v2(player, season, week)
+            if dry_run:
+                counts["would_save"] += 1
+                continue
             _, created = save_boom_bust_prediction_v2(result)
             counts["saved" if created else "updated"] += 1
         except (
@@ -76,6 +79,7 @@ def main():
     parser.add_argument("--season", type=int)
     parser.add_argument("--week", type=int)
     parser.add_argument("--auto", action="store_true")
+    parser.add_argument("--dry-run", action="store_true", help="Calculate without saving predictions.")
     args = parser.parse_args()
 
     if args.auto:
@@ -97,7 +101,7 @@ def main():
         parser.error("Week must be between 1 and 18.")
 
     logging.basicConfig(level=logging.INFO)
-    counts = generate_week(season, week)
+    counts = generate_week(season, week, dry_run=args.dry_run)
 
     print(f"Boom/Bust {season} Week {week}: {counts}")
     if counts["failed"]:
