@@ -441,6 +441,13 @@
                                                 {% endif %}
 
 
+                                                {% if not historical_mode and item.boom_bust %}
+                                                    <div class="boom-bust-weekly" style="font-size: 0.75rem; margin-top: 4px;">
+                                                        <span>Boom: {% widthratio item.boom_bust.boom_probability 1 100 %}%</span>
+                                                        <span>Bust: {% widthratio item.boom_bust.bust_probability 1 100 %}%</span>
+                                                    </div>
+                                                {% endif %}
+
                                                 {% if not historical_mode %}<div class="projection-label">
                                                     PROJ.
                                                 </div>{% endif %}
@@ -993,6 +1000,13 @@
 
                                                 {% endif %}
 
+
+                                                {% if not historical_mode and item.boom_bust %}
+                                                    <div class="boom-bust-weekly" style="font-size: 0.75rem; margin-top: 4px;">
+                                                        <span>Boom: {% widthratio item.boom_bust.boom_probability 1 100 %}%</span>
+                                                        <span>Bust: {% widthratio item.boom_bust.bust_probability 1 100 %}%</span>
+                                                    </div>
+                                                {% endif %}
 
                                                 {% if not historical_mode %}<div class="projection-label">
                                                     PROJ.

@@ -456,6 +456,21 @@ def start_sit(request):
     projections_available = bool(projection_map)
     projections_required = not projections_available
 
+    # Read precomputed weekly Boom/Bust predictions from Supabase.
+    from leagues.models import BoomBustWeeklyPrediction
+
+    boom_bust_map = {}
+    for saved in (
+        BoomBustWeeklyPrediction.objects
+        .filter(
+            player_id__in=player_ids,
+            season=league.season,
+            week=week,
+        )
+        .order_by("-generated_at", "-id")
+    ):
+        boom_bust_map.setdefault(saved.player_id, saved)
+
     # ---------------------------------------------------------
     # GET TEAM INFORMATION
     # ---------------------------------------------------------
@@ -542,6 +557,7 @@ def start_sit(request):
         # Normal player
         player = roster_player.player
         prediction = projection_map.get(player.id)
+        boom_bust = boom_bust_map.get(player.id)
 
         matchup = matchups.get(player.team_id) if player.team_id else None
 
@@ -549,6 +565,7 @@ def start_sit(request):
             "player": player,
             "roster_player": roster_player,
             "prediction": prediction,
+            "boom_bust": boom_bust,
             "matchup": matchup,
             "matchup_missing_label": "BYE" if player.team_id in bye_team_ids else "Schedule unavailable",
             "team": teams.get(player.team_id),
@@ -1199,7 +1216,20 @@ def team_breakdown(request, league_id, roster_id):
         request.user,
         include_defense=include_defense,
     )
+    prediction_connection = UserLeagueConnection.objects.filter(
+        user=request.user,
+        league=league,
+    ).only("external_user_id").first()
+    can_predict_roster = (
+        request.session.get("active_league_id") == league.id
+        and prediction_connection is not None
+        and bool(prediction_connection.external_user_id)
+        and roster.owner_sleeper_id == prediction_connection.external_user_id
+    )
     context = {
+        "supported_boom_bust_positions": ("QB", "RB", "WR", "TE"),
+        "boom_bust_v2_enabled": can_predict_roster,
+        "boom_bust_v2_week": current_week,
         "league": league,
         "roster": roster,
         "has_defense_slot": has_defense_slot,
