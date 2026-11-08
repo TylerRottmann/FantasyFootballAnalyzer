@@ -1,5 +1,7 @@
 """Historical training dataset for Boom/Bust v2."""
 
+from functools import lru_cache
+
 from leagues.models import Player
 
 from scripts.algorithm.features.rb_features import RBSeasonData
@@ -83,6 +85,7 @@ def build_rb_dataset_v2(season):
     return rows
 
 
+@lru_cache(maxsize=256)
 def position_baseline_before_week(season, week, position):
     """Average prior-week PPR scores for a position, without future data."""
     from django.db import connection
