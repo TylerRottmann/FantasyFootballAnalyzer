@@ -84,6 +84,55 @@ class PowerRankingsRosterSelectionTests(unittest.TestCase):
             )
             return {row["roster_id"]: row["is_user_team"] for row in rows}
 
+    def test_explicit_connection_controls_matchup_platform(self):
+        """Standings must use the selected platform, not the first connection."""
+        league = SimpleNamespace(
+            id=1, season=2026, roster_positions=["QB"]
+        )
+        user = SimpleNamespace(id=42)
+        player = SimpleNamespace(id=110, position="QB", team_id=1)
+        entry = SimpleNamespace(
+            id=210, player_id=110, team_id=None,
+            player=player, team=None,
+        )
+        roster = SimpleNamespace(
+            id=10, owner_name="ESPN Team",
+            sleeper_roster_id=10,
+            roster_players=SimpleNamespace(all=lambda: [entry]),
+        )
+        projection = SimpleNamespace(
+            player_id=110, week=1,
+            updated_at=datetime(2026, 11, 1, tzinfo=timezone.utc),
+        )
+        selected = SimpleNamespace(platform="espn")
+
+        with (
+            patch("leagues.services.power_rankings.FantasyRoster.objects.filter") as rosters,
+            patch("leagues.services.power_rankings.FantasyProjection.objects.filter") as projections,
+            patch("leagues.services.power_rankings.DefenseProjection.objects.filter") as defenses,
+            patch("leagues.services.power_rankings.FantasyMatchup.objects.filter") as matchups,
+            patch("leagues.services.power_rankings.UserLeagueConnection.objects.filter") as connections,
+            patch("leagues.services.power_rankings.resolve_connection_roster", return_value=roster),
+            patch("leagues.services.power_rankings.projection_context", return_value={}),
+            patch("leagues.services.power_rankings.league_projection", return_value=10.0),
+            patch("leagues.services.power_rankings.build_optimized_lineup",
+                  return_value=([{"slot": "QB", "item": {"roster_player": entry,
+                      "player": player, "prediction": 10.0}}], 10.0)),
+            patch("leagues.services.power_rankings.get_projection", return_value=10.0),
+        ):
+            rosters.return_value.prefetch_related.return_value.order_by.return_value = [roster]
+            projections.return_value.select_related.return_value = [projection]
+            defenses.return_value.select_related.return_value = []
+            matchups.return_value.select_related.return_value = []
+            connections.return_value.first.return_value = SimpleNamespace(platform="sleeper")
+
+            get_saved_power_rankings(
+                league, user, current_week=1, connection=selected
+            )
+
+            self.assertEqual(matchups.call_args.kwargs["platform"], "espn")
+            connections.assert_not_called()
+
     def test_espn_marks_selected_team_only(self):
         result = self.run_rankings(20)
         self.assertEqual(result, {10: False, 20: True})

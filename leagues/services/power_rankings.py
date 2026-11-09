@@ -279,9 +279,6 @@ def get_saved_power_rankings(league, user, current_week, include_defense=True, *
         if points
     }
 
-    connection = UserLeagueConnection.objects.filter(
-        user=user, league=league,
-    ).only("platform").first()
     matchups = list(FantasyMatchup.objects.filter(
         league=league,
         season=league.season,

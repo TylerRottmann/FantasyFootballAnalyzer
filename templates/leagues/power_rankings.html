@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Power Rankings | {{ league.name }}{% endblock %}
+{% block title %}Power Rankings | {{ league.display_name }}{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/power-rankings.css' %}">
@@ -14,7 +14,7 @@
         <div>
             <p class="eyebrow">{{ league.season }} SEASON</p>
             <h1>League Power Rankings</h1>
-            <p class="subheading">Rest-of-season outlook for <strong>{{ league.name }}</strong></p>
+            <p class="subheading">Rest-of-season outlook for <strong>{{ league.display_name }}</strong></p>
         </div>
 
         <div class="power-actions">

@@ -14,6 +14,7 @@ def league_selector(request):
     connections = list(
         request.user.league_connections
         .select_related("league")
+        .prefetch_related("league__platform_identities")
         .order_by("-league__updated_at", "-id")
     )
 

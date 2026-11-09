@@ -8,7 +8,7 @@
     <header class="waiver-header">
         <h1>Waiver Wire Suggestions</h1>
         {% if active_league %}
-        <p>{{ active_league.name }} · {{ active_league.season|default_if_none:"Season unavailable" }}</p>
+        <p>{{ active_league.display_name }} · {{ active_league.season|default_if_none:"Season unavailable" }}</p>
         <p class="waiver-meta">Available players in your league. Last synced {{ active_league.updated_at|date:"M j" }}.</p>
         {% endif %}
     </header>

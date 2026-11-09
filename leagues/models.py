@@ -51,6 +51,24 @@ class FantasyLeague(models.Model):
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()
 
+    @property
+    def display_name(self):
+        """Return a platform-aware league label without changing stored data."""
+        identities = self.platform_identities.all()
+        espn_identity = next(
+            (identity for identity in identities if identity.platform == "espn"),
+            None,
+        )
+
+        if espn_identity is not None:
+            external_id = str(espn_identity.external_id or "").strip()
+            league_id = external_id.split(":", 1)[0].strip()
+
+            if league_id:
+                return f"ESPN League #{league_id}"
+
+        return self.name
+
     class Meta:
         managed = False
         db_table = "fantasy_leagues"

@@ -31,7 +31,7 @@
 
             <p>
                 Optimize your lineup for
-                <strong>{{ active_team_name|default:league.name }}</strong>.
+                <strong>{{ active_team_name|default:league.display_name }}</strong>.
             </p>
 
             {% include "start_sit/league_settings.html" %}

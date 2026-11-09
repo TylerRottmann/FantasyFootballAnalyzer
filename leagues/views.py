@@ -51,12 +51,14 @@ from scripts.commands.nflweek import get_current_nfl_week
 
 def get_user_league_or_404(user, league_id):
     """Return a league only when it belongs to one of the user's connections."""
-    connection = get_object_or_404(
-        UserLeagueConnection.objects.select_related("league"),
-        user=user,
-        league_id=league_id,
+    return get_object_or_404(
+        FantasyLeague.objects.filter(
+            id__in=UserLeagueConnection.objects.filter(
+                user=user
+            ).values("league_id")
+        ),
+        pk=league_id,
     )
-    return connection.league
 
 
 def get_sleeper_playoff_info(league):
@@ -1352,12 +1354,19 @@ def sync_matchups(request, league_id):
     if request.method != "POST":
         return redirect("power_rankings", league_id=league_id)
 
-    connection = get_object_or_404(
-        UserLeagueConnection.objects.select_related("league", "user"),
-        user=request.user,
-        league_id=league_id,
-    )
+    from leagues.services.active_connection import get_active_connection
+
+    connection = get_active_connection(request, fallback_to_recent=False)
     wants_json = "application/json" in request.headers.get("Accept", "")
+
+    if connection is None or connection.league_id != league_id:
+        if wants_json:
+            return JsonResponse(
+                {"status": "error", "error": "Select a team from this league first."},
+                status=400,
+            )
+        messages.warning(request, "Select a team from this league first.")
+        return redirect("connect_league")
     sync_cache_key = f"matchup_sync:{connection.league.id}:{connection.league.season}"
     force_sync = request.POST.get("force") == "1"
     last_sync = cache.get(sync_cache_key)

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Trades | {{ league.name }}{% endblock %}
+{% block title %}Trades | {{ league.display_name }}{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/trades.css' %}?v=3">
@@ -15,7 +15,7 @@
      data-my-roster-id="{{ my_roster_id|default:'' }}">
     <header class="trades-heading">
         <div>
-            <p class="trades-eyebrow">{{ league.season }} SEASON · {{ league.name }}</p>
+            <p class="trades-eyebrow">{{ league.season }} SEASON · {{ league.display_name }}</p>
             <h1>Trades</h1>
             <p class="trades-subtitle">Find roster moves that improve both teams’ rest-of-season starting lineups.</p>
         </div>
