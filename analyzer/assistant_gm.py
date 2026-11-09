@@ -213,10 +213,11 @@ class ChatContext:
     season: Any = None
     week: Any = None
     detail: bool = False
+    connection: Any = None
     cache: dict = field(default_factory=dict)
 
 
-def _build_context(question, user, league, detail=False):
+def _build_context(question, user, league, detail=False, connection=None):
     from leagues.models import FantasyProjection
 
     season = getattr(league, "season", None)
@@ -241,7 +242,7 @@ def _build_context(question, user, league, detail=False):
                 week = min(18, week + 1)
             elif re.search(r"\blast week\b", question, re.I):
                 week = max(1, week - 1)
-    return ChatContext(user=user, league=league, season=season, week=week, detail=detail)
+    return ChatContext(user=user, league=league, season=season, week=week, detail=detail, connection=connection)
 
 
 def _detect_position(question):
@@ -549,15 +550,11 @@ def _format_top(position, rows, ctx, title):
 
 def _my_roster_items(ctx):
     """Build the same item dicts the Start/Sit page feeds the lineup optimizer."""
-    from leagues.models import DefenseProjection, FantasyProjection, FantasyRoster, UserLeagueConnection
+    from leagues.models import DefenseProjection, FantasyProjection
+    from leagues.services.roster_identity import resolve_connection_roster
     from leagues.services.kicker_scoring import league_projection, league_defense_projection
 
-    connection = UserLeagueConnection.objects.filter(user=ctx.user, league=ctx.league).first()
-    if connection is None:
-        return None
-    roster = FantasyRoster.objects.filter(
-        league=ctx.league, owner_sleeper_id=connection.external_user_id
-    ).first()
+    roster = resolve_connection_roster(ctx.connection)
     if roster is None:
         return None
     roster_players = list(roster.roster_players.select_related("player", "team"))
@@ -725,13 +722,12 @@ def _team_lineup_totals(roster, ctx):
 
 
 def _answer_matchup(ctx):
-    from leagues.models import FantasyMatchup, FantasyRoster, TeamWeekProjection, UserLeagueConnection
+    from leagues.models import FantasyMatchup, TeamWeekProjection
+    from leagues.services.roster_identity import resolve_connection_roster
 
     if ctx.league is None:
         return "Connect a league first and I can look up your matchup."
-    connection = UserLeagueConnection.objects.filter(user=ctx.user, league=ctx.league).first()
-    roster = connection and FantasyRoster.objects.filter(
-        league=ctx.league, owner_sleeper_id=connection.external_user_id).first()
+    roster = resolve_connection_roster(ctx.connection)
     if roster is None:
         return "I couldn't find your roster in the active league."
     matchup = FantasyMatchup.objects.filter(
@@ -826,13 +822,13 @@ def _resolve_follow_up(q, state):
     return q, False, None
 
 
-def _route(q, user, league, detail=False):
+def _route(q, user, league, detail=False, connection=None):
     """Pick an answer. Returns (text, topic, players, ctx); topic drives follow-up handling."""
     lower = q.lower()
     if re.search(r"\b(hello|hi|hey)\b", lower) and len(lower.split()) <= 5:
         return _answer_from_history(q), "greeting", [], None
 
-    ctx = _build_context(q, user, league, detail=detail)
+    ctx = _build_context(q, user, league, detail=detail, connection=connection)
     position = _detect_position(q)
     players = _find_players_in_question(q, limit=2)
 
@@ -874,7 +870,7 @@ def _route(q, user, league, detail=False):
     return _answer_from_history(q), "fallback", [], ctx
 
 
-def answer_with_state(question, user=None, league=None, state=None):
+def answer_with_state(question, user=None, league=None, state=None, connection=None):
     """Answer a question, using and updating a small conversation state.
 
     `state` is a JSON-serialisable dict (kept in the Django session). Returns
@@ -882,7 +878,8 @@ def answer_with_state(question, user=None, league=None, state=None):
     """
     state = dict(state or {})
     league_id = getattr(league, "pk", None)
-    if state.get("league_id") != league_id:
+    connection_id = getattr(connection, "pk", None)
+    if state.get("league_id") != league_id or state.get("connection_id") != connection_id:
         state = {}
 
     q = question.strip()
@@ -890,7 +887,7 @@ def answer_with_state(question, user=None, league=None, state=None):
     if clarification:
         return clarification, state
 
-    text, topic, players, ctx = _route(resolved, user, league, detail=detail)
+    text, topic, players, ctx = _route(resolved, user, league, detail=detail, connection=connection)
     if ctx is not None and ctx.cache.pop("truncated", False) and not ctx.detail:
         text += "\n\nAsk “why” for more detail."
 
@@ -902,10 +899,11 @@ def answer_with_state(question, user=None, league=None, state=None):
         "week": ctx.week if ctx else None,
         "players": [p.full_name for p in players],
         "league_id": league_id,
+        "connection_id": connection_id,
     }
     return text, new_state
 
 
-def answer_question(question, user=None, league=None):
+def answer_question(question, user=None, league=None, connection=None):
     """Stateless convenience wrapper (no follow-up memory)."""
-    return answer_with_state(question, user=user, league=league)[0]
+    return answer_with_state(question, user=user, league=league, connection=connection)[0]

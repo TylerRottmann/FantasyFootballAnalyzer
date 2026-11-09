@@ -153,14 +153,16 @@ def assistant_gm_chat(request):
         return JsonResponse({"error": "Please keep your question under 500 characters."}, status=400)
 
     try:
-        from leagues.services.context_processors import league_selector
-        league = league_selector(request)["active_league"]
+        from leagues.services.active_connection import get_active_connection
+        connection = get_active_connection(request, fallback_to_recent=False)
+        league = connection.league if connection else None
         response, new_state = answer_with_state(
-            question, user=request.user, league=league, state=request.session.get("gm_state")
+            question, user=request.user, league=league,
+            state=request.session.get("gm_state"), connection=connection,
         )
         request.session["gm_state"] = new_state
     except Exception:
-        logger.exception("Assistant GM failed to answer: %r", question)
+        logger.exception("Assistant GM failed to answer")
         return JsonResponse(
             {"error": "I couldn't analyze that question right now. Please try again."},
             status=500,

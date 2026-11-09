@@ -17,7 +17,20 @@ class PlayerCardTests(TestCase):
     setUpTestData = classmethod(waiver_fixtures.WaiverWireTests.setUpTestData.__func__)
     make_player = classmethod(waiver_fixtures.WaiverWireTests.make_player.__func__)
     select = waiver_fixtures.WaiverWireTests.select
-    save_projection = waiver_fixtures.WaiverWireTests.save_projection
+    def save_projection(self, player, week, points, **kwargs):
+        from leagues.models import FantasyProjection
+        version = kwargs.pop("model_version", None)
+        if version is not None:
+            return FantasyProjection.objects.create(
+                player_id=player.pk, season=2026, week=week,
+                projected_fantasy_points=points, model_version=version, **kwargs
+            )
+        for model_version in ("v1", "v2_stat"):
+            result = FantasyProjection.objects.create(
+                player_id=player.pk, season=2026, week=week,
+                projected_fantasy_points=points, model_version=model_version, **kwargs
+            )
+        return result
 
     @classmethod
     def setUpClass(cls):
@@ -169,7 +182,7 @@ class PlayerCardTests(TestCase):
     def test_injuries_and_saved_risk_estimates(self):
         from leagues.models import FantasyProjection
         FantasyProjection.objects.filter(player_id=self.player.pk, week=7).update(projected_stats={
-            'boom_probability': .25, 'bust_pct': 10, 'receptions': 5, '_context_private': 'not for display'})
+            'boom_probability': .25, 'bust_pct': 10, 'receptions': 5, 'receiving_yards': 70, 'receiving_tds': 0, 'passing_yards': 0, 'passing_tds': 0, 'passing_interceptions': 0, 'rushing_yards': 0, 'rushing_tds': 0, 'fumbles_lost': 0, '_context_private': 'not for display'})
         PlayerInjuryReport.objects.create(player=self.player, season=2026, week=7, injury_status='Questionable',
             roster_status='Active', depth_order=1, team_id=self.team.pk, position='WR', observed_at=timezone.now())
         data = self.card(format='json', week=7).json()
