@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 330" fill="none">
+  <defs>
+    <radialGradient id="fade">
+      <stop offset=".35" stop-color="white"/>
+      <stop offset="1" stop-color="white" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="bars" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop stop-color="#ffcc00" stop-opacity=".33"/>
+      <stop offset="1" stop-color="#ffcc00" stop-opacity=".04"/>
+    </linearGradient>
+    <mask id="edges">
+      <ellipse cx="420" cy="162" rx="330" ry="162" fill="url(#fade)"/>
+    </mask>
+  </defs>
+  <g mask="url(#edges)">
+    <path d="M114 85h590M114 134h590M114 183h590M114 232h590M114 281h590" stroke="#a7adb7" stroke-opacity=".27" stroke-dasharray="4 8"/>
+    <path d="M181 52v235m76-235v235m76-235v235m76-235v235m76-235v235m76-235v235m76-235v235" stroke="#a7adb7" stroke-opacity=".14"/>
+    <g fill="url(#bars)" stroke="#ffcc00" stroke-opacity=".32">
+      <rect x="162" y="215" width="38" height="66" rx="4"/>
+      <rect x="238" y="191" width="38" height="90" rx="4"/>
+      <rect x="314" y="202" width="38" height="79" rx="4"/>
+      <rect x="390" y="150" width="38" height="131" rx="4"/>
+      <rect x="466" y="116" width="38" height="165" rx="4"/>
+      <rect x="542" y="130" width="38" height="151" rx="4"/>
+      <rect x="618" y="76" width="38" height="205" rx="4"/>
+    </g>
+    <path d="m181 199 76-24 76 11 76-52 76-34 76 14 76-54" stroke="#ffcc00" stroke-opacity=".8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <g fill="#25231b" stroke="#ffcc00" stroke-opacity=".85" stroke-width="2">
+      <circle cx="333" cy="186" r="5"/><circle cx="409" cy="134" r="5"/><circle cx="485" cy="100" r="5"/><circle cx="561" cy="114" r="5"/>
+    </g>
+  </g>
+</svg>

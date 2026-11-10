@@ -8,10 +8,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>
-        {% block title %}Fantasy Football Analyzer{% endblock %}
+        {% block title %}Roster Radar{% endblock %}
     </title>
 
-    <link rel="stylesheet" href="{% static 'css/base.css' %}?v=20261028-2">
+    <link rel="stylesheet" href="{% static 'css/base.css' %}?v=destination-skeleton">
     <link rel="stylesheet" href="{% static 'css/leagues.css' %}">
     <link
     rel="stylesheet"
@@ -29,14 +29,17 @@
         <!-- Brand / Home -->
         <a href="{% url 'home' %}" class="brand">
 
-            <div class="brand-logo">
-                🏆
-            </div>
-
-            <div class="brand-text">
-                <span class="brand-title">UWM</span>
-                <span class="brand-subtitle">FANTASY</span>
-            </div>
+            <svg class="brand-logo" viewBox="0 0 40 40" aria-hidden="true">
+                <rect width="40" height="40" rx="10" fill="currentColor"/>
+                <g fill="none" stroke="#171a20" stroke-width="1.6">
+                    <circle cx="20" cy="20" r="12"/>
+                    <circle cx="20" cy="20" r="7"/>
+                    <path d="M20 20l9-9" stroke-linecap="round"/>
+                </g>
+                <circle cx="20" cy="20" r="2" fill="#171a20"/>
+                <circle cx="14" cy="25" r="2" fill="#171a20"/>
+            </svg>
+            <span class="brand-title">Roster <strong>Radar</strong></span>
 
         </a>
 
@@ -49,16 +52,14 @@
 
                 <summary class="league-selector">
 
-                    <span class="league-selector-icon">
-                        🏈
+                    <span class="league-selector-icon"><i class="bi bi-collection" aria-hidden="true"></i>
                     </span>
 
                     <span class="league-selector-name">
                         {{ active_league.name }}
                     </span>
 
-                    <span class="league-selector-arrow">
-                        ⌄
+                    <span class="league-selector-arrow"><i class="bi bi-chevron-down" aria-hidden="true"></i>
                     </span>
 
                 </summary>
@@ -73,8 +74,7 @@
                             class="league-option {% if connection.league.id == active_league.id %}active{% endif %}"
                         >
 
-                            <span class="league-option-icon">
-                                🏈
+                            <span class="league-option-icon"><i class="bi bi-collection" aria-hidden="true"></i>
                             </span>
 
                             <span class="league-option-info">
@@ -209,48 +209,48 @@
 
     <!-- ==================== MAIN NAVIGATION ==================== -->
 
-    <nav class="main-nav">
+    <nav class="main-nav" aria-label="Main navigation">
 
         <a
-            href="{% url 'start_sit' %}"
+            href="{% url 'start_sit' %}" data-loading-view="lineup"
             class="nav-link {% if request.resolver_match.url_name == 'start_sit' %}active{% endif %}"
         >
-            ⚡ Start / Sit
+            <i class="bi bi-columns-gap" aria-hidden="true"></i> Start / Sit
         </a>
 
         <a
-            href="{% url 'adp_rankings' %}"
-            class="nav-link"
+            href="{% url 'adp_rankings' %}" data-loading-view="adp"
+            class="nav-link {% if request.resolver_match.url_name == 'adp_rankings' %}active{% endif %}"
         >
-            ↗ ADP
+            <i class="bi bi-graph-up" aria-hidden="true"></i> ADP
         </a>
 
         <a
-            href="{% url 'waiver_wire' %}"
+            href="{% url 'waiver_wire' %}" data-loading-view="waivers"
             class="nav-link {% if request.resolver_match.url_name == 'waiver_wire' %}active{% endif %}"
         >
-            ♙ Waiver Wire
+            <i class="bi bi-person-plus" aria-hidden="true"></i> Waiver Wire
         </a>
 
         <a
-            href="{% url 'trades' %}"
+            href="{% url 'trades' %}" data-skip-page-loader
             class="nav-link {% if request.resolver_match.url_name == 'trades' or request.resolver_match.url_name == 'trade_suggestions' or request.resolver_match.url_name == 'trade_player_search' or request.resolver_match.url_name == 'trade_calculate' %}active{% endif %}"
         >
-            ⇄ Trades
+            <i class="bi bi-arrow-left-right" aria-hidden="true"></i> Trades
         </a>
 
         <a
-            href="{% if active_league %}{% url 'power_rankings' active_league.id %}{% else %}{% url 'connect_league' %}{% endif %}"
+            href="{% if active_league %}{% url 'power_rankings' active_league.id %}{% else %}{% url 'connect_league' %}{% endif %}" data-skip-page-loader{% if not active_league %}="fallback"{% endif %}
             class="nav-link {% if request.resolver_match.url_name == 'power_rankings' or request.resolver_match.url_name == 'team_breakdown' %}active{% endif %}"
         >
-            ♜ League Power Rankings
+            <i class="bi bi-bar-chart" aria-hidden="true"></i> League Power Rankings
         </a>
 
         <a
-            href="{% url 'assistant_gm' %}"
+            href="{% url 'assistant_gm' %}" data-skip-page-loader
             class="nav-link {% if request.resolver_match.url_name == 'assistant_gm' %}active{% endif %}"
         >
-            <i class="bi bi-robot"></i> Assistant GM
+            <i class="bi bi-chat-square-text" aria-hidden="true"></i> Assistant GM
         </a>
 
     </nav>
@@ -266,10 +266,31 @@
 
     </main>
 
+    <div class="page-loading" hidden>
+        <div class="page-loading-inner">
+            <p class="page-loading-status" role="status"></p>
+            <div class="radar-workspace" aria-hidden="true">
+                <div class="radar-hero page-loading-hero">
+                    <div>
+                        <h1 class="page-loading-title"></h1>
+                        <div class="page-loading-frame page-loading-caption"></div>
+                    </div>
+                    <div class="page-loading-frame page-loading-control"></div>
+                </div>
+                <div class="page-loading-frames">
+                    <div class="page-loading-frame page-loading-filters"></div>
+                    <div class="page-loading-frame page-loading-list"></div>
+                    <div class="page-loading-frame page-loading-side"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <dialog id="player-card-dialog" class="player-card-dialog" data-url-template="{% url 'player_card' 0 %}" aria-label="Player overview">
         <div class="player-card-shell"><button type="button" class="player-card-close" data-player-card-close aria-label="Close player overview">×</button><div data-player-card-content></div></div>
     </dialog>
     <script src="{% static 'js/player-card.js' %}?v=20261104-2" defer></script>
+    <script src="{% static 'js/page-loading.js' %}?v=nav-exclusions" defer></script>
 </body>
 
 </html>

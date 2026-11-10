@@ -1,15 +1,21 @@
 {% extends "base.html" %}
 {% load player_health %}
 {% load static %}
-{% block title %}Waiver Wire | Fantasy Football Analyzer{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'css/waivers.css' %}?v=20261104-2">{% endblock %}
+{% block title %}Waiver Wire | Roster Radar{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/waivers.css' %}?v=radar-artwork">{% endblock %}
 {% block content %}
-<section class="waiver-page">
-    <header class="waiver-header">
-        <h1>Waiver Wire Suggestions</h1>
+<section class="waiver-page radar-workspace">
+    <header class="radar-hero radar-hero--waivers">
+        <div>
+            <h1>Waiver Wire</h1>
+            {% if active_league %}
+                <p>Find available players in <strong>{{ active_league.name }}</strong>.</p>
+            {% else %}
+                <p>Find a quick fill-in or a player worth holding.</p>
+            {% endif %}
+        </div>
         {% if active_league %}
-        <p>{{ active_league.name }} · {{ active_league.season|default_if_none:"Season unavailable" }}</p>
-        <p class="waiver-meta">Available players in your league. Last synced {{ active_league.updated_at|date:"M j" }}.</p>
+            <span class="radar-hero-meta"><i class="bi bi-arrow-repeat" aria-hidden="true"></i> Last synced {{ active_league.updated_at|date:"M j" }}{% if active_league.season %} · {{ active_league.season }}{% endif %}</span>
         {% endif %}
     </header>
     {% if not active_league %}
@@ -66,6 +72,23 @@
         </p>
     {% endif %}
     </div>
+    <aside class="waiver-sidebar" aria-labelledby="suggested-moves-title">
+    <div class="waiver-suggestions-heading">
+        <h2 id="suggested-moves-title">Suggested Moves</h2>
+        <p class="waiver-suggestions-intro">For your roster{% if projection_week %} · Week {{ projection_week }}{% endif %}</p>
+    </div>
+    <div class="waiver-suggestions">
+        {% if suggestions_pending %}
+            <div data-waiver-moves-url="{% url 'waiver_wire' %}?part=moves&amp;week={{ projection_week }}" aria-busy="true">
+                <section class="waiver-move waiver-move--loading"><h3>Long-term pickups</h3><p>Loading suggestions…</p></section>
+                <section class="waiver-move waiver-move--loading"><h3>Short-term pickups</h3><p>Loading suggestions…</p></section>
+            </div>
+            <script src="{% static 'js/waiver-moves.js' %}" defer></script>
+        {% else %}
+            {% include "waiver_suggestions.html" %}
+        {% endif %}
+    </div>
+    </aside>
     <div class="waiver-main">
     {% if not filter_form.errors %}
     <div class="waiver-table-container" tabindex="0" role="region" aria-label="Available players">
@@ -111,57 +134,6 @@
     </nav>{% endif %}
     {% endif %}
     </div>
-    <div class="waiver-suggestions-heading">
-        <h2 id="suggested-moves-title">Suggested Moves</h2>
-        <p class="waiver-suggestions-intro">For your roster{% if projection_week %} · Week {{ projection_week }}{% endif %}</p>
-    </div>
-    <aside class="waiver-suggestions" aria-labelledby="suggested-moves-title">
-        {% for move in suggested_moves %}
-        <section class="waiver-move waiver-move-{{ move.horizon }}">
-            <h3>{{ move.title }}</h3>
-            {% if move.pickup %}
-            <p class="waiver-move-action waiver-add-label">Add</p>
-            <div class="waiver-player-identity">
-                <div class="waiver-avatar" aria-hidden="true">
-                    <span {% if move.pickup.player.headshot_url %}hidden{% endif %}>{{ move.pickup.player.first_name|default:""|first }}{{ move.pickup.player.last_name|default:""|first }}</span>
-                    {% if move.pickup.player.headshot_url %}<img src="{{ move.pickup.player.headshot_url }}" alt="" width="52" height="52" loading="lazy" onerror="this.hidden=true;this.previousElementSibling.hidden=false">{% endif %}
-                </div>
-                <div><strong><a class="player-card-link" href="{% url 'player_card' move.pickup.player.id %}?week={{ projection_week }}">{{ move.pickup.player.full_name }}</a></strong>
-                    <span class="waiver-move-meta">{{ move.pickup.player.position }} · {{ move.pickup.player.team.abbreviation|default:"—" }} {% injury_badge move.pickup.player %}</span>
-                </div>
-                <div class="waiver-move-points">
-                    {% if move.pickup.prediction.rest_of_season is not None %}<strong>{{ move.pickup.prediction.rest_of_season|floatformat:1 }}</strong>{% else %}<strong aria-label="Rest-of-season prediction unavailable">&mdash;</strong>{% endif %}
-                    <span>Rest of season</span>
-                </div>
-            </div>
-            <div class="waiver-drop">
-                <p class="waiver-move-action">Drop</p>
-                <div class="waiver-player-identity">
-                    <div class="waiver-avatar" aria-hidden="true">
-                        <span {% if move.drop.player.headshot_url %}hidden{% endif %}>{{ move.drop.player.first_name|default:""|first }}{{ move.drop.player.last_name|default:""|first }}</span>
-                        {% if move.drop.player.headshot_url %}<img src="{{ move.drop.player.headshot_url }}" alt="" width="52" height="52" loading="lazy" onerror="this.hidden=true;this.previousElementSibling.hidden=false">{% endif %}
-                    </div>
-                    <div><strong><a class="player-card-link" href="{% url 'player_card' move.drop.player.id %}?week={{ projection_week }}">{{ move.drop.player.full_name }}</a></strong>
-                        <span class="waiver-move-meta">{{ move.drop.player.position }} · {{ move.drop.player.team.abbreviation|default:"—" }}</span>
-                    </div>
-                    <div class="waiver-move-points">
-                        {% if move.drop.prediction.rest_of_season is not None %}<strong>{{ move.drop.prediction.rest_of_season|floatformat:1 }}</strong>{% else %}<strong aria-label="Rest-of-season prediction unavailable">&mdash;</strong>{% endif %}
-                        <span>Rest of season</span>
-                    </div>
-                </div>
-            </div>
-            <p>{{ move.message }}</p>
-            {% if move.horizon == 'short' %}<div class="waiver-move-gain">+{{ move.gain|floatformat:1 }} <span>projected lineup pts</span></div>{% endif %}
-            {% else %}
-            <strong class="waiver-move-empty">{% if filter_form.errors %}Check your filters{% else %}No suggested pickup{% endif %}</strong>
-            <p>{{ move.message }}</p>
-            {% endif %}
-        </section>
-        {% empty %}
-        <section class="waiver-move"><p>Choose a valid week to see suggested moves.</p></section>
-        {% endfor %}
-        <p class="waiver-suggestions-note">Across your league. Suggestions aren’t affected by the filters.</p>
-    </aside>
     </div>
     {% endif %}
 </section>

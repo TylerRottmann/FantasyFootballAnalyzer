@@ -1,6 +1,7 @@
 import logging
 
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db import models
 from django.shortcuts import render, redirect
 from django.urls import reverse_lazy
@@ -35,6 +36,25 @@ def adp_rankings(request):
     team = request.GET.get("team", "").strip()
     search = request.GET.get("search", "").strip()
 
+    if position not in fantasy_positions:
+        position = ""
+    if not team.isdecimal():
+        team = ""
+
+    context = {
+        "positions": fantasy_positions,
+        "selected_position": position,
+        "selected_team": team,
+        "search": search,
+        "scoring_formats": scoring_formats,
+        "selected_scoring": scoring_format,
+        "season": season,
+    }
+
+    if request.GET.get("view") != "full":
+        context["placeholder_rows"] = range(50)
+        return render(request, "adp.html", context)
+
     players = (
         Players.objects
         .filter(
@@ -50,14 +70,8 @@ def adp_rankings(request):
 
     if position in fantasy_positions:
         players = players.filter(position=position)
-    else:
-        position = ""
-
     if team:
-        if team.isdecimal():
-            players = players.filter(team_id=int(team))
-        else:
-            team = ""
+        players = players.filter(team_id=int(team))
 
     if search:
         players = players.filter(full_name__icontains=search)
@@ -75,18 +89,8 @@ def adp_rankings(request):
         .order_by("name")
     )
 
-    context = {
-        "players": players,
-        "positions": fantasy_positions,
-        "teams": teams,
-        "selected_position": position,
-        "selected_team": team,
-        "search": search,
-        "scoring_formats": scoring_formats,
-        "selected_scoring": scoring_format,
-        "season": season,
-    }
-
+    page_obj = Paginator(players, 50).get_page(request.GET.get("page"))
+    context.update(players=page_obj.object_list, page_obj=page_obj, teams=teams)
     return render(request, "adp.html", context)
 
 

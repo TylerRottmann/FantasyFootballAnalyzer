@@ -50,7 +50,7 @@ class PlayerADPTests(WaiverWireTests):
         self.assertEqual(valid_adp("4.2"), Decimal("4.20"))
 
     def test_rankings_are_sorted_by_adp(self):
-        response = self.client.get(reverse("adp_rankings"))
+        response = self.client.get(reverse("adp_rankings"), {"view": "full"})
         self.assertEqual(response.status_code, 200)
         names = [p.full_name for p in response.context["players"]]
         self.assertEqual(names, ["Other Team", "Available Receiver"])
@@ -66,7 +66,7 @@ class PlayerADPTests(WaiverWireTests):
             with self.subTest(scoring=scoring):
                 response = self.client.get(
                     reverse("adp_rankings"),
-                    {"scoring": scoring, "search": "Available Receiver"},
+                    {"view": "full", "scoring": scoring, "search": "Available Receiver"},
                 )
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, expected)
@@ -75,6 +75,7 @@ class PlayerADPTests(WaiverWireTests):
         response = self.client.get(
             reverse("adp_rankings"),
             {
+                "view": "full",
                 "scoring": "ppr",
                 "position": "WR",
                 "team": str(self.team.pk),

@@ -1,0 +1,7 @@
+{% if not historical_mode and odds %}
+    {% if odds.bust_probability >= 0.30 %}
+        <span class="lineup-risk lineup-risk--risky">Risky</span>
+    {% elif odds.bust_probability <= 0.15 %}
+        <span class="lineup-risk lineup-risk--safe">Safe</span>
+    {% endif %}
+{% endif %}

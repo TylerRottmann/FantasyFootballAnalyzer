@@ -9,6 +9,8 @@ from requests import RequestException
 from scripts.commands.nflweek import get_current_nfl_week
 from analyzer.injury_prediction import estimate_absence, load_duration_profiles
 
+_UNSET = object()
+
 BLOCKED = {'OUT', 'DOUBTFUL', 'IR', 'INJUREDRESERVE', 'PUP', 'PHYSICALLYUNABLETOPERFORM'}
 
 
@@ -145,12 +147,24 @@ def _absence_start_week(player, season, active_week, current_report):
     return start_week
 
 
-def availability(player, season, week, reports=None, duration_profiles=None, absence_start_weeks=None):
+def forecast_season_absences(season, week, context=None):
     from analyzer.injury_outlooks import season_ending_player_ids
-    season_absences = season_ending_player_ids(season, week)
+    if context is None:
+        return season_ending_player_ids(season, week)
+    by_week = context.setdefault('season_absences', {})
+    if week not in by_week:
+        by_week[week] = season_ending_player_ids(season, week)
+    return by_week[week]
+
+
+def availability(player, season, week, reports=None, duration_profiles=None, absence_start_weeks=None,
+                 *, active_week=_UNSET, season_absences=None):
+    if season_absences is None:
+        season_absences = forecast_season_absences(season, week)
     if season_absences and player.pk in season_absences:
         return 'unavailable_season', 0.0
-    active_week = active_week_for_season(season)
+    if active_week is _UNSET:
+        active_week = active_week_for_season(season)
     # Injury captures are current-state data: apply them to the live week and
     # future projections, never replay them against past weeks.
     if active_week is None or week < active_week:
@@ -190,9 +204,9 @@ def availability(player, season, week, reports=None, duration_profiles=None, abs
     return '', 1.0
 
 
-def quarterback_role(player, season, week, reports=None):
+def quarterback_role(player, season, week, reports=None, *, is_live=None):
     """Use fresh current-week depth reports, never today's chart for past games."""
-    if player.position != 'QB' or not live_week(season, week):
+    if player.position != 'QB' or not (live_week(season, week) if is_live is None else is_live):
         return None
     reports = reports_for_week(season, week) if reports is None else reports
     now = timezone.now()
@@ -216,13 +230,14 @@ def projection_context(season, week):
     from analyzer.waiver_value import load_player_values
     active_week = active_week_for_season(season)
     injury_active = active_week is not None and week >= active_week
-    active = live_week(season, week)
+    active = week == active_week
     reports = reports_for_week(season, active_week) if injury_active else {}
     absence_starts = (
         absence_start_weeks_for_reports(season, active_week, reports)
         if injury_active else {}
     )
     return {
+        'active_week': active_week,
         'reports': reports,
         'absence_start_weeks': absence_starts,
         'duration_profiles': load_duration_profiles() if injury_active else {},
@@ -233,9 +248,12 @@ def projection_context(season, week):
 def adjusted_forecast(player, season, week, points, status, metadata=None, *, rescore=False, context=None):
     from analyzer.waiver_value import load_player_values
     metadata = dict(metadata or {})
-    from analyzer.injury_outlooks import season_ending_player_ids
-    season_absences = season_ending_player_ids(season, week)
-    active_week = active_week_for_season(season)
+    season_absences = forecast_season_absences(season, week, context)
+    active_week = context.get('active_week', _UNSET) if context is not None else _UNSET
+    has_active_week = active_week is not _UNSET
+    if not has_active_week:
+        active_week = active_week_for_season(season)
+    is_live = week == active_week if has_active_week else live_week(season, week)
     injury_active = active_week is not None and week >= active_week
     if not injury_active and (not season_absences or player.pk not in season_absences):
         return points, status, metadata
@@ -246,14 +264,17 @@ def adjusted_forecast(player, season, week, points, status, metadata=None, *, re
         player,
         season,
         week,
-        reports=context['reports'] if context else None,
+        reports=context.get('reports') if context else None,
         duration_profiles=context.get('duration_profiles') if context else None,
         absence_start_weeks=context.get('absence_start_weeks') if context else None,
+        active_week=active_week,
+        season_absences=season_absences,
     )
-    qb_role = quarterback_role(player, season, week, reports=context['reports'] if context else None)
-    values = context['values'] if context else None
+    qb_role = quarterback_role(player, season, week, reports=context.get('reports') if context else None,
+                               is_live=is_live)
+    values = context.get('values') if context else None
     role = ((values if values is not None else load_player_values(season, week)).get(player.pk)
-            if live_week(season, week) and player.position in ('RB', 'WR', 'TE') else None)
+            if is_live and player.position in ('RB', 'WR', 'TE') else None)
     multiplier = role.multiplier if role else 1.0
     value = base
     if base_status == 'bye':

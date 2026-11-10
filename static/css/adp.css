@@ -2,28 +2,7 @@
 /* ADP PAGE */
 
 .adp-page {
-    width: 100%;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 0 32px;
-    color: var(--text-primary);
-}
-
-.adp-header {
-    margin-bottom: 28px;
-}
-
-.adp-header h1 {
-    margin: 0;
-    color: var(--text-primary);
-    font-size: 30px;
-    font-weight: 800;
-}
-
-.adp-header p {
-    margin: 7px 0 0;
-    color: var(--text-secondary);
-    font-size: 14px;
+    padding-bottom: 32px;
 }
 
 /* FILTERS */
@@ -34,15 +13,19 @@
     flex-wrap: wrap;
     gap: 12px;
     margin-bottom: 24px;
+    padding: clamp(14px, 2vw, 22px);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--bg-card);
 }
 
 .adp-filters input,
 .adp-filters select {
     min-width: 160px;
     padding: 11px 14px;
-    background: var(--bg-card);
+    background: var(--bg-header);
     border: 1px solid var(--border);
-    border-radius: 7px;
+    border-radius: 8px;
     color: var(--text-primary);
     font-family: inherit;
     font-size: 13px;
@@ -108,6 +91,7 @@
 }
 
 .adp-table th {
+    background: var(--bg-hover);
     padding: 16px;
     border-bottom: 1px solid var(--border);
     color: var(--text-secondary);
@@ -271,5 +255,50 @@
 
     .adp-player-name {
         font-size: 13px;
+    }
+}
+
+.adp-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 18px;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.adp-pagination a {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: var(--gold);
+    text-decoration: none;
+}
+
+.adp-pagination a:hover {
+    background: var(--bg-hover);
+}
+
+.adp-table .adp-skeleton td {
+    height: 74px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(105deg, var(--bg-card) 20%, var(--bg-hover) 50%, var(--bg-card) 80%);
+    background-size: 240% 100%;
+    animation: adp-shimmer 1.5s linear infinite;
+}
+
+.adp-skeleton:nth-child(even) td {
+    animation-delay: 100ms;
+}
+
+@keyframes adp-shimmer {
+    from { background-position: 100% 0; }
+    to { background-position: -100% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .adp-table .adp-skeleton td {
+        animation: none;
     }
 }
