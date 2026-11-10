@@ -1,13 +1,17 @@
 """League-scoped waiver browsing using the existing imported roster tables."""
+from hashlib import sha256
+
 from requests import RequestException
 
 from django import forms
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
 from django.core.paginator import Paginator
-from django.db.models import Exists, OuterRef
+from django.http import HttpResponse
 from django.shortcuts import render
 
 from leagues.services.context_processors import league_selector
+from leagues.services.roster_identity import resolve_connection_roster
 from leagues.models import FantasyRosterPlayer
 from .models import Players, Teams
 from .waiver_value import load_player_values, PlayerValue
@@ -55,12 +59,34 @@ class WaiverFilterForm(forms.Form):
         return data
 
 
+def waiver_pool(league, week):
+    scoring = sha256(repr(league.scoring_settings).encode()).hexdigest()
+    key = f'waiver-pool:v1:{league.pk}:{league.season}:{week}:{scoring}'
+    rows = cache.get(key)
+    if rows is not None:
+        return rows
+
+    players = list(Players.objects.filter(position__in=FANTASY_POSITIONS)
+                   .exclude(full_name__isnull=True).exclude(full_name='').select_related('team'))
+    forecasts = load_waiver_predictions([player.pk for player in players], league, week)
+    values = load_player_values(league.season, week)
+    unknown = PlayerValue()
+    rows = {player.pk: {
+        'player': player,
+        'prediction': predict_waiver_player(player, league, week, forecasts),
+        'value': values.get(player.pk, unknown),
+    } for player in players}
+    cache.set(key, rows, 90)
+    return rows
+
+
 @login_required
 def waiver_wire(request):
     # Reuse the selector's authorization and fallback behavior exactly.
     context = league_selector(request)
     league = context['active_league']
     params = request.GET.copy()
+    part = params.pop('part', [''])[-1]
     if not params.get('sort'):
         params['sort'] = 'week'
     if not params.get('week'):
@@ -78,35 +104,30 @@ def waiver_wire(request):
     context['has_rosters'] = has_rosters
 
     if league is not None and has_rosters and form.is_valid():
-        rostered = FantasyRosterPlayer.objects.filter(
-            roster__league_id=league.pk, player_id=OuterRef('pk'),
-        )
-        players = (Players.objects
-            .filter(position__in=FANTASY_POSITIONS)
-            .exclude(full_name__isnull=True).exclude(full_name='')
-            .annotate(is_rostered=Exists(rostered)).filter(is_rostered=False)
-            .select_related('team'))
         filters = form.cleaned_data
-        available_players = list(players)
-        connection = next(c for c in context['connected_leagues'] if c.league_id == league.pk)
-        roster = (league.rosters.filter(owner_sleeper_id=connection.external_user_id).first()
-            if connection.external_user_id else None)
-        entries = list(roster.roster_players.filter(player_id__isnull=False).select_related('player')) if roster else []
         week = filters['week']
-        forecasts = load_waiver_predictions([p.pk for p in available_players] + [e.player_id for e in entries], league, week)
-        values = load_player_values(league.season, week)
-        def player_row(player):
-            return {'player': player, 'prediction': predict_waiver_player(player, league, week, forecasts),
-                'value': values.get(player.pk, PlayerValue())}
-        all_rows = {p.pk: player_row(p) for p in available_players}
-        if roster:
-            owned_players = {p.pk: p for p in Players.objects.filter(pk__in=[e.player_id for e in entries]).select_related('team')}
-            owned = [dict(player_row(owned_players[e.player_id]), roster_slot=(e.roster_slot or '').upper()) for e in entries]
-            context['suggested_moves'] = suggested_moves(list(all_rows.values()), owned, league.roster_positions or [])
-        else:
-            context['suggested_moves'] = [{'horizon': horizon, 'title': title,
-                'message': 'Refresh your league so we can find your roster and suggest a move.'}
-                for horizon, title in [('long', 'Long-term pickups'), ('short', 'Short-term pickups')]]
+        context['projection_week'] = week
+        all_rows = waiver_pool(league, week)
+        if part == 'warm':
+            return HttpResponse(status=204)
+
+        rostered = set(FantasyRosterPlayer.objects.filter(roster__league_id=league.pk)
+                       .values_list('player_id', flat=True))
+        if part == 'moves':
+            roster = resolve_connection_roster(context['active_connection'])
+            if roster:
+                owned = [dict(all_rows[player_id], roster_slot=(slot or '').upper())
+                         for player_id, slot in roster.roster_players.values_list('player_id', 'roster_slot')
+                         if player_id in all_rows]
+                available = [row for player_id, row in all_rows.items() if player_id not in rostered]
+                context['suggested_moves'] = suggested_moves(available, owned, league.roster_positions or [])
+            else:
+                for move in context['suggested_moves']:
+                    move['message'] = 'Refresh your league so we can find your roster and suggest a move.'
+            return render(request, 'waiver_suggestions.html', context)
+
+        context['suggestions_pending'] = True
+        players = Players.objects.filter(pk__in=all_rows.keys() - rostered)
         if filters['position'] == 'FLEX':
             players = players.filter(position__in=('WR', 'RB', 'TE'))
         elif filters['position']:
@@ -119,10 +140,10 @@ def waiver_wire(request):
             players = players.filter(age__gte=filters['age_min'])
         if filters['age_max'] is not None:
             players = players.filter(age__lte=filters['age_max'])
-        players = list(players)
-        week = filters['week']
-        context['projection_week'] = week
-        rows = [all_rows[player.pk] for player in players]
+        filtered = (filters['position'] or filters['team'] or filters['search']
+                    or filters['age_min'] is not None or filters['age_max'] is not None)
+        available_ids = players.values_list('pk', flat=True) if filtered else all_rows.keys() - rostered
+        rows = [all_rows[player_id] for player_id in available_ids]
         category = filters['value'] or (filters['sort'] if filters['sort'] in ('long', 'short') else '')
         if category:
             rows = [row for row in rows if row['value'].horizon == category]
@@ -136,6 +157,10 @@ def waiver_wire(request):
             row['player'].full_name.casefold(), row['player'].pk,
         ))
 
+    if part == 'warm':
+        return HttpResponse(status=204)
+    if part == 'moves':
+        return render(request, 'waiver_suggestions.html', context)
     context['page_obj'] = Paginator(rows, 50).get_page(request.GET.get('page'))
     params.pop('page', None)
     context['filter_query'] = params.urlencode()

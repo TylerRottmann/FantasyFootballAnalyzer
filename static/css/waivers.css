@@ -1,10 +1,10 @@
-.waiver-page { width: 100%; padding: 0 0 32px; }
-.waiver-layout { display: grid; grid-template-columns: minmax(0, 1fr) 430px; gap: 24px; align-items: start; }
-.waiver-controls { grid-area: 1 / 1; min-width: 0; }
+.waiver-page { padding-bottom: 32px; }
+.waiver-layout { display: grid; grid-template-columns: minmax(0, 1fr) 430px; grid-template-areas: "controls sidebar" "players sidebar"; gap: 24px; align-items: start; }
+.waiver-controls { grid-area: controls; min-width: 0; }
 .waiver-controls > .waiver-meta { margin: 0; }
-.waiver-main { grid-area: 2 / 1; min-width: 0; }
-.waiver-suggestions-heading { grid-area: 1 / 2; align-self: end; }
-.waiver-suggestions { grid-area: 2 / 2; }
+.waiver-main { grid-area: players; min-width: 0; }
+.waiver-sidebar { grid-area: sidebar; min-width: 0; }
+.waiver-suggestions-heading { margin-bottom: 16px; }
 .waiver-suggestions-heading h2 { margin: 0 0 6px; font-size: 23px; font-weight: 800; }
 .waiver-suggestions-intro { margin: 0; color: var(--text-secondary); font-size: 13px; }
 .waiver-move { margin-bottom: 18px; padding: 24px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card); }
@@ -26,31 +26,31 @@
 .waiver-move-gain span { font-size: 11px; font-weight: 400; color: var(--text-secondary); }
 .waiver-suggestions-note { color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
 @media (max-width: 1150px) {
-    .waiver-layout { grid-template-columns: minmax(0, 1fr); }
-    .waiver-controls, .waiver-main, .waiver-suggestions-heading, .waiver-suggestions { grid-area: auto; }
+    .waiver-layout {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "controls" "sidebar" "players";
+    }
     .waiver-suggestions { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
     .waiver-suggestions > h2, .waiver-suggestions-intro, .waiver-suggestions-note { grid-column: 1 / -1; }
 }
 @media (max-width: 600px) { .waiver-suggestions { display: block; } }
-.waiver-header { margin-bottom: 24px; }
-.waiver-header h1 { margin: 0 0 8px; font-size: 30px; font-weight: 800; }
-.waiver-header p, .waiver-meta { color: var(--text-secondary); line-height: 1.5; }
+.waiver-meta { color: var(--text-secondary); line-height: 1.5; }
 .waiver-notice { padding: 18px; margin-bottom: 24px; background: var(--bg-card); border: 1px solid var(--gold-dark); border-radius: 10px; }
 .waiver-notice p { margin-bottom: 0; line-height: 1.5; }
 .waiver-page a:not(.player-card-link) { color: var(--gold); }
-.waiver-filters { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; align-items: end; padding: 20px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; }
+.waiver-filters { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; align-items: end; padding: 20px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; }
 .waiver-field { display: flex; flex-direction: column; gap: 6px; flex: 1 1 160px; min-width: 0; }
 .waiver-field label { color: var(--text-secondary); font-size: 14px; }
-.waiver-field input, .waiver-field select { width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card); color: var(--text-primary); }
+.waiver-field input, .waiver-field select { width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-header); color: var(--text-primary); }
 .waiver-field:has(#id_sort) { flex-basis: 300px; }
 .waiver-filter-actions { display: flex; align-items: center; gap: 16px; }
 .waiver-filter-actions button { padding: 12px 18px; border: 0; border-radius: 6px; cursor: pointer; font-weight: 700; background: var(--gold); color: #111; }
 .waiver-page :focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 .waiver-table-container { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
 .waiver-table { width: 100%; border-collapse: collapse; background: var(--bg-card); }
-.waiver-table th { text-align: left; background: var(--bg-hover); color: var(--text-secondary); font-size: 13px; }
+.waiver-table th { text-align: left; background: var(--bg-hover); color: var(--text-secondary); font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
 .waiver-table th, .waiver-table td { padding: 18px 20px; }
-.waiver-table th span { display: block; font-weight: normal; white-space: nowrap; }
+.waiver-table th span { display: block; font-weight: normal; letter-spacing: 0; text-transform: none; white-space: nowrap; }
 .waiver-table td { border-top: 1px solid var(--border); }
 .waiver-table tbody tr:hover { background: var(--bg-hover); }
 .waiver-player { font-weight: 700; }
@@ -75,11 +75,10 @@
 .waiver-pagination { display: flex; justify-content: center; gap: 24px; margin-top: 24px; }
 .waiver-field .errorlist { color: #ffb4ab; padding-left: 18px; margin: 0; }
 @media (max-width: 700px) {
-    .waiver-page { padding: 8px 0 24px; }
+    .waiver-page { padding-bottom: 24px; }
     .waiver-filters { padding: 16px; }
     .waiver-table th, .waiver-table td { padding: 14px 12px; }
     .waiver-player-identity { min-width: 190px; gap: 10px; }
-    .waiver-header h1 { font-size: 26px; }
     .waiver-field, .waiver-field:has(#id_sort) { flex-basis: 100%; }
 }
 
@@ -131,4 +130,20 @@
     .waiver-table .waiver-position { min-width: 30px; padding: 5px; font-size: 11px; }
     .waiver-table .value-label { font-size: 11px; padding: 5px; }
     .waiver-table th span { white-space: normal; }
+}
+
+.waiver-suggestions [data-waiver-moves-url] {
+    display: contents;
+}
+
+.waiver-move--loading {
+    background: linear-gradient(105deg, var(--bg-card) 25%, var(--bg-hover) 50%, var(--bg-card) 75%);
+    background-size: 225% 100%;
+    animation: page-loading-sweep 1.5s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .waiver-move--loading {
+        animation: none;
+    }
 }

@@ -1,6 +1,6 @@
 from django.urls import path
 from django.views.generic import RedirectView
-from .views import SignUpView, profile, assistant_gm_page, assistant_gm_chat
+from .views import SignUpView, adp_rankings, profile, assistant_gm_page, assistant_gm_chat
 from .market import market_long_term, market_short_term
 
 from .waivers import waiver_wire
@@ -14,6 +14,7 @@ urlpatterns = [
     path("market/", RedirectView.as_view(pattern_name="market_short_term"), name="market"),
     path("market/short-term/", market_short_term, name="market_short_term"),
     path("market/long-term/", market_long_term, name="market_long_term"),
+    path("adp/rankings/", adp_rankings, name="standalone_adp_rankings"),
     path("adp/", RedirectView.as_view(pattern_name="market_long_term", query_string=True), name="adp_rankings"),
     path("assistant-gm/", assistant_gm_page, name="assistant_gm"),
     path("assistant-gm/chat/", assistant_gm_chat, name="assistant_gm_chat"),

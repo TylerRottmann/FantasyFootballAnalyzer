@@ -230,6 +230,16 @@ class WaiverWireTests(TestCase):
         with patch('analyzer.waivers.get_current_nfl_week', side_effect=ValueError):
             self.assertContains(self.browse(), 'Choose a week below')
 
+    @patch('analyzer.waivers.load_waiver_predictions', return_value={})
+    def test_warm_pool_reused_with_live_roster_exclusions(self, forecasts):
+        self.assertEqual(self.browse(part='warm').status_code, 204)
+        self.assertIn(self.available.full_name, self.names(self.browse(position='WR')))
+        FantasyRosterPlayer.objects.create(
+            roster=self.roster_a, player_id=self.available.pk, created_at=timezone.now(),
+        )
+        self.assertNotIn(self.available.full_name, self.names(self.browse(position='WR')))
+        forecasts.assert_called_once()
+
     def test_pagination_preserves_combined_filters(self):
         for number in range(55):
             self.make_player(f'Extra {number}', 'TE', 24)
@@ -266,10 +276,11 @@ class WaiverWireTests(TestCase):
         self.save_projection(self.available, 7, 15, status='ml_model')
         response = self.browse(search='no matching name')
         self.assertEqual(self.names(response), [])
+        self.assertContains(response, 'Suggested Moves')
+        response = self.browse(part='moves', search='no matching name')
         move = response.context['suggested_moves'][1]
         self.assertEqual(move['pickup']['player'].pk, self.available.pk)
         self.assertEqual(move['gain'], 7)
-        self.assertContains(response, 'Suggested Moves')
         self.assertEqual(move['drop']['player'].pk, self.owned_a.pk)
         self.assertEqual(move['drop']['player'].team.abbreviation, 'GB')
         self.assertContains(response, 'WR · GB')
@@ -294,7 +305,7 @@ class WaiverWireTests(TestCase):
             self.save_projection(self.owned_a, week, 8, status='ml_model')
         self.save_projection(self.available, 7, 15, status='ml_model')
         values.return_value = {self.available.pk: PlayerValue(horizon='short')}
-        move = self.browse(position='FLEX').context['suggested_moves'][1]
+        move = self.browse(part='moves', position='FLEX').context['suggested_moves'][1]
         self.assertEqual(move['pickup']['player'].pk, self.available.pk)
         self.assertEqual(move['drop']['player'].pk, self.owned_a.pk)
         self.assertEqual(move['gain'], 7)

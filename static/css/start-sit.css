@@ -2,76 +2,60 @@
    START / SIT PAGE
    ========================================================= */
 
-.start-sit-page {
-    width: 100%;
-}
-
-
-/* =========================================================
-   PAGE HEADER
-   ========================================================= */
-
-.start-sit-header {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 24px;
-    margin-bottom: 28px;
-}
-
-.start-sit-header h1 {
-    margin: 0;
-    color: var(--text-primary);
-    font-size: 30px;
-    font-weight: 800;
-}
-
-.start-sit-header p {
-    margin: 7px 0 0;
-    color: var(--text-secondary);
-    font-size: 14px;
-}
-
-.start-sit-header strong {
-    color: var(--gold);
-}
-
-
 /* =========================================================
    WEEK SELECTOR
    ========================================================= */
 
-.week-selector-form {
-    display: flex;
+.week-picker {
+    display: grid;
+    grid-template-columns: 30px 1fr 1.1fr 1fr 30px;
     align-items: center;
-    gap: 10px;
-}
-
-.week-selector-form label {
-    color: var(--text-secondary);
-    font-size: 13px;
-    font-weight: 600;
-}
-
-.week-selector {
-    min-width: 125px;
-    padding: 10px 13px;
-    background-color: var(--bg-card);
+    width: min(100%, 310px);
+    min-height: 48px;
+    padding: 4px;
     border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-header);
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.week-picker a {
+    display: grid;
+    min-height: 36px;
+    place-items: center;
+    color: var(--text-secondary);
+    text-decoration: none;
     border-radius: 7px;
+}
+
+.week-picker .week-neighbor--previous {
+    background: linear-gradient(90deg, transparent, var(--bg-hover));
+}
+
+.week-picker .week-neighbor--next {
+    background: linear-gradient(270deg, transparent, var(--bg-hover));
+}
+
+.week-picker a:hover,
+.week-picker a:focus-visible {
     color: var(--text-primary);
-    font-family: inherit;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    outline: none;
+    background: var(--bg-hover);
 }
 
-.week-selector:hover,
-.week-selector:focus {
-    border-color: var(--gold-dark);
+.week-picker a:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: -2px;
 }
 
+.week-selected {
+    padding: 9px 4px;
+    border-radius: 7px;
+    background: var(--gold);
+    color: var(--bg-header);
+}
 
 /* =========================================================
    ERROR / STATUS
@@ -89,7 +73,7 @@
 .lineup-layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 20px;
+    gap: 24px;
     align-items: start;
 }
 
@@ -129,8 +113,14 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 20px 22px;
+    padding: 24px;
+    background: linear-gradient(135deg, #252a34, #1b1e25 75%);
     border-bottom: 1px solid var(--border);
+}
+
+.optimized-card .lineup-card-header {
+    background: linear-gradient(135deg, #363021, #202126 72%);
+    border-bottom-color: #4d4224;
 }
 
 .lineup-card-header h2 {
@@ -161,7 +151,8 @@
 
 .lineup-total {
     color: var(--text-primary);
-    font-size: 25px;
+    font-size: clamp(30px, 3.2vw, 46px);
+    letter-spacing: -0.055em;
     font-weight: 850;
     line-height: 1;
     white-space: nowrap;
@@ -210,13 +201,13 @@
    ========================================================= */
 
 .lineup-section {
-    padding: 0 10px;
+    padding: 0 16px;
 }
 
 .lineup-section-title {
-    padding: 14px 12px 8px;
+    padding: 18px 4px 12px;
     color: var(--text-secondary);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 800;
     letter-spacing: 1px;
     text-transform: uppercase;
@@ -227,8 +218,14 @@
    STARTER PLAYER LIST
    ========================================================= */
 
+.lineup-players,
+.bench-players {
+    display: grid;
+    gap: 8px;
+}
+
 .lineup-players {
-    padding-bottom: 8px;
+    padding-bottom: 16px;
 }
 
 
@@ -236,26 +233,25 @@
    STARTER PLAYER CARD
    ========================================================= */
 
-.player-card {
-    display: flex;
+.player-card,
+.bench-player {
+    display: grid;
     align-items: center;
-    gap: 12px;
-
-    min-height: 76px;
-
-    padding: 10px 12px;
-
-    border-bottom: 1px solid var(--border);
-
-    transition:
-        background-color 0.15s ease;
+    gap: 14px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #1b1e25;
+    transition: background-color 0.15s ease;
 }
 
-.player-card:last-child {
-    border-bottom: none;
+.player-card {
+    grid-template-columns: 40px auto minmax(0, 1fr) minmax(76px, auto) minmax(62px, auto);
+    min-height: 84px;
 }
 
-.player-card:hover {
+.player-card:hover,
+.bench-player:hover {
     background-color: var(--bg-hover);
 }
 
@@ -273,9 +269,9 @@
     align-items: center;
     justify-content: center;
 
-    width: 48px;
-    min-width: 48px;
-
+    min-height: 28px;
+    border-radius: 6px;
+    background: rgba(255, 204, 0, 0.07);
     color: var(--gold);
 
     font-size: 11px;
@@ -328,25 +324,23 @@
    PLAYER INFORMATION
    ========================================================= */
 
-.player-information {
-    flex: 1;
+.player-information,
+.bench-player-info {
     min-width: 0;
 }
 
-.player-name {
-    overflow: hidden;
-
+.player-name,
+.bench-player-name {
     color: var(--text-primary);
-
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 700;
-
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
 }
 
 .player-meta {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
 
@@ -416,9 +410,7 @@
 }
 
 .matchup-symbol {
-    min-width: 20px;
-
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 900;
     letter-spacing: 0.4px;
 }
@@ -471,25 +463,17 @@
    ========================================================= */
 
 .empty-position {
-    display: flex;
-    align-items: center;
-
+    grid-template-columns: 40px minmax(0, 1fr);
+    grid-template-areas: "slot empty";
     min-height: 58px;
-
-    padding: 8px 12px;
-
-    border-bottom: 1px solid var(--border);
-
-    color: var(--text-secondary);
-
-    font-size: 12px;
 }
 
 .empty-position .player-slot {
-    margin-right: 12px;
+    grid-area: slot;
 }
 
 .empty-player {
+    grid-area: empty;
     color: var(--text-secondary);
 }
 
@@ -499,9 +483,9 @@
    ========================================================= */
 
 .bench-section {
-    margin-top: 10px;
+    margin-top: 4px;
 
-    padding: 0 10px 12px;
+    padding: 0 16px 16px;
 
     border-top: 1px solid var(--border);
 }
@@ -511,46 +495,10 @@
    BENCH PLAYER LIST
    ========================================================= */
 
-.bench-players {
-    display: flex;
-    flex-direction: column;
-
-    padding-bottom: 0;
-}
-
-
-/* =========================================================
-   BENCH PLAYER
-   ========================================================= */
-
 .bench-player {
-    display: flex;
-    align-items: center;
-
-    gap: 12px;
-
-    min-height: 64px;
-
-    padding: 9px 12px;
-
-    border-bottom: 1px solid var(--border);
-
-    transition:
-        background-color 0.15s ease;
+    grid-template-columns: auto minmax(0, 1fr) minmax(76px, auto) minmax(62px, auto);
+    min-height: 70px;
 }
-
-.bench-player:last-child {
-    border-bottom: none;
-}
-
-.bench-player:hover {
-    background-color: var(--bg-hover);
-}
-
-
-/* =========================================================
-   BENCH PLAYER IMAGE
-   ========================================================= */
 
 .bench-player-image {
     width: 44px;
@@ -585,25 +533,9 @@
    BENCH PLAYER INFORMATION
    ========================================================= */
 
-.bench-player-info {
-    flex: 1;
-    min-width: 0;
-}
-
-.bench-player-name {
-    overflow: hidden;
-
-    color: var(--text-primary);
-
-    font-size: 13px;
-    font-weight: 700;
-
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
 .bench-player-meta {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
 
@@ -689,7 +621,7 @@
    TABLET / SMALL DESKTOP
    ========================================================= */
 
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
 
     .lineup-layout {
         grid-template-columns: 1fr;
@@ -704,17 +636,8 @@
 
 @media (max-width: 700px) {
 
-    .start-sit-header {
-        align-items: stretch;
-        flex-direction: column;
-    }
-
-    .week-selector-form {
-        justify-content: space-between;
-    }
-
-    .week-selector {
-        flex: 1;
+    .start-sit-header .week-controls {
+        align-items: flex-start;
     }
 
 }
@@ -726,103 +649,73 @@
 
 @media (max-width: 500px) {
 
-    .start-sit-header h1 {
-        font-size: 25px;
-    }
-
     .lineup-card-header {
         padding: 17px;
     }
 
     .lineup-total {
-        font-size: 21px;
+        font-size: 30px;
     }
 
     .lineup-section {
-        padding: 0 6px;
+        padding-inline: 10px;
+    }
+
+    .player-card,
+    .bench-player {
+        gap: 4px 8px;
+        padding: 10px;
     }
 
     .player-card {
-        gap: 8px;
-        padding: 9px;
-    }
-
-    .player-slot {
-        width: 38px;
-        min-width: 38px;
-
-        font-size: 9px;
-    }
-
-    .player-image-wrapper {
-        width: 46px;
-        height: 46px;
-    }
-
-    .player-name {
-        font-size: 13px;
-    }
-
-    .player-meta {
-        gap: 5px;
-    }
-
-    .player-matchup {
-        min-width: 52px;
-        gap: 3px;
-    }
-
-    .team-logo,
-    .opponent-logo {
-        width: 16px;
-        height: 16px;
-    }
-
-    .player-projection {
-        min-width: 44px;
-    }
-
-    .projection-value {
-        font-size: 16px;
-    }
-
-
-    /* BENCH */
-
-    .bench-section {
-        padding: 0 6px 10px;
+        grid-template-columns: 30px auto minmax(0, 1fr) auto;
+        grid-template-areas:
+            "slot photo player projection"
+            "slot photo matchup projection";
     }
 
     .bench-player {
-        gap: 8px;
-        padding: 8px 9px;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        grid-template-areas:
+            "photo player projection"
+            "photo matchup projection";
+    }
+
+    .empty-position {
+        grid-template-columns: 30px minmax(0, 1fr);
+        grid-template-areas: "slot empty";
+    }
+
+    .player-slot { grid-area: slot; }
+    .player-image-wrapper,
+    .bench-player-image { grid-area: photo; }
+    .player-information,
+    .bench-player-info { grid-area: player; }
+    .player-projection,
+    .bench-player-projection { grid-area: projection; }
+
+    .player-matchup,
+    .bench-matchup {
+        grid-area: matchup;
+        justify-content: flex-start;
+        min-width: 0;
+    }
+
+    .player-image-wrapper {
+        width: 44px;
+        height: 44px;
     }
 
     .bench-player-image {
-        width: 40px;
-        height: 40px;
+        width: 38px;
+        height: 38px;
     }
 
+    .player-name,
     .bench-player-name {
-        font-size: 12px;
-    }
-
-    .bench-player-meta {
-        font-size: 9px;
-    }
-
-    .bench-matchup {
-        min-width: 48px;
-        font-size: 9px;
-    }
-
-        .bench-player-projection {
-        min-width: 40px;
         font-size: 14px;
     }
-
-    }
-
+}
 
     /* =========================================================
        HEADER LEFT SIDE
@@ -841,7 +734,8 @@
         display: flex;
         flex-direction: column;
         align-items: flex-end;
-        gap: 8px;
+        width: min(100%, 310px);
+        gap: 10px;
         flex-shrink: 0;
     }
 
@@ -900,3 +794,72 @@
 .historical-bench-scores small { color: var(--text-secondary); font-size: 8px; font-weight: 700; letter-spacing: .3px; }
 .historical-bench-scores { display: inline-flex; align-items: baseline; justify-content: flex-end; gap: 3px; min-width: 100px; font-variant-numeric: tabular-nums; }
 .historical-bench-scores b { color: var(--gold); font-size: 12px; }
+
+
+.projection-value,
+.bench-player-projection,
+.lineup-total {
+    font-variant-numeric: tabular-nums;
+}
+
+.lineup-risk {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.625rem;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.lineup-risk--risky {
+    color: var(--gold);
+    background: rgba(255, 204, 0, 0.1);
+}
+
+.lineup-risk--safe {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+}
+
+.lineup-loading-status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+}
+
+.lineup-layout.is-loading :is(.player-card, .bench-player, .lineup-card-header, .empty-bench) {
+    position: relative;
+    overflow: hidden;
+    background: var(--bg-hover);
+}
+
+.lineup-layout.is-loading :is(.player-card, .bench-player, .lineup-card-header) > * {
+    visibility: hidden;
+}
+
+.lineup-layout.is-loading .empty-bench {
+    color: transparent;
+}
+
+.lineup-layout.is-loading :is(.player-card, .bench-player, .lineup-card-header, .empty-bench)::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 20%, rgba(255, 255, 255, 0.065) 50%, transparent 80%);
+    background-size: 230% 100%;
+    animation: lineup-shimmer 1.4s linear infinite;
+}
+
+@keyframes lineup-shimmer {
+    from { background-position: 110% 0; }
+    to { background-position: -110% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .lineup-layout.is-loading :is(.player-card, .bench-player, .lineup-card-header, .empty-bench)::after {
+        animation: none;
+    }
+}

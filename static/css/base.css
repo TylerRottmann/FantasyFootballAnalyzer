@@ -1,5 +1,5 @@
 /* =========================================================
-   FANTASY FOOTBALL ANALYZER
+   ROSTER RADAR
    Shared Base Styles
    ========================================================= */
 
@@ -69,7 +69,7 @@ body {
 
     background-color: var(--bg-header);
 
-    border-bottom: 1px solid var(--gold-dark);
+    border-bottom: 1px solid var(--border);
 }
 
 
@@ -86,42 +86,22 @@ body {
 }
 
 .brand-logo {
-    width: 42px;
-    height: 42px;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    background-color: var(--gold);
-    color: #111;
-
-    border-radius: 8px;
-
-    font-size: 22px;
-}
-
-.brand-text {
-    display: flex;
-    flex-direction: column;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 auto;
+    color: var(--gold);
 }
 
 .brand-title {
-    color: var(--gold);
-
-    font-size: 17px;
+    font-size: 21px;
     font-weight: 800;
+    letter-spacing: -0.045em;
+    white-space: nowrap;
 }
 
-.brand-subtitle {
-    color: var(--text-secondary);
-
-    font-size: 11px;
-    font-weight: 700;
-
-    letter-spacing: 1.5px;
+.brand-title strong {
+    color: var(--gold);
 }
-
 
 /* =========================================================
    ========================================================= */
@@ -546,22 +526,24 @@ body {
     min-height: 54px;
 
     display: flex;
-    align-items: stretch;
-
-    padding: 0 6%;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 6%;
 
     background-color: #0d0f11;
 
-    border-bottom: 1px solid var(--gold-dark);
+    border-bottom: 1px solid var(--border);
 }
 
 .nav-link {
-    position: relative;
-
     display: flex;
     align-items: center;
-
-    padding: 0 18px;
+    gap: 8px;
+    min-height: 38px;
+    padding: 0 13px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    white-space: nowrap;
 
     color: var(--text-secondary);
 
@@ -584,26 +566,18 @@ body {
 
 /* ---------- Active Navigation ---------- */
 
-.nav-link.active {
+.main-nav:not(:has(.is-pending)) .nav-link.active,
+.main-nav .nav-link.is-pending {
     color: var(--gold);
+    background: rgba(255, 204, 0, 0.08);
+    border-color: rgba(255, 204, 0, 0.18);
 }
 
-.nav-link.active::after {
-    content: "";
-
-    position: absolute;
-
-    left: 12px;
-    right: 12px;
-    bottom: 0;
-
-    height: 3px;
-
-    background-color: var(--gold);
-
-    border-radius: 3px 3px 0 0;
+.main-header :focus-visible,
+.main-nav :focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
 }
-
 
 /* =========================================================
    PAGE CONTENT
@@ -653,12 +627,11 @@ body {
 
     .main-nav {
         overflow-x: auto;
-
-        padding: 0;
+        padding: 6px 16px;
     }
 
     .nav-link {
-        min-height: 52px;
+        min-height: 40px;
 
         white-space: nowrap;
     }
@@ -682,3 +655,202 @@ body {
 
 }
 .injury-badge { display: inline-block; padding: 3px 6px; margin-left: 6px; border: 1px solid #a64b4b; border-radius: 4px; color: #ffb4ab; font-size: 11px; font-weight: 700; vertical-align: middle; white-space: nowrap; }
+
+.page-loading {
+    position: fixed;
+    inset: var(--page-loading-top, 0) 0 0;
+    z-index: 10;
+    overflow: auto;
+    background: var(--bg-main);
+}
+
+.page-loading-inner {
+    max-width: 1680px;
+    margin-inline: auto;
+    padding: clamp(20px, 4vw, 52px) 6%;
+}
+
+.page-loading-status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+}
+
+.page-loading-frames {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 24px;
+}
+
+.page-loading-frame {
+    min-height: 74px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: linear-gradient(105deg, var(--bg-card) 25%, var(--bg-hover) 50%, var(--bg-card) 75%);
+    background-size: 225% 100%;
+    animation: page-loading-sweep 1.5s linear infinite;
+}
+
+.page-loading-caption {
+    width: 165px;
+    min-height: 10px;
+    margin-top: 16px;
+}
+
+.page-loading-control {
+    width: 125px;
+    min-height: 38px;
+    border-radius: 9px;
+}
+
+.page-loading[data-view="lineup"] .page-loading-control {
+    width: min(100%, 310px);
+    min-height: 48px;
+}
+
+.page-loading[data-view="lineup"] .page-loading-filters,
+.page-loading[data-view="adp"] .page-loading-side {
+    display: none;
+}
+
+.page-loading[data-view="adp"] .page-loading-frames {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.page-loading[data-view="waivers"] .page-loading-frames {
+    grid-template-columns: minmax(0, 1fr) 430px;
+    grid-template-areas: "filters side" "list side";
+}
+
+.page-loading[data-view="waivers"] .page-loading-filters { grid-area: filters; min-height: 126px; }
+.page-loading[data-view="waivers"] .page-loading-list { grid-area: list; }
+.page-loading[data-view="waivers"] .page-loading-side { grid-area: side; min-height: 260px; }
+
+.page-loading-list,
+.page-loading[data-view="lineup"] .page-loading-side {
+    min-height: 430px;
+    background-image:
+        linear-gradient(105deg, transparent 25%, rgba(255, 255, 255, .045) 50%, transparent 75%),
+        repeating-linear-gradient(var(--bg-card) 0 69px, var(--border) 69px 70px);
+    background-size: 225% 100%, 100% 100%;
+}
+
+@keyframes page-loading-sweep {
+    from { background-position: 110% 0, 0 0; }
+    to { background-position: -110% 0, 0 0; }
+}
+
+@media (max-width: 1200px) {
+    .page-loading[data-view="lineup"] .page-loading-frames {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 1150px) {
+    .page-loading[data-view="waivers"] .page-loading-frames {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "filters" "side" "list";
+    }
+}
+
+@media (max-width: 600px) {
+    .page-loading-frames {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .page-loading-frame {
+        animation: none;
+    }
+}
+
+.radar-workspace {
+    width: 100%;
+    max-width: 1520px;
+    margin-inline: auto;
+}
+
+.radar-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 28px;
+    min-height: 215px;
+    padding: clamp(22px, 4vw, 48px);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background:
+        linear-gradient(90deg, #191b20 25%, transparent 72%, #191b2055),
+        var(--radar-hero-artwork, url("../images/lineup-field.svg?v=2")) left 36% center / min(62%, 690px) auto no-repeat,
+        #181a20;
+}
+
+.radar-hero--adp {
+    --radar-hero-artwork: url("../images/draft-board.svg");
+}
+
+.radar-hero--waivers {
+    --radar-hero-artwork: url("../images/waiver-radar.svg");
+}
+
+.radar-hero h1 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: clamp(40px, 5vw, 66px);
+    letter-spacing: -0.06em;
+    line-height: 1;
+    font-weight: 800;
+}
+
+.radar-hero p {
+    margin: 9px 0 0;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.radar-hero strong {
+    color: var(--gold);
+}
+
+
+.radar-hero-meta {
+    position: relative;
+    flex-shrink: 0;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--bg-header);
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.radar-hero-meta i {
+    margin-right: 6px;
+    color: var(--gold);
+}
+
+@media (max-width: 700px) {
+    .radar-hero {
+        align-items: stretch;
+        flex-direction: column;
+        min-height: 0;
+        background-position: center, center top, center;
+        background-size: auto, 75% auto, auto;
+    }
+
+    .radar-hero-meta {
+        align-self: flex-start;
+    }
+}
+
+@media (max-width: 500px) {
+    .radar-hero h1 {
+        font-size: 40px;
+    }
+}

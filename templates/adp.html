@@ -3,23 +3,22 @@
 {% load static %}
 {% load player_health %}
 
+{% block title %}ADP Rankings | Roster Radar{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/adp.css' %}?v=radar-workspace">{% endblock %}
 {% block content %}
 
-<link rel="stylesheet" href="{% static 'css/adp.css' %}">
+<div class="adp-page radar-workspace">
 
-<div class="adp-page">
-
-    <div class="adp-header">
+    <header class="radar-hero radar-hero--adp">
         <div>
-            <h1>ADP Rankings — {{ season }}</h1>
-            <p>
-                Explore fantasy football players and compare
-                Average Draft Position rankings.
-            </p>
+            <h1>ADP Rankings</h1>
+            <p>Compare where players typically go in fantasy drafts.</p>
         </div>
-    </div>
+        <span class="radar-hero-meta"><i class="bi bi-calendar3" aria-hidden="true"></i> {{ season }} season</span>
+    </header>
 
     <form method="get" class="adp-filters">
+        {% if page_obj %}<input type="hidden" name="view" value="full">{% endif %}
 
         <input
             type="search"
@@ -50,6 +49,9 @@
 
         <select name="team" aria-label="Filter by NFL team">
             <option value="">All Teams</option>
+            {% if placeholder_rows and selected_team %}
+                <option value="{{ selected_team }}" selected>Selected team</option>
+            {% endif %}
             {% for team in teams %}
                 <option value="{{ team.id }}"
                     {% if selected_team == team.id|stringformat:"s" %}selected{% endif %}>
@@ -60,11 +62,15 @@
 
         <button type="submit">Apply Filters</button>
 
-        <a href="{% url 'adp_rankings' %}" class="clear-filters">
+        <a href="{% url 'standalone_adp_rankings' %}" class="clear-filters">
             Clear
         </a>
 
     </form>
+
+    {% if placeholder_rows %}
+        <noscript><p><a href="{% querystring view='full' %}">Open ADP rankings</a></p></noscript>
+    {% endif %}
 
     <div class="adp-table-container">
 
@@ -80,11 +86,16 @@
                 </tr>
             </thead>
 
-            <tbody>
+            <tbody{% if placeholder_rows %} aria-busy="true"{% endif %}>
+                {% if placeholder_rows %}
+                    {% for row in placeholder_rows %}
+                        <tr class="adp-skeleton" aria-hidden="true"><td colspan="6"></td></tr>
+                    {% endfor %}
+                {% else %}
                 {% for player in players %}
                 <tr>
                     <td class="adp-rank">
-                        {{ forloop.counter }}
+                        {{ forloop.counter0|add:page_obj.start_index }}
                     </td>
 
                     <td>
@@ -98,9 +109,9 @@
                                         loading="lazy"
                                         onerror="this.hidden=true;this.nextElementSibling.hidden=false;"
                                     >
-                                    <span hidden aria-hidden="true">🏈</span>
+                                    <span hidden aria-hidden="true"><i class="bi bi-person"></i></span>
                                 {% else %}
-                                    <span aria-hidden="true">🏈</span>
+                                    <span aria-hidden="true"><i class="bi bi-person"></i></span>
                                 {% endif %}
                             </div>
 
@@ -156,10 +167,29 @@
                     </td>
                 </tr>
                 {% endfor %}
+                {% endif %}
             </tbody>
         </table>
 
     </div>
+
+    {% if placeholder_rows %}
+        <div class="adp-pagination">
+            <span class="adp-loading-status" role="status">Loading rankings</span>
+            <a class="adp-load-more" href="{% querystring view='full' %}">Load rankings</a>
+        </div>
+        <script src="{% static 'js/adp-scroll.js' %}" defer></script>
+    {% elif page_obj.has_other_pages %}
+        <nav class="adp-pagination" aria-label="ADP pages">
+            {% if page_obj.has_previous %}
+                <a href="{% querystring page=page_obj.previous_page_number %}">Previous</a>
+            {% endif %}
+            <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+            {% if page_obj.has_next %}
+                <a class="adp-next-page" href="{% querystring page=page_obj.next_page_number %}">Next</a>
+            {% endif %}
+        </nav>
+    {% endif %}
 </div>
 
 {% endblock %}

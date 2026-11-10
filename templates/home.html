@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h1>Fantasy Football Analyzer</h1>
+<h1>Roster Radar</h1>
 {% if user.is_authenticated %}
   <p>Welcome back, <strong>{{ user.username }}</strong>!</p>
   <form action="{% url 'logout' %}" method="post">

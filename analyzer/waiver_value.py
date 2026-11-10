@@ -191,20 +191,23 @@ def load_player_values(season, week):
         histories[snap.player_id].append({'week': snap.week, 'share': snap.offense_share, 'opportunities': opportunities, 'team_id': snap.team_id})
         teams[snap.player_id] = snap.team_id
     season_ending_ids = season_ending_player_ids(season, week)
+    current_by_team_position = defaultdict(list)
+    for report in current.values():
+        current_by_team_position[report.team_id, report.position].append(report)
     prior_starter_ids = {r.player_id for r in reports if r.position == 'QB' and r.depth_order == 1 and r.week < week}
     results = {}
     for player_id, games in histories.items():
         games = [g for g in games if g['team_id'] == teams[player_id]]
         report = current.get(player_id)
         if report and report.position == 'QB':
-            teammates = [r for r in current.values() if r.player_id != player_id and r.team_id == report.team_id and r.position == 'QB']
+            teammates = [r for r in current_by_team_position[report.team_id, 'QB'] if r.player_id != player_id]
             dependency = quarterback_injury_dependency(report, teammates, histories, season_ending_ids, prior_starter_ids)
             results[player_id] = classify_quarterback_value(report, teammates, season_ending_ids, injury_dependency=dependency)
             continue
         if not games or games[-1]['week'] < week-2:
             results[player_id] = PlayerValue(reason='Playing-time data is too old for this week.')
             continue
-        teammates = [r for r in current.values() if report and r.player_id != player_id and r.team_id == report.team_id and r.position == report.position]
+        teammates = [r for r in current_by_team_position[report.team_id, report.position] if r.player_id != player_id] if report else []
         injured_ahead = injury_dependent_role(report, teammates, histories, season_ending_ids)
         # Current reports identify known temporary injury replacements. Missing
         # historical injury captures do not hide an observable workload trend.
@@ -214,7 +217,7 @@ def load_player_values(season, week):
         results[player_id] = classify_value(games, injured_ahead=injured_ahead, healthy_context=healthy, competitor_growing=competitor, position=report.position if report else '')
     for report in current.values():
         if report.position == 'QB' and report.player_id not in results:
-            teammates = [r for r in current.values() if r.player_id != report.player_id and r.team_id == report.team_id and r.position == 'QB']
+            teammates = [r for r in current_by_team_position[report.team_id, 'QB'] if r.player_id != report.player_id]
             dependency = quarterback_injury_dependency(report, teammates, histories, season_ending_ids, prior_starter_ids)
             results[report.player_id] = classify_quarterback_value(report, teammates, season_ending_ids, injury_dependency=dependency)
     cache.set(key, results, 300)

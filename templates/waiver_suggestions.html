@@ -1,0 +1,46 @@
+{% load player_health %}
+        {% for move in suggested_moves %}
+        <section class="waiver-move waiver-move-{{ move.horizon }}">
+            <h3>{{ move.title }}</h3>
+            {% if move.pickup %}
+            <p class="waiver-move-action waiver-add-label">Add</p>
+            <div class="waiver-player-identity">
+                <div class="waiver-avatar" aria-hidden="true">
+                    <span {% if move.pickup.player.headshot_url %}hidden{% endif %}>{{ move.pickup.player.first_name|default:""|first }}{{ move.pickup.player.last_name|default:""|first }}</span>
+                    {% if move.pickup.player.headshot_url %}<img src="{{ move.pickup.player.headshot_url }}" alt="" width="52" height="52" loading="lazy" onerror="this.hidden=true;this.previousElementSibling.hidden=false">{% endif %}
+                </div>
+                <div><strong><a class="player-card-link" href="{% url 'player_card' move.pickup.player.id %}?week={{ projection_week }}">{{ move.pickup.player.full_name }}</a></strong>
+                    <span class="waiver-move-meta">{{ move.pickup.player.position }} · {{ move.pickup.player.team.abbreviation|default:"—" }} {% injury_badge move.pickup.player %}</span>
+                </div>
+                <div class="waiver-move-points">
+                    {% if move.pickup.prediction.rest_of_season is not None %}<strong>{{ move.pickup.prediction.rest_of_season|floatformat:1 }}</strong>{% else %}<strong aria-label="Rest-of-season prediction unavailable">&mdash;</strong>{% endif %}
+                    <span>Rest of season</span>
+                </div>
+            </div>
+            <div class="waiver-drop">
+                <p class="waiver-move-action">Drop</p>
+                <div class="waiver-player-identity">
+                    <div class="waiver-avatar" aria-hidden="true">
+                        <span {% if move.drop.player.headshot_url %}hidden{% endif %}>{{ move.drop.player.first_name|default:""|first }}{{ move.drop.player.last_name|default:""|first }}</span>
+                        {% if move.drop.player.headshot_url %}<img src="{{ move.drop.player.headshot_url }}" alt="" width="52" height="52" loading="lazy" onerror="this.hidden=true;this.previousElementSibling.hidden=false">{% endif %}
+                    </div>
+                    <div><strong><a class="player-card-link" href="{% url 'player_card' move.drop.player.id %}?week={{ projection_week }}">{{ move.drop.player.full_name }}</a></strong>
+                        <span class="waiver-move-meta">{{ move.drop.player.position }} · {{ move.drop.player.team.abbreviation|default:"—" }}</span>
+                    </div>
+                    <div class="waiver-move-points">
+                        {% if move.drop.prediction.rest_of_season is not None %}<strong>{{ move.drop.prediction.rest_of_season|floatformat:1 }}</strong>{% else %}<strong aria-label="Rest-of-season prediction unavailable">&mdash;</strong>{% endif %}
+                        <span>Rest of season</span>
+                    </div>
+                </div>
+            </div>
+            <p>{{ move.message }}</p>
+            {% if move.horizon == 'short' %}<div class="waiver-move-gain">+{{ move.gain|floatformat:1 }} <span>projected lineup pts</span></div>{% endif %}
+            {% else %}
+            <strong class="waiver-move-empty">{% if filter_form.errors %}Check your filters{% else %}No suggested pickup{% endif %}</strong>
+            <p>{{ move.message }}</p>
+            {% endif %}
+        </section>
+        {% empty %}
+        <section class="waiver-move"><p>Choose a valid week to see suggested moves.</p></section>
+        {% endfor %}
+        <p class="waiver-suggestions-note">Across your league. Suggestions aren’t affected by the filters.</p>
