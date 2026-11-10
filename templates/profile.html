@@ -132,7 +132,7 @@
                         <div class="team-info">
 
                             <div class="team-name">
-                                {{ connection.league.name }}
+                                {{ connection.league.display_name }}
                             </div>
 
                             <div class="team-meta">
@@ -152,7 +152,7 @@
 
                         {% else %}
 
-                            <a href="{% url 'select_league' connection.league.id %}"
+                            <a href="{% url 'select_league_connection' connection.id %}"
                                class="switch-team-button">
                                 Switch
                             </a>

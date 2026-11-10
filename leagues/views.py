@@ -1,4 +1,5 @@
 import secrets
+import os
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 
@@ -17,6 +18,7 @@ from analyzer.models import NFLGame, PlayerWeeklyStats, Teams, TeamWeeklyStats
 
 from .integrations.sleeper import SleeperLeagueService
 from .integrations.yahoo import YahooLeagueService
+from .integrations.espn import ESPNLeagueService
 from leagues.services.kicker_scoring import league_projection, league_defense_projection
 from leagues.services.player_availability import projection_context
 from leagues.services.schedule import confirmed_bye_team_ids
@@ -32,6 +34,7 @@ from .models import (
     FantasyProjection,
     FantasyRosterPlayer,
     Player,
+    RosterPlatformIdentity,
     UserLeagueConnection,
 )
 from .services.power_rankings import get_saved_power_rankings
@@ -48,12 +51,14 @@ from scripts.commands.nflweek import get_current_nfl_week
 
 def get_user_league_or_404(user, league_id):
     """Return a league only when it belongs to one of the user's connections."""
-    connection = get_object_or_404(
-        UserLeagueConnection.objects.select_related("league"),
-        user=user,
-        league_id=league_id,
+    return get_object_or_404(
+        FantasyLeague.objects.filter(
+            id__in=UserLeagueConnection.objects.filter(
+                user=user
+            ).values("league_id")
+        ),
+        pk=league_id,
     )
-    return connection.league
 
 
 def get_sleeper_playoff_info(league):
@@ -96,8 +101,9 @@ def get_power_rankings_snapshot(
     defense_mode = "dst-on" if include_defense else "dst-off"
     projection_version = cache.get(f"projection_version:{league.season}", "initial")
     league_version = league.updated_at.isoformat() if league.updated_at else "unknown"
+    connection_id = connection.id if connection else "none"
     cache_key = (
-        f"power_rankings:{league.id}:{user.id}:{current_week}:"
+        f"power_rankings:{league.id}:{user.id}:{connection_id}:{current_week}:"
         f"{schedule_version}:{projection_version}:{league_version}:{defense_mode}"
     )
     snapshot = cache.get(cache_key)
@@ -107,6 +113,7 @@ def get_power_rankings_snapshot(
             user,
             current_week=current_week,
             include_defense=include_defense,
+            connection=connection,
         )
         cache.set(cache_key, snapshot, timeout=60 * 30)
     return snapshot, schedule_sync_needed
@@ -117,11 +124,65 @@ def get_power_rankings_snapshot(
 # =============================================================
 
 @login_required
+def espn_team_lookup(request):
+    """Find ESPN teams before importing a league."""
+    if request.method != "POST":
+        return JsonResponse(
+            {"error": "POST is required."},
+            status=405,
+        )
+
+    league_identifier = (
+        request.POST.get("league_identifier")
+        or request.POST.get("league_url")
+        or ""
+    ).strip()
+    season = request.POST.get("season", "").strip()
+    swid = request.POST.get("espn_swid", "").strip()
+    espn_s2 = request.POST.get("espn_s2", "").strip()
+
+    try:
+        service = ESPNLeagueService(
+            league_identifier,
+            season,
+            swid=swid,
+            espn_s2=espn_s2,
+        )
+        teams = service.get_team_choices()
+    except ValueError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+    except Exception:
+        return JsonResponse(
+            {"error": "Unable to retrieve ESPN teams. Please try again."},
+            status=502,
+        )
+
+    token = secrets.token_urlsafe(32)
+    cache.set(
+        f"espn_connect:{request.user.pk}:{token}",
+        {
+            "league_id": service.league_id,
+            "season": service.season,
+            "swid": service.swid,
+            "espn_s2": service.espn_s2,
+            "team_ids": [team["id"] for team in teams],
+        },
+        timeout=600,
+    )
+
+    return JsonResponse({
+        "teams": teams,
+        "connection_token": token,
+    })
+
+
+@login_required
 def connect_league(request):
     context = {}
 
     if request.method == "POST":
         platform = request.POST.get("platform")
+        context["selected_platform"] = platform
 
         platform_username = request.POST.get(
             "platform_username", ""
@@ -143,6 +204,7 @@ def connect_league(request):
                 connection = UserLeagueConnection.objects.get(
                     user=request.user,
                     league=result["league"],
+                    platform=UserLeagueConnection.PLATFORM_SLEEPER,
                 )
 
                 roster = FantasyRoster.objects.filter(
@@ -159,10 +221,79 @@ def connect_league(request):
                     request.session["active_league_id"] = (
                         result["league"].id
                     )
+                    request.session["active_connection_id"] = connection.id
                     return redirect("start_sit")
 
             except Exception as exc:
                 context["error"] = str(exc)
+
+        elif platform == "espn":
+            token = request.POST.get("espn_connection_token", "").strip()
+            owned_team_id = request.POST.get("espn_team_id", "").strip()
+
+            lookup = (
+                cache.get(f"espn_connect:{request.user.pk}:{token}")
+                if token and len(token) <= 128
+                else None
+            )
+
+            if lookup is None:
+                context["error"] = (
+                    "Your ESPN team lookup expired. "
+                    "Click Find ESPN Teams again."
+                )
+            elif owned_team_id not in lookup["team_ids"]:
+                context["error"] = (
+                    "Please select a team from the ESPN team dropdown."
+                )
+            else:
+                try:
+                    service = ESPNLeagueService(
+                        lookup["league_id"],
+                        lookup["season"],
+                        swid=lookup["swid"],
+                        espn_s2=lookup["espn_s2"],
+                    )
+
+                    result = service.import_league(
+                        request.user,
+                        owned_team_id=owned_team_id,
+                    )
+
+                    if (
+                        result["my_roster"] is None
+                        or not result.get("my_roster_complete", False)
+                    ):
+                        context["error"] = (
+                            "Your selected ESPN team's roster could not be "
+                            "fully imported. Your existing roster data has "
+                            "been preserved where possible. Please try again."
+                        )
+                    else:
+                        connection = UserLeagueConnection.objects.get(
+                            user=request.user,
+                            league=result["league"],
+                            platform=UserLeagueConnection.PLATFORM_ESPN,
+                            external_user_id=(
+                                f"{lookup['league_id']}:"
+                                f"{lookup['season']}:"
+                                f"{owned_team_id}"
+                            ),
+                        )
+                        request.session["active_league_id"] = connection.league_id
+                        request.session["active_connection_id"] = connection.id
+
+                        cache.delete(
+                             f"espn_connect:{request.user.pk}:{token}")
+                        return redirect("start_sit")
+
+                except ValueError as exc:
+                    context["error"] = str(exc)
+                except Exception:
+                    context["error"] = (
+                        "Unable to import the ESPN league. "
+                        "Please try again."
+                    )
 
         else:
             context["error"] = "Please select a supported platform."
@@ -180,12 +311,14 @@ def connect_league(request):
 # =============================================================
 # SELECT LEAGUE
 # =============================================================
-
 @login_required
-def select_league(request, league_id):
+def select_league_connection(request, connection_id):
     connection = (
         UserLeagueConnection.objects
-        .filter(user=request.user, league_id=league_id)
+        .filter(
+            id=connection_id,
+            user=request.user,
+        )
         .select_related("league")
         .first()
     )
@@ -194,17 +327,28 @@ def select_league(request, league_id):
         return redirect("connect_league")
 
     request.session["active_league_id"] = connection.league.id
+    request.session["active_connection_id"] = connection.id
 
-    referer = request.META.get("HTTP_REFERER")
-    if referer:
-        try:
-            referred_view = resolve(urlsplit(referer).path).url_name
-        except Resolver404:
-            referred_view = None
+    return redirect("start_sit")
 
-        if referred_view in {"power_rankings", "team_breakdown"}:
-            return redirect("power_rankings", league_id=connection.league.id)
-        return redirect(referer)
+@login_required
+def select_league(request, league_id):
+    connections = list(
+        UserLeagueConnection.objects
+        .filter(user=request.user, league_id=league_id)
+        .select_related("league")[:2]
+    )
+
+    if len(connections) != 1:
+        messages.warning(
+            request,
+            "Please select a specific team from your connected leagues."
+        )
+        return redirect("connect_league")
+
+    connection = connections[0]
+    request.session["active_league_id"] = connection.league_id
+    request.session["active_connection_id"] = connection.id
 
     return redirect("start_sit")
 
@@ -358,48 +502,44 @@ def _build_historical_lineups(league, roster, week, starting_positions):
 
 @login_required
 def start_sit(request):
-    active_league_id = request.session.get("active_league_id")
+    from leagues.services.active_connection import get_active_connection
 
-    connection = None
-
-    if active_league_id:
-        connection = (
-            UserLeagueConnection.objects
-            .filter(
-                user=request.user,
-                league_id=active_league_id,
-            )
-            .select_related("league")
-            .first()
-        )
-
-    if connection is None:
-        connection = (
-            UserLeagueConnection.objects
-            .filter(user=request.user)
-            .select_related("league")
-            .order_by("-league__updated_at")
-            .first()
-        )
+    connection = get_active_connection(request)
 
     if connection is None:
         return redirect("connect_league")
 
     league = connection.league
     request.session["active_league_id"] = league.id
+    request.session["active_connection_id"] = connection.id
+
+    # FIND USER'S ROSTER
 
     # ---------------------------------------------------------
     # FIND USER'S ROSTER
     # ---------------------------------------------------------
 
-    roster = (
-        FantasyRoster.objects
-        .filter(
-            league=league,
-            owner_sleeper_id=connection.external_user_id,
+    if connection.platform == UserLeagueConnection.PLATFORM_SLEEPER:
+        roster = (
+            FantasyRoster.objects
+            .filter(
+                league=league,
+                owner_sleeper_id=connection.external_user_id,
+            )
+            .first()
         )
-        .first()
-    )
+    else:
+        roster_identity = (
+            RosterPlatformIdentity.objects
+            .filter(
+                roster__league=league,
+                platform=connection.platform,
+                external_id=connection.external_user_id,
+            )
+            .select_related("roster")
+            .first()
+        )
+        roster = roster_identity.roster if roster_identity else None
 
     if roster is None:
         messages.error(
@@ -720,13 +860,9 @@ def start_sit(request):
 @login_required
 def projection_details(request, player_id):
     """Return historical model inputs for a rostered player on demand."""
-    active_league_id = request.session.get("active_league_id")
-    connection = (
-        UserLeagueConnection.objects
-        .filter(user=request.user, league_id=active_league_id)
-        .select_related("league")
-        .first()
-    ) if active_league_id else None
+    from leagues.services.active_connection import get_active_connection
+
+    connection = get_active_connection(request, fallback_to_recent=False)
     if connection is None:
         return JsonResponse({"error": "Select a connected league first."}, status=404)
 
@@ -737,11 +873,19 @@ def projection_details(request, player_id):
     week = max(1, min(18, week))
     league = connection.league
 
-    rostered = FantasyRosterPlayer.objects.filter(
-        roster__league=league,
-        roster__owner_sleeper_id=connection.external_user_id,
-        player_id=player_id,
-    ).exists()
+    if connection.platform == UserLeagueConnection.PLATFORM_SLEEPER:
+        rostered = FantasyRosterPlayer.objects.filter(
+            roster__league=league,
+            roster__owner_sleeper_id=connection.external_user_id,
+            player_id=player_id,
+        ).exists()
+    else:
+        rostered = FantasyRosterPlayer.objects.filter(
+            roster__league=league,
+            roster__platform_identities__platform=connection.platform,
+            roster__platform_identities__external_id=connection.external_user_id,
+            player_id=player_id,
+        ).exists()
     if not rostered:
         return JsonResponse({"error": "Player is not on your active roster."}, status=404)
 
@@ -992,20 +1136,18 @@ def resync_league(request):
     if request.method != "POST":
         return redirect("start_sit")
 
-    active_league_id = request.session.get("active_league_id")
+    from leagues.services.active_connection import get_active_connection
 
-    if active_league_id is None:
+    if not (
+        request.session.get("active_connection_id")
+        or request.session.get("active_league_id")
+    ):
         messages.error(request, "No active league is selected.")
         return redirect("start_sit")
 
-    connection = (
-        UserLeagueConnection.objects
-        .filter(
-            user=request.user,
-            league_id=active_league_id,
-        )
-        .select_related("league")
-        .first()
+    connection = get_active_connection(
+        request,
+        fallback_to_recent=False,
     )
 
     if connection is None:
@@ -1015,36 +1157,109 @@ def resync_league(request):
         )
         return redirect("start_sit")
 
-    if connection.platform != UserLeagueConnection.PLATFORM_SLEEPER:
-        messages.error(
-            request,
-            "Only Sleeper leagues can currently be resynced.",
-        )
-        return redirect("start_sit")
-
     try:
-        service = SleeperLeagueService(
-            connection.league.sleeper_league_id
-        )
+        if connection.platform == UserLeagueConnection.PLATFORM_SLEEPER:
+            service = SleeperLeagueService(
+                connection.league.sleeper_league_id
+            )
+            service.import_league(
+                request.user,
+                external_user_id=connection.external_user_id,
+            )
+            platform_name = "Sleeper"
 
-        service.import_league(
-            request.user,
-            external_user_id=connection.external_user_id,
-        )
+        elif connection.platform == UserLeagueConnection.PLATFORM_ESPN:
+            identity = connection.league.platform_identities.filter(
+                platform=UserLeagueConnection.PLATFORM_ESPN
+            ).first()
 
-        league = FantasyLeague.objects.get(
-            id=connection.league.id
-        )
+            if identity is None:
+                raise ValueError("ESPN league identity was not found.")
+
+            league_id, season = identity.external_id.rsplit(":", 1)
+
+            espn_credentials = {}
+            if connection.espn_credentials_encrypted:
+                from leagues.integrations.espn_credentials import (
+                    decrypt_espn_credentials,
+                )
+
+                swid, espn_s2 = decrypt_espn_credentials(
+                    connection.espn_credentials_encrypted
+                )
+                espn_credentials = {
+                    "swid": swid,
+                    "espn_s2": espn_s2,
+                }
+
+            service = ESPNLeagueService(
+                league_id,
+                season,
+                **espn_credentials,
+            )
+
+            try:
+                service.get_league()
+            except ValueError as exc:
+                raise ValueError(
+                    "ESPN resync requires access to the league. "
+                    "For private leagues, reconnect using your ESPN "
+                    "credentials on the Connect League page."
+                ) from exc
+
+            team_id = connection.external_user_id.rsplit(":", 1)[-1]
+            result = service.import_league(
+                request.user,
+                owned_team_id=team_id,
+            )
+            if (
+                result.get("my_roster") is None
+                or not result.get("my_roster_complete", False)
+            ):
+                raise ValueError(
+                    "Your ESPN roster could not be fully resynced. "
+                    "Existing roster data has been preserved where possible."
+                )
+            platform_name = "ESPN"
+
+        else:
+            raise ValueError("Resync is not supported for this platform.")
 
         messages.success(
             request,
-            f"{league.name} was successfully resynced with Sleeper.",
+            f"{connection.league.name} was successfully resynced "
+            f"with {platform_name}.",
         )
 
-    except Exception as exc:
+    except ValueError as exc:
+        safe_messages = (
+            "ESPN league identity was not found.",
+            "Saved ESPN credentials cannot be decrypted. Reconnect your ESPN league.",
+            "ESPN resync requires access to the league.",
+            "Your ESPN roster could not be fully resynced.",
+            "Resync is not supported for this platform.",
+        )
+        message = str(exc)
+        approved_messages = safe_messages + (
+            "ESPN resync requires access to the league. "
+            "For private leagues, reconnect using your ESPN "
+            "credentials on the Connect League page.",
+            "Your ESPN roster could not be fully resynced. "
+            "Existing roster data has been preserved where possible.",
+        )
+        if message in approved_messages:
+            messages.error(request, f"Unable to resync league: {message}")
+        else:
+            messages.error(
+                request,
+                "Unable to resync league. Please reconnect your league "
+                "and try again.",
+            )
+    except Exception:
         messages.error(
             request,
-            f"Unable to resync league: {exc}",
+            "Unable to resync league due to an unexpected error. "
+            "Please try again or reconnect your league.",
         )
 
     return redirect("start_sit")
@@ -1054,10 +1269,22 @@ def resync_league(request):
 def power_rankings(request, league_id):
     league = get_user_league_or_404(request.user, league_id)
     current_week = get_current_nfl_week()
-    connection = UserLeagueConnection.objects.filter(
-        user=request.user,
-        league=league,
-    ).only("platform").first()
+    from leagues.services.active_connection import get_active_connection
+
+    connection = get_active_connection(request, fallback_to_recent=False)
+    if connection is None or connection.league_id != league.id:
+        matching_connections = list(
+            UserLeagueConnection.objects
+            .filter(user=request.user, league=league)
+            .order_by("id")[:2]
+        )
+        if len(matching_connections) != 1:
+            messages.warning(
+                request,
+                "Please select a specific team from your connected leagues."
+            )
+            return redirect("connect_league")
+        connection = matching_connections[0]
     has_defense_slot = any(
         str(position).upper() in {"DEF", "D/ST"}
         for position in (league.roster_positions or [])
@@ -1127,12 +1354,19 @@ def sync_matchups(request, league_id):
     if request.method != "POST":
         return redirect("power_rankings", league_id=league_id)
 
-    connection = get_object_or_404(
-        UserLeagueConnection.objects.select_related("league", "user"),
-        user=request.user,
-        league_id=league_id,
-    )
+    from leagues.services.active_connection import get_active_connection
+
+    connection = get_active_connection(request, fallback_to_recent=False)
     wants_json = "application/json" in request.headers.get("Accept", "")
+
+    if connection is None or connection.league_id != league_id:
+        if wants_json:
+            return JsonResponse(
+                {"status": "error", "error": "Select a team from this league first."},
+                status=400,
+            )
+        messages.warning(request, "Select a team from this league first.")
+        return redirect("connect_league")
     sync_cache_key = f"matchup_sync:{connection.league.id}:{connection.league.season}"
     force_sync = request.POST.get("force") == "1"
     last_sync = cache.get(sync_cache_key)
@@ -1175,10 +1409,22 @@ def team_breakdown(request, league_id, roster_id):
         pk=roster_id,
         league=league,
     )
-    connection = UserLeagueConnection.objects.filter(
-        user=request.user,
-        league=league,
-    ).only("platform").first()
+    from leagues.services.active_connection import get_active_connection
+
+    connection = get_active_connection(request, fallback_to_recent=False)
+    if connection is None or connection.league_id != league.id:
+        matching_connections = list(
+            UserLeagueConnection.objects
+            .filter(user=request.user, league=league)
+            .order_by("id")[:2]
+        )
+        if len(matching_connections) != 1:
+            messages.warning(
+                request,
+                "Please select a specific team from your connected leagues."
+            )
+            return redirect("connect_league")
+        connection = matching_connections[0]
     has_defense_slot = any(
         str(position).upper() in {"DEF", "D/ST"}
         for position in (league.roster_positions or [])
@@ -1197,6 +1443,7 @@ def team_breakdown(request, league_id, roster_id):
         current_week,
         rankings,
         request.user,
+        connection=connection,
         include_defense=include_defense,
     )
     context = {

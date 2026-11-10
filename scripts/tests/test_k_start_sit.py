@@ -5,7 +5,7 @@ from unittest import skipUnless
 from django.core.management import call_command
 from django.db import connection
 from django.urls import reverse
-from leagues.models import FantasyProjection, FantasyRosterPlayer
+from leagues.models import FantasyProjection, FantasyRosterPlayer, UserLeagueConnection
 from scripts.algorithm.features.k_features import KSeasonData
 from scripts.algorithm.predictor import predict_player
 from scripts.tests import test_rb_start_sit as rb_fixture
@@ -110,7 +110,18 @@ class KStartSitTests(TestCase):
         best=max(r['projected_fantasy_points'] for r in expected.values())
         self.assertAlmostEqual(rows[0]['weeks'][0]['projected_points'],best)
         self.assertIn('K',rows[0]['position_averages'])
-        details=build_team_breakdown(self.league,self.roster,2,rows,self.user)
+        selected_connection = UserLeagueConnection.objects.get(
+            user=self.user,
+            league=self.league,
+        )
+        details = build_team_breakdown(
+            self.league,
+            self.roster,
+            2,
+            rows,
+            self.user,
+            connection=selected_connection,
+        )
         self.assertIn('K',details['position_codes'])
         player_rows={p['name']:p for p in details['players']}
         for player in (self.low,self.high):
@@ -138,18 +149,37 @@ class KStartSitTests(TestCase):
         from django.utils import timezone
         self.generate()
         self.league.roster_positions=['K','DEF','BN']
+        self.league.scoring_settings={
+            'fgm': 3,
+            'xpm': 2,
+            'fgmiss': -1,
+            'sack': 1,
+            'int': 2,
+            'def_td': 6,
+        }
         self.league.save()
-        for team,slot,points in ((self.home,'DEF',8.5),(self.away,'BN',11.5)):
+        for team,slot,sacks,interceptions,expected in (
+            (self.home,'DEF',2,2,12.0),
+            (self.away,'BN',3,3,15.0),
+        ):
             FantasyRosterPlayer.objects.create(
                 roster=self.roster,team=team,player=None,roster_slot=slot,
                 created_at=timezone.now())
             DefenseProjection.objects.update_or_create(
-                team=team,season=2026,week=2,model_version='v1',
-                defaults={'projected_fantasy_points':points,'status':'ml_model'})
+                team=team,season=2026,week=2,model_version='v2_stat',
+                defaults={
+                    'projected_fantasy_points': expected,
+                    'projected_stats': {
+                        'sacks': sacks,
+                        'interceptions': interceptions,
+                        'defensive_tds': 1,
+                    },
+                    'status': 'ml_model',
+                })
         response=self.page()
         self.assertEqual(response.status_code,200)
-        self.assertContains(response,'8.5')
-        self.assertContains(response,'11.5')
+        self.assertContains(response,'12.0')
+        self.assertContains(response,'15.0')
         self.assertNotContains(response,'data-player-name=""')
         self.assertContains(response,'projection-details/')
 

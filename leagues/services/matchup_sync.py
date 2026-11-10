@@ -2,6 +2,7 @@
 
 from collections import defaultdict
 
+from django.db import transaction
 from django.utils import timezone
 
 from leagues.integrations.sleeper import SleeperLeagueService
@@ -32,6 +33,12 @@ def _save_week(league, platform, season, week, records):
             ).select_related("roster")
         }
 
+        if platform == UserLeagueConnection.PLATFORM_ESPN:
+            # Match both legacy raw team IDs and modern full ESPN IDs.
+            for external_id, roster_id in list(roster_ids.items()):
+                team_id = external_id.rsplit(":", 1)[-1]
+                roster_ids.setdefault(team_id, roster_id)
+
     grouped = defaultdict(list)
     for row in records:
         if row.get("matchup_id") is not None:
@@ -40,16 +47,41 @@ def _save_week(league, platform, season, week, records):
     now = timezone.now()
     updates = []
     for row in records:
-        roster = roster_ids.get(str(row["external_roster_id"]))
+        external_id = str(row["external_roster_id"])
+        roster = roster_ids.get(external_id)
+        if roster is None and platform == UserLeagueConnection.PLATFORM_ESPN:
+            roster = roster_ids.get(external_id.rsplit(":", 1)[-1])
         if roster is None:
+            if platform == UserLeagueConnection.PLATFORM_ESPN:
+                raise ValueError(
+                    f"ESPN matchup team {external_id} has no matching "
+                    f"roster in league {league.pk}."
+                )
             continue
         opponents = [
             candidate for candidate in grouped.get(str(row.get("matchup_id")), [])
             if str(candidate["external_roster_id"]) != str(row["external_roster_id"])
         ] if row.get("matchup_id") is not None else []
         opponent_data = opponents[0] if opponents else None
+
+        if platform == UserLeagueConnection.PLATFORM_ESPN:
+            if opponent_data is None:
+                raise ValueError(
+                    f"ESPN matchup {row.get('matchup_id')} in week {week} "
+                    f"is missing opponent data for team {external_id}."
+                )
+
         opponent = (
-            roster_ids.get(str(opponent_data["external_roster_id"]))
+            (
+                roster_ids.get(str(opponent_data["external_roster_id"]))
+                or (
+                    roster_ids.get(
+                        str(opponent_data["external_roster_id"]).rsplit(":", 1)[-1]
+                    )
+                    if platform == UserLeagueConnection.PLATFORM_ESPN
+                    else None
+                )
+            )
             if opponent_data else None
         )
         points = row.get("points")
@@ -168,6 +200,86 @@ def sync_yahoo_matchups(league, user, start_week=1, end_week=18, current_week=1)
     return imported
 
 
+def sync_espn_matchups(connection, start_week=1, end_week=18, current_week=1):
+    """Import ESPN matchup schedules and finalized scores."""
+    from leagues.integrations.espn import ESPNLeagueService
+    from leagues.integrations.espn_credentials import decrypt_espn_credentials
+
+    league = connection.league
+    identity = LeaguePlatformIdentity.objects.get(
+        league=league,
+        platform=UserLeagueConnection.PLATFORM_ESPN,
+    )
+    # Support both legacy league IDs and modern league_id:season IDs.
+    if ":" in identity.external_id:
+        espn_league_id, season = identity.external_id.rsplit(":", 1)
+    else:
+        espn_league_id = identity.external_id
+        season = str(league.season)
+
+    credentials = {}
+    if connection.espn_credentials_encrypted:
+        swid, espn_s2 = decrypt_espn_credentials(
+            connection.espn_credentials_encrypted
+        )
+        credentials = {"swid": swid, "espn_s2": espn_s2}
+
+    service = ESPNLeagueService(espn_league_id, season, **credentials)
+    schedule = service._get("mMatchup").get("schedule")
+
+    if not isinstance(schedule, list) or not schedule:
+        raise ValueError("ESPN returned an empty or invalid matchup schedule.")
+
+    records_by_week = defaultdict(list)
+
+    for matchup in schedule:
+        week = matchup.get("matchupPeriodId")
+        if type(week) is not int or not start_week <= week <= end_week:
+            continue
+
+        home = matchup.get("home") or {}
+        away = matchup.get("away") or {}
+
+        if home.get("teamId") is None or away.get("teamId") is None:
+            raise ValueError(
+                f"ESPN matchup in week {week} is missing a team."
+            )
+
+        matchup_id = matchup.get("id")
+        if matchup_id is None:
+            raise ValueError(
+                f"ESPN matchup in week {week} is missing matchup ID."
+            )
+
+        winner = matchup.get("winner")
+        is_final = winner in {"HOME", "AWAY", "TIE"}
+
+        for side in (home, away):
+            team_id = side.get("teamId")
+            if team_id is None:
+                continue
+
+            records_by_week[week].append({
+                "external_roster_id": f"{espn_league_id}:{season}:{team_id}",
+                "matchup_id": matchup_id,
+                "points": side.get("totalPoints") if is_final else None,
+                "is_final": is_final,
+            })
+
+    imported = 0
+    with transaction.atomic():
+        for week, records in sorted(records_by_week.items()):
+            imported += _save_week(
+                league,
+                UserLeagueConnection.PLATFORM_ESPN,
+                league.season,
+                week,
+                records,
+            )
+
+    return imported
+
+
 def sync_connection_matchups(connection, current_week, start_week=1, end_week=18):
     """Sync the schedule/results for one already-connected platform league."""
     options = {
@@ -183,4 +295,6 @@ def sync_connection_matchups(connection, current_week, start_week=1, end_week=18
             connection.user,
             **options,
         )
+    if connection.platform == UserLeagueConnection.PLATFORM_ESPN:
+        return sync_espn_matchups(connection, **options)
     raise ValueError(f"Schedule sync is not supported for {connection.platform}.")

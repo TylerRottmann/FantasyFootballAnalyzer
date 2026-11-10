@@ -13,6 +13,7 @@ from leagues.models import (
 )
 from leagues.services.kicker_scoring import league_projection, league_defense_projection
 from leagues.services.power_rankings import REGULAR_SEASON_WEEKS
+from leagues.services.roster_identity import resolve_connection_roster
 from scripts.commands.lineup import get_projection
 
 
@@ -25,13 +26,16 @@ EXACT_CANDIDATE_FALLBACK_LIMIT = 100
 PACKAGE_SHORTLIST_LIMIT = 60
 
 
-def build_trade_universe(league, user, current_week):
+def build_trade_universe(league, user, current_week, *, connection=None):
     """Load all league rosters and saved projections once for a trade request."""
-    connection = UserLeagueConnection.objects.filter(
-        user=user, league=league,
-    ).only("external_user_id", "platform").first()
+    if connection is None:
+        connection = UserLeagueConnection.objects.filter(
+            user=user, league=league,
+        ).only("external_user_id", "platform", "league_id").first()
     if connection is None:
         raise ValueError("You are not connected to this league.")
+    if connection.league_id != league.id:
+        raise ValueError("The selected connection belongs to another league.")
 
     rosters = list(
         FantasyRoster.objects.filter(league=league)
@@ -185,12 +189,16 @@ def build_trade_universe(league, user, current_week):
                 state["baseline_position_points"][asset["position"]] += get_projection({"prediction": prediction})
         state["position_extremes"] = _position_extremes(state)
 
-    user_roster = next((
-        state for state in states.values()
-        if connection.external_user_id
-        and str(state["roster"].owner_sleeper_id) == str(connection.external_user_id)
-    ), None)
-    if user_roster is None:
+    connected_roster = resolve_connection_roster(connection)
+    user_roster = (
+        states.get(connected_roster.id)
+        if connected_roster is not None
+        else None
+    )
+    if (
+        user_roster is None
+        and connection.platform == UserLeagueConnection.PLATFORM_SLEEPER
+    ):
         user_roster = next((
             state for state in states.values()
             if state["roster"].owner_name

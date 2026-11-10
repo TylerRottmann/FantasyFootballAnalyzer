@@ -51,6 +51,8 @@ class WaiverWireTests(TestCase):
         cls.league_b = FantasyLeague.objects.create(sleeper_league_id='B', name='League B',
             season=2026, created_at=now, updated_at=now + timezone.timedelta(seconds=1))
         for league in (cls.league_a, cls.league_b):
+            league.scoring_settings = {"schema_version": 1, "source": "reference", "rules": {"pass_yd": 0.04, "pass_td": 4, "pass_int": -2, "rush_yd": 0.1, "rush_td": 6, "rec": 1, "rec_yd": 0.1, "rec_td": 6, "fum_lost": -2}}
+            league.save(update_fields=["scoring_settings"])
             UserLeagueConnection.objects.create(user=cls.user, league=league, platform='sleeper')
         cls.roster_a = FantasyRoster.objects.create(league=cls.league_a, sleeper_roster_id=1,
             created_at=now, updated_at=now)
@@ -187,7 +189,7 @@ class WaiverWireTests(TestCase):
 
     def save_projection(self, player, week, points, **kwargs):
         return FantasyProjection.objects.create(player_id=player.pk, season=2026,
-            week=week, projected_fantasy_points=points, **kwargs)
+            week=week, projected_fantasy_points=points, model_version=kwargs.pop('model_version', 'v2_stat'), **kwargs)
 
     def test_saved_forecast_and_complete_remaining_season(self):
         self.save_projection(self.available, 6, 999, status='ml_model')

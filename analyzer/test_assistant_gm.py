@@ -154,3 +154,162 @@ class LineupWarningTests(SimpleTestCase):
     def test_healthy_starter_no_warning(self):
         item = _item(1, "Cook", "RB", 14.2)
         self.assertEqual(gm._lineup_warnings([{"slot": "RB", "item": item}], gm.ChatContext()), [])
+
+
+class ESPNConnectionSwitchTests(SimpleTestCase):
+    def test_switching_espn_teams_resets_chat_state(self):
+        league = SimpleNamespace(pk=9)
+        cream_city = SimpleNamespace(pk=14, league=league)
+        bad_girly = SimpleNamespace(pk=15, league=league)
+
+        old_state = {
+            "last_question": "compare Player A and Player B",
+            "topic": "compare",
+            "players": ["Player A", "Player B"],
+            "week": 9,
+            "league_id": 9,
+            "connection_id": 14,
+        }
+
+        def route(question, user, selected_league, detail=False, connection=None):
+            self.assertEqual(question, "who is my opponent?")
+            self.assertIs(selected_league, league)
+            self.assertIs(connection, bad_girly)
+            return (
+                "Bad Girly matchup",
+                "matchup",
+                [],
+                gm.ChatContext(league=league, connection=connection, week=10),
+            )
+
+        with mock.patch.object(gm, "_route", side_effect=route) as mocked_route:
+            answer, state = gm.answer_with_state(
+                "who is my opponent?",
+                league=league,
+                connection=bad_girly,
+                state=old_state,
+            )
+
+        self.assertEqual(answer, "Bad Girly matchup")
+        self.assertEqual(state["connection_id"], 15)
+        self.assertEqual(state["league_id"], 9)
+        self.assertEqual(state["last_question"], "who is my opponent?")
+        mocked_route.assert_called_once()
+
+class ESPNAssistantGMRosterTests(SimpleTestCase):
+    def test_two_espn_connections_use_different_rosters(self):
+        league = SimpleNamespace(pk=9, season=2026)
+        connections = [
+            SimpleNamespace(pk=14, league_id=9, external_user_id="12345:2026:7"),
+            SimpleNamespace(pk=15, league_id=9, external_user_id="12345:2026:8"),
+        ]
+
+        def make_roster(name):
+            player = SimpleNamespace(
+                id=1, full_name=name, position="QB", team_id=1
+            )
+            entry = SimpleNamespace(
+                player=player, player_id=1, team=None, team_id=None
+            )
+            roster_players = mock.MagicMock()
+            roster_players.select_related.return_value = [entry]
+            return SimpleNamespace(roster_players=roster_players)
+
+        rosters = {
+            "12345:2026:7": make_roster("Cream City QB"),
+            "12345:2026:8": make_roster("Bad Girly QB"),
+        }
+
+        def resolve(connection):
+            return rosters[connection.external_user_id]
+
+        with (
+            mock.patch(
+                "leagues.services.roster_identity.resolve_connection_roster",
+                side_effect=resolve,
+            ) as resolver,
+            mock.patch(
+                "leagues.models.FantasyProjection.objects.select_related"
+            ) as projections,
+            mock.patch(
+                "leagues.models.DefenseProjection.objects.filter"
+            ) as defenses,
+        ):
+            projections.return_value.filter.return_value = []
+            defenses.return_value = []
+
+            names = []
+            for connection in connections:
+                ctx = gm.ChatContext(
+                    league=league,
+                    connection=connection,
+                    season=2026,
+                    week=10,
+                )
+                items = gm._my_roster_items(ctx)
+                names.append(items[0]["player"].full_name)
+
+        self.assertEqual(names, ["Cream City QB", "Bad Girly QB"])
+        self.assertEqual(resolver.call_count, 2)
+
+
+class ESPNAssistantGMMatchupTests(SimpleTestCase):
+    def test_two_espn_teams_have_different_matchups(self):
+        league = SimpleNamespace(pk=9, season=2026)
+        connections = [
+            SimpleNamespace(pk=14, external_user_id="12345:2026:7"),
+            SimpleNamespace(pk=15, external_user_id="12345:2026:8"),
+        ]
+        rosters = {
+            "12345:2026:7": SimpleNamespace(id=80),
+            "12345:2026:8": SimpleNamespace(id=81),
+        }
+        opponents = {
+            80: SimpleNamespace(id=90, owner_name="Opponent A"),
+            81: SimpleNamespace(id=91, owner_name="Opponent B"),
+        }
+        points = {80: 120, 81: 135, 90: 110, 91: 140}
+
+        def matchup_filter(**kwargs):
+            roster = kwargs["roster"]
+            result = mock.MagicMock()
+            result.select_related.return_value.first.return_value = (
+                SimpleNamespace(opponent=opponents[roster.id])
+            )
+            return result
+
+        def projection_filter(**kwargs):
+            result = mock.MagicMock()
+            result.order_by.return_value.first.return_value = (
+                SimpleNamespace(projected_points=points[kwargs["roster"].id])
+            )
+            return result
+
+        with (
+            mock.patch(
+                "leagues.services.roster_identity.resolve_connection_roster",
+                side_effect=lambda c: rosters[c.external_user_id],
+            ),
+            mock.patch(
+                "leagues.models.FantasyMatchup.objects.filter",
+                side_effect=matchup_filter,
+            ) as matchups,
+            mock.patch(
+                "leagues.models.TeamWeekProjection.objects.filter",
+                side_effect=projection_filter,
+            ),
+        ):
+            answers = [
+                gm._answer_matchup(
+                    gm.ChatContext(
+                        league=league, connection=c, season=2026, week=10
+                    )
+                )
+                for c in connections
+            ]
+
+        self.assertIn("Opponent A", answers[0])
+        self.assertIn("120.0", answers[0])
+        self.assertIn("Opponent B", answers[1])
+        self.assertIn("135.0", answers[1])
+        self.assertEqual(matchups.call_count, 2)

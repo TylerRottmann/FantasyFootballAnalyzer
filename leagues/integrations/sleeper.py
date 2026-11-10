@@ -486,8 +486,8 @@ class SleeperLeagueService:
         UserLeagueConnection.objects.update_or_create(
             user=user,
             league=league,
+            platform=UserLeagueConnection.PLATFORM_SLEEPER,
             defaults={
-                "platform": UserLeagueConnection.PLATFORM_SLEEPER,
                 "external_user_id": sleeper_user.get("user_id"),
             },
         )

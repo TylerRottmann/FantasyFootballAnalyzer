@@ -8,6 +8,8 @@ class FantasyLeague(models.Model):
     sleeper_league_id = models.CharField(
         max_length=100,
         unique=True,
+        null=True,
+        blank=True,
     )
 
     name = models.CharField(
@@ -49,6 +51,24 @@ class FantasyLeague(models.Model):
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()
 
+    @property
+    def display_name(self):
+        """Return a platform-aware league label without changing stored data."""
+        identities = self.platform_identities.all()
+        espn_identity = next(
+            (identity for identity in identities if identity.platform == "espn"),
+            None,
+        )
+
+        if espn_identity is not None:
+            external_id = str(espn_identity.external_id or "").strip()
+            league_id = external_id.split(":", 1)[0].strip()
+
+            if league_id:
+                return f"ESPN League #{league_id}"
+
+        return self.name
+
     class Meta:
         managed = False
         db_table = "fantasy_leagues"
@@ -65,7 +85,10 @@ class FantasyRoster(models.Model):
     )
 
     # Existing Sprint 1 field.
-    sleeper_roster_id = models.IntegerField()
+    sleeper_roster_id = models.IntegerField(
+        null=True,
+        blank=True,
+    )
 
     # Existing Sprint 1 field.
     owner_sleeper_id = models.CharField(
@@ -94,7 +117,8 @@ class FantasyRoster(models.Model):
 class Player(models.Model):
     id = models.BigAutoField(primary_key=True)
 
-    sleeper_id = models.CharField(max_length=100, unique=True)
+    sleeper_id = models.CharField(max_length=100, unique=True, null=True,
+    blank=True,)
 
     first_name = models.CharField(
         max_length=255,
@@ -261,12 +285,27 @@ class UserLeagueConnection(models.Model):
         blank=True,
     )
 
+    espn_credentials_encrypted = models.TextField(
+        null=True,
+        blank=True,
+        editable=False,
+    )
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
+                fields=["user", "league", "external_user_id"],
+                condition=models.Q(
+                    platform="espn",
+                    external_user_id__isnull=False,
+                ),
+                name="unique_user_espn_team_connection",
+            ),
+            models.UniqueConstraint(
                 fields=["user", "league"],
-                name="unique_user_league_connection",
-            )
+                condition=~models.Q(platform="espn"),
+                name="unique_user_non_espn_league_connection",
+            ),
         ]
 
     def __str__(self):

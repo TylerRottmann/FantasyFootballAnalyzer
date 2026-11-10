@@ -27,7 +27,10 @@ def game(week, **changes):
 def team(week, tid=10, oid=20, **changes):
     return {'week': week, 'team_id': tid, 'opponent_team_id': oid, 'is_home': True,
             'points_for': 24, 'total_yards': 350, 'kicking_points_for': 9,
-            'points_against': 20, 'total_yards_against': 300, 'kicking_points_against': 6, **changes}
+            'points_against': 20, 'total_yards_against': 300, 'kicking_points_against': 6,
+             'offensive_plays': None, 'offensive_dropbacks': None,
+             'red_zone_trips': None, 'passing_yards': None,
+             'rushing_yards': None, **changes}
 
 def snapshot(games=None, teams=None, schedules=None, season=2025):
     return KSeasonData(season, games if games is not None else [game(1),game(2)],

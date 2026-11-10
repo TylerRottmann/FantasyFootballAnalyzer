@@ -41,7 +41,7 @@ def get_te_history(player_id, season, week):
         5 fantasy_points_ppr
         6 team_targets
 
-        
+
     team_targets is the total targets thrown to the receiver's whole
     team in that game, used to compute target share. It is built by
     summing targets for every player whose opponent_team matches this

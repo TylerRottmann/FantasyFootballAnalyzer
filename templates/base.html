@@ -54,7 +54,7 @@
                     </span>
 
                     <span class="league-selector-name">
-                        {{ active_league.name }}
+                        {{ active_team_name }}
                     </span>
 
                     <span class="league-selector-arrow">
@@ -69,8 +69,8 @@
                     {% for connection in connected_leagues %}
 
                         <a
-                            href="{% url 'select_league' connection.league.id %}"
-                            class="league-option {% if connection.league.id == active_league.id %}active{% endif %}"
+                            href="{% url 'select_league_connection' connection.id %}"
+                            class="league-option {% if connection.id == active_connection.id %}active{% endif %}"
                         >
 
                             <span class="league-option-icon">
@@ -80,7 +80,7 @@
                             <span class="league-option-info">
 
                                 <span class="league-option-name">
-                                    {{ connection.league.name }}
+                                    {{ connection.display_team_name }}
                                 </span>
 
                                 <span class="league-option-meta">
@@ -91,7 +91,7 @@
 
                             </span>
 
-                            {% if connection.league.id == active_league.id %}
+                            {% if connection.id == active_connection.id %}
 
                                 <span class="league-option-check">
                                     ✓

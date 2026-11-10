@@ -19,6 +19,7 @@ from leagues.models import (
     UserLeagueConnection,
 )
 from leagues.services.kicker_scoring import league_projection, league_defense_projection
+from scripts.commands.lineup import get_projection
 from scripts.commands.nflweek import get_current_nfl_week
 
 from .trade_generator import (
@@ -85,12 +86,15 @@ def trade_suggestions(request):
         filters = _suggestion_filters(request)
         filter_key = hashlib.md5(request.GET.urlencode().encode("utf-8")).hexdigest()
         cache_key = (
-            f"trade_suggestions_v22:{connection.league_id}:{request.user.id}:"
-            f"{connection.league.season}:{current_week}:{filter_key}"
+            f"trade_suggestions_v23:{connection.league_id}:{request.user.id}:"
+            f"{connection.id}:{connection.league.season}:{current_week}:{filter_key}"
         )
         payload = cache.get(cache_key)
         if payload is None:
-            universe = build_trade_universe(connection.league, request.user, current_week)
+            universe = build_trade_universe(
+            connection.league, request.user, current_week,
+            connection=connection,
+        )
             payload = {
                 "league": connection.league.name,
                 "current_week": current_week,
@@ -166,17 +170,17 @@ def trade_player_search(request):
     player_points = {}
     for projection in player_projections:
         scored = league_projection(projection, connection.league)
-        if scored.projected_fantasy_points is not None:
-            player_points[projection.player_id] = player_points.get(projection.player_id, 0.0) + float(
-                scored.projected_fantasy_points
-            )
+        points = get_projection({"prediction": scored})
+        player_points[projection.player_id] = (
+            player_points.get(projection.player_id, 0.0) + points
+        )
     defense_points = {}
     for projection in defense_projections:
         scored = league_defense_projection(projection, connection.league)
-        if scored.projected_fantasy_points is not None:
-            defense_points[projection.team_id] = defense_points.get(projection.team_id, 0.0) + float(
-                scored.projected_fantasy_points
-            )
+        points = get_projection({"prediction": scored})
+        defense_points[projection.team_id] = (
+            defense_points.get(projection.team_id, 0.0) + points
+        )
 
     results = []
     for entry in entries:
@@ -222,7 +226,10 @@ def trade_calculate(request):
         if not isinstance(team1_outgoing, list) or not isinstance(team2_outgoing, list):
             raise ValueError("Select players for both teams.")
         current_week = _current_week()
-        universe = build_trade_universe(connection.league, request.user, current_week)
+        universe = build_trade_universe(
+            connection.league, request.user, current_week,
+            connection=connection,
+        )
         team1 = universe["states"].get(team1_roster_id)
         team2 = universe["states"].get(team2_roster_id)
         if team1 is None or team2 is None or team1_roster_id == team2_roster_id:
@@ -243,27 +250,26 @@ def trade_calculate(request):
 
 
 def _active_connection(request):
-    active_league_id = request.session.get("active_league_id")
-    connection = None
-    if active_league_id:
-        connection = UserLeagueConnection.objects.filter(
-            user=request.user,
-            league_id=active_league_id,
-        ).select_related("league").first()
-    if connection is None:
-        connection = UserLeagueConnection.objects.filter(
-            user=request.user,
-        ).select_related("league").order_by("-league__updated_at").first()
-    return connection
+    from leagues.services.active_connection import get_active_connection
+
+    return get_active_connection(request)
 
 
 def _user_roster(connection):
-    rosters = FantasyRoster.objects.filter(league=connection.league)
-    if connection.external_user_id:
-        roster = rosters.filter(owner_sleeper_id=connection.external_user_id).first()
-        if roster:
-            return roster
-    return rosters.filter(owner_name__iexact=connection.user.username).first()
+    from leagues.services.roster_identity import resolve_connection_roster
+
+    roster = resolve_connection_roster(connection)
+    if roster is not None:
+        return roster
+
+    # Preserve the legacy username fallback for Sleeper only.
+    if connection.platform == UserLeagueConnection.PLATFORM_SLEEPER:
+        return FantasyRoster.objects.filter(
+            league=connection.league,
+            owner_name__iexact=connection.user.username,
+        ).first()
+
+    return None
 
 
 def _roster_filter_options(rosters):

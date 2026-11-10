@@ -7,6 +7,12 @@ from .views import yahoo_callback, yahoo_connect
 
 urlpatterns = [
     path(
+        "espn/teams/",
+        views.espn_team_lookup,
+        name="espn_team_lookup",
+    ),
+
+    path(
         "connect/",
         views.connect_league,
         name="connect_league",
@@ -17,7 +23,11 @@ urlpatterns = [
         views.select_league,
         name="select_league",
     ),
-
+    path(
+        "select-connection/<int:connection_id>/",
+         views.select_league_connection,
+         name="select_league_connection",
+    ),
     path(
         "start-sit/",
         views.start_sit,
