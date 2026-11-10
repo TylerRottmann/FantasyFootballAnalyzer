@@ -596,6 +596,21 @@ def start_sit(request):
     projections_available = bool(projection_map)
     projections_required = not projections_available
 
+    # Read precomputed weekly Boom/Bust predictions from Supabase.
+    from leagues.models import BoomBustWeeklyPrediction
+
+    boom_bust_map = {}
+    for saved in (
+        BoomBustWeeklyPrediction.objects
+        .filter(
+            player_id__in=player_ids,
+            season=league.season,
+            week=week,
+        )
+        .order_by("-generated_at", "-id")
+    ):
+        boom_bust_map.setdefault(saved.player_id, saved)
+
     # ---------------------------------------------------------
     # GET TEAM INFORMATION
     # ---------------------------------------------------------
@@ -682,6 +697,7 @@ def start_sit(request):
         # Normal player
         player = roster_player.player
         prediction = projection_map.get(player.id)
+        boom_bust = boom_bust_map.get(player.id)
 
         matchup = matchups.get(player.team_id) if player.team_id else None
 
@@ -689,6 +705,7 @@ def start_sit(request):
             "player": player,
             "roster_player": roster_player,
             "prediction": prediction,
+            "boom_bust": boom_bust,
             "matchup": matchup,
             "matchup_missing_label": "BYE" if player.team_id in bye_team_ids else "Schedule unavailable",
             "team": teams.get(player.team_id),
@@ -1446,7 +1463,40 @@ def team_breakdown(request, league_id, roster_id):
         connection=connection,
         include_defense=include_defense,
     )
+    can_predict_roster = (
+        request.session.get("active_league_id") == league.id
+        and UserLeagueConnection.objects.filter(
+            user=request.user,
+            league=league,
+        ).exists()
+    )
+    if can_predict_roster:
+        from leagues.models import BoomBustWeeklyPrediction
+
+        player_ids = [
+            player["player_id"]
+            for player in breakdown["players"]
+            if player.get("player_id")
+            and player.get("position") in {"QB", "RB", "WR", "TE"}
+        ]
+        saved_predictions = (
+            BoomBustWeeklyPrediction.objects.filter(
+                player_id__in=player_ids,
+                season=league.season,
+                week=current_week,
+            ).order_by("-generated_at", "-id")
+        )
+        prediction_map = {}
+        for prediction in saved_predictions:
+            prediction_map.setdefault(prediction.player_id, prediction)
+
+        for player in breakdown["players"]:
+            player["boom_bust"] = prediction_map.get(player.get("player_id"))
+
     context = {
+        "supported_boom_bust_positions": ("QB", "RB", "WR", "TE"),
+        "boom_bust_v2_enabled": can_predict_roster,
+        "boom_bust_v2_week": current_week,
         "league": league,
         "roster": roster,
         "has_defense_slot": has_defense_slot,

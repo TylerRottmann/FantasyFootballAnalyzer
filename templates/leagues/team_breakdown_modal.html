@@ -115,7 +115,7 @@
                         <thead>
                             <tr>
                                 <th scope="col">Player</th>
-                                <th scope="col">Pos</th>
+                                <th scope="col">Pos</th>{% if boom_bust_v2_enabled %}<th scope="col">Boom/Bust</th>{% endif %}
                                 <th scope="col" aria-sort="none"><button class="roster-sort-button" type="button" data-sort-key="rest-points">Rest-season points <span aria-hidden="true">↕</span></button></th>
                                 <th scope="col" aria-sort="none"><button class="roster-sort-button" type="button" data-sort-key="starter-points">Starter contribution <span aria-hidden="true">↕</span></button></th>
                                 <th scope="col" aria-sort="none"><button class="roster-sort-button" type="button" data-sort-key="bench-points">Bench points <span aria-hidden="true">↕</span></button></th>
@@ -131,13 +131,25 @@
                                     {% if player.team_logo_url %}<img class="team-breakdown-team-logo" src="{{ player.team_logo_url }}" alt="" loading="lazy">{% endif %}
                                 </th>
                                 <td>{{ player.position }}</td>
+                                {% if boom_bust_v2_enabled %}
+                                <td>
+                                    {% if player.player_id and player.position in supported_boom_bust_positions %}
+                                    {% if player.boom_bust %}
+                                    <span>Boom: {% widthratio player.boom_bust.boom_probability 1 100 %}%</span>
+                                    <span>Bust: {% widthratio player.boom_bust.bust_probability 1 100 %}%</span>
+                                    {% else %}
+                                    <span>Not available</span>
+                                    {% endif %}
+                                    {% else %}—{% endif %}
+                                </td>
+                                {% endif %}
                                 <td>{{ player.projected_points|floatformat:1 }}</td>
                                 <td>{{ player.starting_points|floatformat:1 }}</td>
                                 <td>{{ player.bench_points|floatformat:1 }}</td>
                                 <td>{{ player.starts }}</td>
                             </tr>
                             {% empty %}
-                            <tr><td colspan="6" class="team-breakdown-empty">No player projections are available.</td></tr>
+                            <tr><td colspan="{% if boom_bust_v2_enabled %}7{% else %}6{% endif %}" class="team-breakdown-empty">No player projections are available.</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
