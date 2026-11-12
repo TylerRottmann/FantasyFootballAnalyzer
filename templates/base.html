@@ -6,6 +6,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="{% static 'images/favicon.svg' %}?v=1">
 
     <title>
         {% block title %}Roster Radar{% endblock %}
@@ -13,6 +14,7 @@
 
     <link rel="stylesheet" href="{% static 'css/base.css' %}?v=destination-skeleton">
     <link rel="stylesheet" href="{% static 'css/leagues.css' %}">
+    {% if user.is_authenticated %}<link rel="stylesheet" href="{% static 'css/assistant-gm-widget.css' %}?v=1-global-widget">{% endif %}
     <link
     rel="stylesheet"
     href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
@@ -46,7 +48,7 @@
 
         <!-- ==================== LEAGUE SELECTOR ==================== -->
 
-        {% if connected_leagues %}
+        {% if user.is_authenticated and connected_leagues %}
 
             <details class="league-dropdown">
 
@@ -127,7 +129,7 @@
 
             </details>
 
-        {% else %}
+        {% elif user.is_authenticated %}
 
             <!-- No Connected Leagues -->
             <a
@@ -209,6 +211,7 @@
 
     <!-- ==================== MAIN NAVIGATION ==================== -->
 
+    {% if user.is_authenticated %}
     <nav class="main-nav" aria-label="Main navigation">
 
         <a
@@ -223,13 +226,6 @@
             class="nav-link {% if request.resolver_match.url_name == 'market_short_term' or request.resolver_match.url_name == 'market_long_term' or request.resolver_match.url_name == 'market' %}active{% endif %}"
         >
             <i class="bi bi-shop" aria-hidden="true"></i> Market
-        </a>
-
-        <a
-            href="{% url 'standalone_adp_rankings' %}" data-loading-view="adp"
-            class="nav-link {% if request.resolver_match.url_name == 'standalone_adp_rankings' %}active{% endif %}"
-        >
-            <i class="bi bi-graph-up" aria-hidden="true"></i> ADP
         </a>
 
         <a
@@ -253,14 +249,8 @@
             <i class="bi bi-bar-chart" aria-hidden="true"></i> League Power Rankings
         </a>
 
-        <a
-            href="{% url 'assistant_gm' %}" data-skip-page-loader
-            class="nav-link {% if request.resolver_match.url_name == 'assistant_gm' %}active{% endif %}"
-        >
-            <i class="bi bi-chat-square-text" aria-hidden="true"></i> Assistant GM
-        </a>
-
     </nav>
+    {% endif %}
 
 
     <!-- ==================== PAGE CONTENT ==================== -->
@@ -272,6 +262,10 @@
         {% endblock %}
 
     </main>
+
+    {% if user.is_authenticated %}
+        {% include "partials/assistant_gm_widget.html" %}
+    {% endif %}
 
     <div class="page-loading" hidden>
         <div class="page-loading-inner">
@@ -297,6 +291,7 @@
         <div class="player-card-shell"><button type="button" class="player-card-close" data-player-card-close aria-label="Close player overview">×</button><div data-player-card-content></div></div>
     </dialog>
     <script src="{% static 'js/player-card.js' %}?v=20261104-2" defer></script>
+    {% if user.is_authenticated %}<script src="{% static 'js/assistant-gm-widget.js' %}?v=1-global-widget" defer></script>{% endif %}
     <script src="{% static 'js/page-loading.js' %}?v=nav-exclusions" defer></script>
 </body>
 

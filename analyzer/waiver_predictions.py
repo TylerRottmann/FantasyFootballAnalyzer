@@ -1,5 +1,5 @@
 """Read saved model forecasts without generating predictions during page requests."""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from math import isfinite
 
 from leagues.models import FantasyProjection, Player
@@ -13,6 +13,7 @@ from leagues.services.player_availability import (
 class WaiverPrediction:
     this_week: float | None = None
     rest_of_season: float | None = None
+    weekly: dict[int, float | None] = field(default_factory=dict, compare=False)
 
 
 class WaiverForecasts(dict):
@@ -72,4 +73,5 @@ def predict_waiver_player(player, league, week, forecasts):
     return WaiverPrediction(
         this_week=forecasts.get((player.pk, week)),
         rest_of_season=sum(remaining) if not season_total_unavailable and all(v is not None for v in remaining) else None,
+        weekly={w: forecasts.get((player.pk, w)) for w in range(week, 19)},
     )

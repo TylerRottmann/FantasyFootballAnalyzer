@@ -711,14 +711,6 @@ body {
 }
 
 .page-loading[data-view="lineup"] .page-loading-filters,
-.page-loading[data-view="adp"] .page-loading-side {
-    display: none;
-}
-
-.page-loading[data-view="adp"] .page-loading-frames {
-    grid-template-columns: minmax(0, 1fr);
-}
-
 .page-loading[data-view="waivers"] .page-loading-frames {
     grid-template-columns: minmax(0, 1fr) 430px;
     grid-template-areas: "filters side" "list side";
@@ -787,10 +779,6 @@ body {
         linear-gradient(90deg, #191b20 25%, transparent 72%, #191b2055),
         var(--radar-hero-artwork, url("../images/lineup-field.svg?v=2")) left 36% center / min(62%, 690px) auto no-repeat,
         #181a20;
-}
-
-.radar-hero--adp {
-    --radar-hero-artwork: url("../images/draft-board.svg");
 }
 
 .radar-hero--waivers {

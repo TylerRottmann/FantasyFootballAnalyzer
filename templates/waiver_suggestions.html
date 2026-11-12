@@ -13,8 +13,13 @@
                     <span class="waiver-move-meta">{{ move.pickup.player.position }} · {{ move.pickup.player.team.abbreviation|default:"—" }} {% injury_badge move.pickup.player %}</span>
                 </div>
                 <div class="waiver-move-points">
-                    {% if move.pickup.prediction.rest_of_season is not None %}<strong>{{ move.pickup.prediction.rest_of_season|floatformat:1 }}</strong>{% else %}<strong aria-label="Rest-of-season prediction unavailable">&mdash;</strong>{% endif %}
-                    <span>Rest of season</span>
+                    {% if move.horizon == 'short' %}
+                        {% if move.pickup.prediction.this_week is not None %}<strong>{{ move.pickup.prediction.this_week|floatformat:1 }}</strong>{% else %}<strong aria-label="Weekly prediction unavailable">&mdash;</strong>{% endif %}
+                        <span>Week {{ projection_week }}</span>
+                    {% else %}
+                        {% if move.pickup.prediction.rest_of_season is not None %}<strong>{{ move.pickup.prediction.rest_of_season|floatformat:1 }}</strong>{% else %}<strong aria-label="Rest-of-season prediction unavailable">&mdash;</strong>{% endif %}
+                        <span>Rest of season</span>
+                    {% endif %}
                 </div>
             </div>
             <div class="waiver-drop">
@@ -28,13 +33,18 @@
                         <span class="waiver-move-meta">{{ move.drop.player.position }} · {{ move.drop.player.team.abbreviation|default:"—" }}</span>
                     </div>
                     <div class="waiver-move-points">
-                        {% if move.drop.prediction.rest_of_season is not None %}<strong>{{ move.drop.prediction.rest_of_season|floatformat:1 }}</strong>{% else %}<strong aria-label="Rest-of-season prediction unavailable">&mdash;</strong>{% endif %}
-                        <span>Rest of season</span>
+                        {% if move.horizon == 'short' %}
+                            {% if move.drop.prediction.this_week is not None %}<strong>{{ move.drop.prediction.this_week|floatformat:1 }}</strong>{% else %}<strong aria-label="Weekly prediction unavailable">&mdash;</strong>{% endif %}
+                            <span>Week {{ projection_week }}</span>
+                        {% else %}
+                            {% if move.drop.prediction.rest_of_season is not None %}<strong>{{ move.drop.prediction.rest_of_season|floatformat:1 }}</strong>{% else %}<strong aria-label="Rest-of-season prediction unavailable">&mdash;</strong>{% endif %}
+                            <span>Rest of season</span>
+                        {% endif %}
                     </div>
                 </div>
             </div>
             <p>{{ move.message }}</p>
-            {% if move.horizon == 'short' %}<div class="waiver-move-gain">+{{ move.gain|floatformat:1 }} <span>projected lineup pts</span></div>{% endif %}
+            {% if move.horizon == 'short' %}<div class="waiver-move-gain">+{{ move.gain|floatformat:1 }} <span>projected lineup pts {{ move.gain_week_label }}</span>{% if move.gain_week_label == 'this week' and move.next_week_gain is not None %}<span> · {{ move.next_week_gain|floatformat:1 }} next week</span>{% endif %}</div>{% endif %}
             {% else %}
             <strong class="waiver-move-empty">{% if filter_form.errors %}Check your filters{% else %}No suggested pickup{% endif %}</strong>
             <p>{{ move.message }}</p>

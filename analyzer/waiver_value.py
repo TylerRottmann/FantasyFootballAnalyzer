@@ -5,7 +5,7 @@ from statistics import mean
 from datetime import timedelta
 from django.core.cache import cache
 from django.utils import timezone
-from .models import PlayerSnapCount, PlayerInjuryReport, PlayerWeeklyStats
+from .models import Players, PlayerSnapCount, PlayerInjuryReport, PlayerWeeklyStats
 from .injury_outlooks import season_ending_player_ids
 from leagues.services.player_availability import BLOCKED, normalize_status
 
@@ -26,13 +26,13 @@ class PlayerValue:
 
     @property
     def short_label(self):
-        return {'long': 'Growing role', 'short': 'Growing role', 'declining': 'Losing work',
+        return {'long': 'Rising value', 'short': 'Rising value', 'declining': 'Fading value',
                 'neutral': 'Steady role', 'uneven': 'Uneven usage', 'unknown': 'Still evaluating'}[self.category]
 
     @property
     def short_reason(self):
-        return {'long': 'Earning a bigger role.', 'short': 'Could be filling in for an injured teammate.',
-                'declining': 'Getting less playing time and fewer opportunities.', 'neutral': 'No clear change in role yet.',
+        return {'long': 'Playing time and workload are rising.', 'short': 'Usage is rising while a regular is unavailable.',
+                'declining': 'Playing time, catches, or opportunities are declining.', 'neutral': 'No clear change in role yet.',
                 'uneven': 'Playing time and opportunities vary from week to week.',
                 'unknown': 'We need more recent information to judge this player.'}[self.category]
 
@@ -52,11 +52,23 @@ def _classify_trend(games, *, injured_ahead=False, healthy_context=False, compet
     snaps = mean(g['share'] for g in recent) - mean(g['share'] for g in old)
     workload = mean(g['opportunities'] for g in recent) - mean(g['opportunities'] for g in old)
     baseline = mean(g['opportunities'] for g in old)
+    old_catches = [g.get('receptions') for g in old if g.get('receptions') is not None]
+    recent_catches = [g.get('receptions') for g in recent if g.get('receptions') is not None]
+    catches_change = mean(recent_catches) - mean(old_catches) if old_catches and recent_catches else None
+    catches_threshold = max(1, mean(old_catches) * 0.2) if old_catches else None
     threshold = max(1, baseline * 0.2)
     # Both recent games should support the trend; allow ordinary game-to-game noise.
-    rising = snaps >= 0.05 and workload >= threshold and min(g['opportunities'] for g in recent) >= baseline * 0.75
-    falling = snaps <= -0.05 and workload <= -threshold and max(g['opportunities'] for g in recent) <= baseline * 1.25
+    rising_workload = workload >= threshold
+    falling_workload = workload <= -threshold
+    rising_catches = catches_change is not None and catches_threshold is not None and catches_change >= catches_threshold
+    falling_catches = catches_change is not None and catches_threshold is not None and catches_change <= -catches_threshold
+    rising = (snaps >= 0.05 and (rising_workload or rising_catches)
+        and min(g['opportunities'] for g in recent) >= baseline * 0.75)
+    falling = (snaps <= -0.05 and (falling_workload or falling_catches)
+        and max(g['opportunities'] for g in recent) <= baseline * 1.25)
     change = f'Snap share {snaps * 100:+.0f} percentage points; workload {workload:+.1f} per game (last two vs prior {len(old)}).'
+    if catches_change is not None:
+        change += f' Catches {catches_change:+.1f} per game.'
     if rising and injured_ahead:
         return PlayerValue('short', 'Short-term opportunity', change + ' A player ahead on the depth chart is unavailable; this may be temporary.', 1.05, snaps, workload)
     if rising:
@@ -76,7 +88,8 @@ def _classify_trend(games, *, injured_ahead=False, healthy_context=False, compet
     return PlayerValue('neutral', 'No clear value signal', change + ' The evidence does not establish a lasting gain or loss.', 1.0, snaps, workload)
 
 
-def classify_value(games, *, injured_ahead=False, healthy_context=False, competitor_growing=False, position='WR'):
+def classify_value(games, *, injured_ahead=False, healthy_context=False, competitor_growing=False,
+                   position='WR', player_unavailable=False):
     trend = _classify_trend(games, injured_ahead=injured_ahead,
         healthy_context=healthy_context, competitor_growing=competitor_growing)
     valid = [g for g in games[-6:] if g.get('share') is not None and g.get('opportunities') is not None]
@@ -84,20 +97,29 @@ def classify_value(games, *, injured_ahead=False, healthy_context=False, competi
         return trend
     recent = valid[-2:]
     meaningful = mean(g['opportunities'] for g in recent) >= 2 and mean(g['share'] for g in recent) >= .25
+    if player_unavailable:
+        return replace(trend, reason=trend.reason + ' Current status indicates the player is unavailable.')
     # Duration is separate from direction: a replacement can be steady or rising.
     if injured_ahead and meaningful:
         return replace(trend, horizon='short', multiplier=1.05 if trend.category in ('long','short') else trend.multiplier,
             reason=trend.reason + ' Pickup value depends on a regular being absent; it may shrink when he returns.')
     if healthy_context and trend.category == 'declining':
         return replace(trend, horizon='fading')
-    role_floor = {'RB': 8, 'WR': 4, 'TE': 3}.get(position)
+    role_floor = {'QB': 15, 'RB': 8, 'WR': 4, 'TE': 3}.get(position)
     established = (role_floor is not None and len(valid) >= 4
         and mean(g['share'] for g in valid[-3:]) >= .50
         and mean(g['opportunities'] for g in valid[-3:]) >= role_floor
         and min(g['opportunities'] for g in valid[-3:]) >= role_floor * .5)
     if healthy_context and (trend.category == 'long' or established) and trend.category != 'declining':
         return replace(trend, horizon='long')
-    # Missing injury context cannot establish that a growing role will last.
+    # Persistent workload is still useful evidence when a fresh injury/depth
+    # report is missing. Keep the role tag, but avoid the confidence multiplier.
+    if not healthy_context and not injured_ahead and trend.category == 'long':
+        return replace(trend, horizon='long', multiplier=1.0,
+            reason=trend.reason + ' Recent usage supports the role; current injury context is incomplete.')
+    if not healthy_context and not injured_ahead and established and trend.category != 'declining':
+        return replace(trend, horizon='long', multiplier=1.0,
+            reason=trend.reason + ' Recent workload supports an established role; current injury context is incomplete.')
     return replace(trend, multiplier=1.0 if trend.category in ('long','short') else trend.multiplier)
 
 
@@ -167,11 +189,14 @@ def quarterback_injury_dependency(report, teammates, histories, season_ending_id
 
 
 def load_player_values(season, week):
-    key = f'player-values:{season}:{week}'
+    key = f'player-values:v4:{season}:{week}'
     cached = cache.get(key)
     if cached is not None:
         return cached
     snaps = list(PlayerSnapCount.objects.filter(season=season, week__lt=week, week__gte=max(1, week-8)).order_by('week'))
+    player_positions = dict(Players.objects.filter(
+        pk__in={snap.player_id for snap in snaps}
+    ).values_list('pk', 'position'))
     reports = list(PlayerInjuryReport.objects.filter(season=season, week__lte=week, week__gte=max(1, week-5)))
     by_report = {(r.player_id, r.week): r for r in reports}
     cutoff = timezone.now() - timedelta(days=7)
@@ -185,10 +210,12 @@ def load_player_values(season, week):
             continue
         stat = stats.get((snap.player_id, snap.week))
         # Zero offensive snaps are not proof of an injury; missing stats remain unknown.
-        is_qb = current.get(snap.player_id) and current[snap.player_id].position == 'QB'
+        is_qb = player_positions.get(snap.player_id) == 'QB'
         workload = (stat.attempts if is_qb else stat.targets) if stat else None
         opportunities = None if stat is None or workload is None or stat.carries is None else workload + stat.carries
-        histories[snap.player_id].append({'week': snap.week, 'share': snap.offense_share, 'opportunities': opportunities, 'team_id': snap.team_id})
+        histories[snap.player_id].append({'week': snap.week, 'share': snap.offense_share,
+            'opportunities': opportunities, 'receptions': stat.receptions if stat else None,
+            'team_id': snap.team_id})
         teams[snap.player_id] = snap.team_id
     season_ending_ids = season_ending_player_ids(season, week)
     current_by_team_position = defaultdict(list)
@@ -199,7 +226,7 @@ def load_player_values(season, week):
     for player_id, games in histories.items():
         games = [g for g in games if g['team_id'] == teams[player_id]]
         report = current.get(player_id)
-        if report and report.position == 'QB':
+        if report and report.position == 'QB' and report.team_id and report.depth_order:
             teammates = [r for r in current_by_team_position[report.team_id, 'QB'] if r.player_id != player_id]
             dependency = quarterback_injury_dependency(report, teammates, histories, season_ending_ids, prior_starter_ids)
             results[player_id] = classify_quarterback_value(report, teammates, season_ending_ids, injury_dependency=dependency)
@@ -213,8 +240,18 @@ def load_player_values(season, week):
         # historical injury captures do not hide an observable workload trend.
         healthy = bool(report and report.depth_order and teammates and not injured_ahead
             and not ({normalize_status(report.injury_status), normalize_status(report.roster_status)} & BLOCKED))
-        competitor = any(classify_value(histories.get(r.player_id, []), healthy_context=True).category == 'long' for r in teammates)
-        results[player_id] = classify_value(games, injured_ahead=injured_ahead, healthy_context=healthy, competitor_growing=competitor, position=report.position if report else '')
+        competitor = any(classify_value(
+            histories.get(r.player_id, []), healthy_context=True, position=r.position
+        ).category == 'long' for r in teammates)
+        own_status = {normalize_status(report.injury_status), normalize_status(report.roster_status)} if report else set()
+        results[player_id] = classify_value(
+            games,
+            injured_ahead=injured_ahead,
+            healthy_context=healthy,
+            competitor_growing=competitor,
+            position=report.position if report else player_positions.get(player_id, ''),
+            player_unavailable=bool(own_status & BLOCKED),
+        )
     for report in current.values():
         if report.position == 'QB' and report.player_id not in results:
             teammates = [r for r in current_by_team_position[report.team_id, 'QB'] if r.player_id != report.player_id]

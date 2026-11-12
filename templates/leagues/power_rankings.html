@@ -4,14 +4,15 @@
 {% block title %}Power Rankings | {{ league.display_name }}{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/power-rankings.css' %}">
+<link rel="stylesheet" href="{% static 'css/power-rankings.css' %}?v=7-team-matchup-bg-position">
 <link rel="stylesheet" href="{% static 'css/team-breakdown-modal.css' %}">
 {% endblock %}
 
 {% block content %}
 <main class="power-page">
-    <header class="power-header">
-        <div>
+    <header class="power-hero">
+      <div class="power-header">
+        <div class="power-heading">
             <p class="eyebrow">{{ league.season }} SEASON</p>
             <h1>League Power Rankings</h1>
             <p class="subheading">Rest-of-season outlook for <strong>{{ league.display_name }}</strong></p>
@@ -32,6 +33,7 @@
                 </button>
             </form>
         </div>
+      </div>
     </header>
 
     <p id="schedule-sync-status" class="power-message" role="status" aria-live="polite" hidden></p>
@@ -72,7 +74,7 @@
                 </thead>
                 <tbody>
                     {% for team in rankings %}
-                    <tr class="{% if playoff_info %}{% if forloop.counter <= playoff_info.first_round_byes %}playoff-bye-row{% elif forloop.counter <= playoff_info.playoff_teams %}playoff-team-row{% endif %}{% endif %}{% if team.is_user_team %} user-team-row{% endif %}">
+                    <tr class="{% if playoff_info %}{% if forloop.counter <= playoff_info.first_round_byes %}playoff-bye-row{% elif forloop.counter <= playoff_info.playoff_teams %}playoff-team-row{% endif %}{% if forloop.counter == playoff_info.first_round_byes %}bye-cutoff-row{% endif %}{% if forloop.counter == playoff_info.playoff_teams %}playoff-cutoff-row{% endif %}{% endif %}{% if team.is_user_team %} user-team-row{% endif %}">
                         <td class="rank-cell">{{ forloop.counter }}</td>
                         <th scope="row" class="team-cell">
                             <a class="js-team-breakdown" aria-haspopup="dialog" href="{% url 'team_breakdown' league_id=league.id roster_id=team.roster_id %}?include_defense={% if include_defense %}1{% else %}0{% endif %}">{{ team.team_name }}</a>
@@ -123,14 +125,11 @@
             </label>
         </div>
 
+        <div class="chart-legend"><span class="chart-average-key"><i aria-hidden="true"></i>League average: <strong id="chart-league-average">—</strong> pts / week</span></div>
         <div class="chart-scroll">
             <div class="position-chart" aria-label="Average projected points per week by team">
-                <div class="chart-axis-title">Average points per week</div>
-                <div class="chart-y-axis" id="chart-y-axis" aria-hidden="true"></div>
-                <div class="chart-main">
-                    <div class="chart-plot" id="position-chart-plot"></div>
-                    <div class="chart-x-axis-title">Team</div>
-                </div>
+                <div class="chart-column-headings" aria-hidden="true"><span>Rank</span><span>Team</span><span>Average points per week</span><span>Points</span></div>
+                <div class="chart-plot" id="position-chart-plot"></div>
             </div>
         </div>
 
@@ -161,7 +160,7 @@ document.getElementById("include-defense-toggle").addEventListener("change", eve
     const data = JSON.parse(document.getElementById("position-chart-data").textContent);
     const select = document.getElementById("position-select");
     const plot = document.getElementById("position-chart-plot");
-    const yAxis = document.getElementById("chart-y-axis");
+    const averageLabel = document.getElementById("chart-league-average");
     const syncForm = document.getElementById("schedule-sync-form");
     const syncButton = syncForm.querySelector("button[type='submit']");
     const syncStatus = document.getElementById("schedule-sync-status");
@@ -171,51 +170,44 @@ document.getElementById("include-defense-toggle").addEventListener("change", eve
             const pointsDifference = (Number(b.average) || 0) - (Number(a.average) || 0);
             return pointsDifference || a.team.localeCompare(b.team);
         });
-        const maximum = Math.max(1, ...teams.map(team => Number(team.average) || 0));
+        const values = teams.map(team => Number(team.average) || 0);
+        const maximum = Math.max(1, ...values);
+        const leagueAverage = values.length ? values.reduce((total, value) => total + value, 0) / values.length : 0;
         const axisMax = Math.ceil(maximum / 5) * 5 || 5;
-        plot.style.minWidth = `${Math.max(620, teams.length * 82)}px`;
+        plot.style.setProperty("--league-average-position", `${leagueAverage / axisMax * 100}%`);
         plot.replaceChildren();
-        yAxis.replaceChildren();
-
-        for (let tick = 0; tick <= 4; tick += 1) {
-            const value = axisMax * tick / 4;
-            const label = document.createElement("span");
-            label.textContent = value.toFixed(value % 1 ? 1 : 0);
-            yAxis.appendChild(label);
-        }
+        averageLabel.textContent = leagueAverage.toFixed(1);
 
         teams.forEach((team, index) => {
             const average = Number(team.average) || 0;
-            const column = document.createElement("div");
-            column.className = `chart-column${team.is_user_team ? " chart-user-team" : ""}`;
+            const row = document.createElement("div");
+            row.className = `chart-row${team.is_user_team ? " chart-user-team" : ""}`;
 
-            const value = document.createElement("span");
-            value.className = "chart-value";
-            value.textContent = average.toFixed(1);
-
-            const track = document.createElement("div");
-            track.className = "chart-bar-track";
-            const bar = document.createElement("span");
-            bar.className = "chart-bar";
-            bar.style.height = `${Math.max(average > 0 ? 1 : 0, average / axisMax * 100)}%`;
-            track.appendChild(bar);
-
-            const label = document.createElement("div");
-            label.className = "chart-team-label";
+            const rank = document.createElement("span");
+            rank.className = "chart-team-rank";
+            rank.textContent = `#${index + 1}`;
 
             const name = document.createElement("span");
             name.className = "chart-team-name";
             name.textContent = team.team;
             name.title = team.team;
 
-            const rank = document.createElement("span");
-            rank.className = "chart-team-rank";
-            rank.textContent = `#${index + 1}`;
-            rank.setAttribute("aria-label", `Rank ${index + 1}`);
+            const track = document.createElement("div");
+            track.className = "chart-bar-track";
+            track.setAttribute("role", "img");
+            track.setAttribute("aria-label", `${team.team}: ${average.toFixed(1)} points per week; league average ${leagueAverage.toFixed(1)}`);
+            const averageLine = document.createElement("span");
+            averageLine.className = "chart-average-line";
+            const bar = document.createElement("span");
+            bar.className = "chart-bar";
+            bar.style.width = `${Math.max(average > 0 ? 1 : 0, average / axisMax * 100)}%`;
+            track.append(averageLine, bar);
 
-            label.append(name, rank);
-            column.append(value, track, label);
-            plot.appendChild(column);
+            const value = document.createElement("span");
+            value.className = "chart-value";
+            value.textContent = average.toFixed(1);
+            row.append(rank, name, track, value);
+            plot.appendChild(row);
         });
     }
 

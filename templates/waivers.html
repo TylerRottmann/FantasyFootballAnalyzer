@@ -2,20 +2,69 @@
 {% load player_health %}
 {% load static %}
 {% block title %}Waiver Wire | Roster Radar{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'css/waivers.css' %}?v=radar-artwork">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/waivers.css' %}?v=waiver-pagination-controls-3">{% endblock %}
 {% block content %}
 <section class="waiver-page radar-workspace">
     <header class="radar-hero radar-hero--waivers">
-        <div>
-            <h1>Waiver Wire</h1>
+        <div class="waiver-hero-top">
+            <div class="waiver-heading">
+                <div class="waiver-title-row">
+                    <h1>Waiver Wire</h1>
+                    <details class="waiver-help waiver-help--header"><summary>How it works</summary>
+                        <div class="waiver-help-panel">
+                        <ul>
+                            <li><strong>Long-term pickup:</strong> With at least four forecast weeks available, the add/drop adds at least 2 projected lineup points per week on average and improves at least 60% of those weeks.</li>
+                            <li><strong>Short-term pickup:</strong> The add/drop improves this week or next week by at least 3 projected lineup points, but does not meet the sustained long-term threshold.</li>
+                            <li><strong>Short-term role:</strong> This player is benefiting from an injured teammate's absence; that workload may shrink when the teammate returns.</li>
+                            <li><strong>No lineup upgrade:</strong> The available projections do not show an improvement over an eligible bench drop.</li>
+                            <li><strong>Rising value:</strong> Recent snaps, targets/carries, or catches are trending up. <strong>Fading value</strong> means those usage signals are trending down.</li>
+                        </ul>
+                        <p>Current-week points include injuries: Out, Doubtful and IR mean 0 points. Questionable means a 20% reduction.</p>
+                        <p>Pickup tags are based on your connected roster and league lineup settings. Role trend filters describe recent usage and are separate from pickup fit. Missing predictions never count as zero when choosing a drop.</p>
+                        <p>A dash means a prediction is unavailable. Season totals are hidden when weeks are missing, an injured player's return is unknown, or a pickup depends on a temporary role. QB, RB, WR and TE points use PPR scoring.</p>
+                        <p>League availability comes from your last sync. Reconnect your league to refresh it.</p>
+                        </div>
+                    </details>
+                </div>
+                {% if active_league %}
+                    <p>Find available players in <strong>{{ active_league.display_name }}</strong>.</p>
+                {% else %}
+                    <p>Find a quick fill-in or a player worth holding.</p>
+                {% endif %}
+            </div>
             {% if active_league %}
-                <p>Find available players in <strong>{{ active_league.display_name }}</strong>.</p>
-            {% else %}
-                <p>Find a quick fill-in or a player worth holding.</p>
+                <form method="post" action="{% url 'resync_league' %}" class="waiver-sync-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit" class="waiver-sync-button" title="Refresh this league from its fantasy platform">
+                        <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+                        Last synced {{ active_league.updated_at|date:"M j, Y" }}
+                    </button>
+                </form>
             {% endif %}
         </div>
-        {% if active_league %}
-            <span class="radar-hero-meta"><i class="bi bi-arrow-repeat" aria-hidden="true"></i> Last synced {{ active_league.updated_at|date:"M j" }}{% if active_league.season %} · {{ active_league.season }}{% endif %}</span>
+        {% if active_league and has_rosters %}
+            <form method="get" class="waiver-filters waiver-header-filters">
+                {% for field in filter_form %}
+                    {% if field.name != 'team' and field.name != 'age_min' and field.name != 'age_max' and field.name != 'trend' %}
+                        <div class="waiver-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>
+                    {% endif %}
+                {% endfor %}
+                <details class="waiver-advanced" {% if filter_form.team.value or filter_form.age_min.value or filter_form.age_max.value or filter_form.trend.value or filter_form.errors %}open{% endif %}>
+                    <summary>More filters</summary>
+                    <div class="waiver-advanced-grid">
+                        {% for field in filter_form %}
+                            {% if field.name == 'team' or field.name == 'age_min' or field.name == 'age_max' or field.name == 'trend' %}
+                                <div class="waiver-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </details>
+                <div class="waiver-filter-actions">
+                    <button type="submit">Apply filters</button>
+                    <a href="{% url 'waiver_wire' %}">Clear filters</a>
+                </div>
+            </form>
         {% endif %}
     </header>
     {% if not active_league %}
@@ -29,42 +78,7 @@
     {% else %}
     <div class="waiver-layout">
     <div class="waiver-controls">
-    <div class="waiver-intro">
-        <p>Find a quick fill-in or a player worth holding.</p>
-        <details class="waiver-help"><summary>How it works</summary>
-            <ul>
-                <li><strong>Long-term:</strong> A useful role for the rest of this season.</li>
-                <li><strong>Short-term:</strong> An opportunity that may shrink when an injured regular returns.</li>
-                <li><strong>Fading value:</strong> A shrinking role lowers the appeal of holding this player.</li>
-                <li><strong>Uneven usage:</strong> Playing time varies from week to week.</li>
-                <li><strong>Unclear:</strong> We need more information about how long the opportunity will last.</li>
-            </ul>
-            <p>Current-week points include injuries: Out, Doubtful and IR mean 0 points. Questionable means a 20% reduction.</p>
-            <p>Long-term moves weigh season projections and roster depth. Short-term moves must improve this week’s lineup. Missing predictions never count as zero when choosing a drop.</p>
-            <p>A dash means a prediction is unavailable. Season totals are hidden when weeks are missing, an injured player's return is unknown, or a pickup depends on a temporary role. QB, RB, WR and TE points use PPR scoring.</p>
-            <p>League availability comes from your last sync. Reconnect your league to refresh it.</p>
-        </details>
-    </div>
     {% if week_unavailable %}<p role="alert">The current NFL week could not be loaded. Choose a week below.</p>{% endif %}
-    <form method="get" class="waiver-filters">
-        {% for field in filter_form %}
-        {% if field.name != 'team' and field.name != 'age_min' and field.name != 'age_max' and field.name != 'trend' %}
-        <div class="waiver-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>
-        {% endif %}
-        {% endfor %}
-        <details class="waiver-advanced" {% if filter_form.team.value or filter_form.age_min.value or filter_form.age_max.value or filter_form.trend.value or filter_form.errors %}open{% endif %}>
-            <summary>More filters</summary>
-            <div class="waiver-advanced-grid">
-                {% for field in filter_form %}
-                {% if field.name == 'team' or field.name == 'age_min' or field.name == 'age_max' or field.name == 'trend' %}
-                <div class="waiver-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>
-                {% endif %}
-                {% endfor %}
-            </div>
-        </details>
-        <div class="waiver-filter-actions"><button type="submit">Apply filters</button>
-            <a href="{% url 'waiver_wire' %}">Clear filters</a></div>
-    </form>
     {% if filter_form.errors %}
     <p role="alert">Please correct the filters above to see matching players.</p>
     {% else %}
@@ -94,7 +108,7 @@
     <div class="waiver-table-container" tabindex="0" role="region" aria-label="Available players">
         <table class="waiver-table">
             <thead><tr><th scope="col">Rank</th><th scope="col">Player</th><th scope="col">Position</th>
-                <th scope="col">NFL team</th><th scope="col">Age</th><th scope="col">Pickup value</th>
+                <th scope="col">NFL team</th><th scope="col">Age</th><th scope="col">Pickup fit &amp; trend</th>
                 <th scope="col">Week {{ projection_week }} <span>(projected pts)</span></th>
                 <th scope="col">Rest of season <span>(projected pts)</span></th></tr></thead>
             <tbody>{% for row in page_obj %}
@@ -119,7 +133,14 @@
                     </div></td>
                     <td>{{ row.player.age|default_if_none:"—" }}</td>
                     <td class="waiver-value">
-                        <span class="value-label value-{{ row.value.horizon }}">{{ row.value.value_label }}</span>
+                        {% if row.suggested_horizon == 'long' %}<span class="value-label value-long">Long-term pickup</span>
+                        {% elif row.suggested_horizon == 'short' %}<span class="value-label value-short">Short-term pickup</span>
+                        {% elif row.suggested_horizon == 'unavailable' %}<span class="value-label value-unavailable">Connect roster</span>
+                        {% else %}<span class="value-label value-none">No lineup upgrade</span>{% endif %}
+                        {% if row.value.horizon == 'short' %}<span class="value-label value-short waiver-trend">Short-term role</span>{% endif %}
+                        {% if row.value.category == 'long' or row.value.category == 'short' %}<span class="value-label value-rising waiver-trend">Rising value</span>
+                        {% elif row.value.category == 'declining' %}<span class="value-label value-fading waiver-trend">Fading value</span>
+                        {% else %}<span class="value-label value-none waiver-trend">{{ row.value.short_label }}</span>{% endif %}
                     </td>
                     <td class="waiver-points">{% if row.prediction.this_week is not None %}{{ row.prediction.this_week|floatformat:1 }}{% else %}<span class="waiver-unavailable" aria-label="Prediction unavailable">&mdash;</span>{% endif %}</td>
                     <td class="waiver-points">{% if row.prediction.rest_of_season is not None %}{{ row.prediction.rest_of_season|floatformat:1 }}{% else %}<span class="waiver-unavailable" aria-label="Prediction unavailable">&mdash;</span>{% endif %}</td></tr>
@@ -128,9 +149,17 @@
     </div>
     {% if page_obj.has_other_pages %}
     <nav class="waiver-pagination" aria-label="Player pages">
-        {% if page_obj.has_previous %}<a href="?{{ filter_query }}&amp;page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}
-        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-        {% if page_obj.has_next %}<a href="?{{ filter_query }}&amp;page={{ page_obj.next_page_number }}">Next</a>{% endif %}
+        <div class="waiver-page-numbers" aria-label="Choose a page">
+            {% for number in page_range %}
+                {% if number == page_obj.paginator.ELLIPSIS %}
+                    <span class="waiver-page-ellipsis" aria-hidden="true">{{ number }}</span>
+                {% elif number == page_obj.number %}
+                    <span class="waiver-page-number is-current" aria-current="page" aria-label="Page {{ number }}">{{ number }}</span>
+                {% else %}
+                    <a class="waiver-page-number" href="?{{ filter_query }}{% if filter_query %}&amp;{% endif %}page={{ number }}" aria-label="Go to page {{ number }}">{{ number }}</a>
+                {% endif %}
+            {% endfor %}
+        </div>
     </nav>{% endif %}
     {% endif %}
     </div>

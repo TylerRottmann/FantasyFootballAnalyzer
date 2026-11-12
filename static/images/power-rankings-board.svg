@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 900" fill="none">
+  <g stroke="#77849a" stroke-opacity=".14" stroke-width="2">
+    <path d="M0 140H1800M0 790H1800" stroke-dasharray="10 20"/>
+    <path d="M120 0V900M1680 0V900" stroke-dasharray="7 18"/>
+  </g>
+  <!-- Facing team panels with quiet roster rows -->
+  <g stroke-linejoin="round" stroke-linecap="round">
+    <path d="m170 230 438 26 34 42v350l-472 28z" stroke="#ffcc00" stroke-opacity=".52" stroke-width="7"/>
+    <path d="m1630 230-438 26-34 42v350l472 28z" stroke="#ffcc00" stroke-opacity=".52" stroke-width="7"/>
+    <path d="M205 343h352M201 418h352M197 493h352M193 568h352" stroke="#7185a3" stroke-opacity=".3" stroke-width="4"/>
+    <path d="M1595 343h-352M1599 418h-352M1603 493h-352M1607 568h-352" stroke="#7185a3" stroke-opacity=".3" stroke-width="4"/>
+  </g>
+  <g fill="#ffcc00" fill-opacity=".72" font-family="Arial, sans-serif" font-size="24" font-weight="800" text-anchor="middle" dominant-baseline="central">
+    <text x="225" y="306">1</text><text x="225" y="381">2</text><text x="225" y="456">3</text><text x="225" y="531">4</text>
+    <text x="1575" y="306">5</text><text x="1575" y="381">6</text><text x="1575" y="456">7</text><text x="1575" y="531">8</text>
+  </g>
+  <!-- Central ranking podium and league comparison marker -->
+  <g stroke-linejoin="round" stroke-linecap="round">
+    <path d="M900 173v142M900 315l-38 60m38-60 38 60" stroke="#ffcc00" stroke-opacity=".34" stroke-width="7"/>
+    <path d="M774 544h84v-78h-84zm84 0h84V412h-84zm84 0h84v-78h-84z" fill="#7185a3" fill-opacity=".08" stroke="#7185a3" stroke-opacity=".38" stroke-width="5"/>
+    <path d="M742 584h352" stroke="#ffcc00" stroke-opacity=".36" stroke-width="5" stroke-dasharray="8 13"/>
+    <path d="M650 230c78-88 150-113 250-113s172 25 250 113" stroke="#7185a3" stroke-opacity=".18" stroke-width="4" stroke-dasharray="8 16"/>
+  </g>
+  <g fill="#ffcc00" fill-opacity=".48">
+    <circle cx="900" cy="164" r="10"/><circle cx="816" cy="466" r="7"/><circle cx="900" cy="412" r="8"/><circle cx="984" cy="466" r="7"/>
+  </g>
+  <!-- Football field yard lines and hashes remain visible along the lower edges -->
+  <g stroke="#7185a3" stroke-opacity=".3" stroke-width="4">
+    <path d="M0 690H1800M0 890H1800"/>
+    <path d="M180 690V890M360 690V890M540 690V890M720 690V890M900 690V890M1080 690V890M1260 690V890M1440 690V890M1620 690V890" stroke-opacity=".24"/>
+  </g>
+  <g stroke="#ffcc00" stroke-opacity=".42" stroke-width="4" stroke-linecap="round">
+    <path d="M0 690H1800M0 890H1800" stroke-opacity=".34"/>
+    <path d="M150 742v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14"/>
+    <path d="M150 822v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14m90-14v14"/>
+  </g>
+</svg>

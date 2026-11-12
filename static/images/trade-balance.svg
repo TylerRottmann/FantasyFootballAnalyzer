@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 820" fill="none">
+  <g stroke="#748096" stroke-opacity=".16" stroke-width="2">
+    <path d="M0 140H1800M0 700H1800" stroke-dasharray="9 20"/>
+    <path d="M250 0V820M1550 0V820" stroke-dasharray="6 18"/>
+  </g>
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <!-- Wide, slightly tilted balance beam -->
+    <path d="M330 270 1470 310" stroke="#ffcc00" stroke-opacity=".58" stroke-width="12"/>
+    <circle cx="900" cy="290" r="21" fill="#171a20" stroke="#ffcc00" stroke-opacity=".7" stroke-width="7"/>
+    <!-- Left pan and suspended roster cards -->
+    <path d="m440 274-12 240m12-240 78 242m-104-7c20 27 107 31 136 5l-16 30c-32 22-82 20-110-3z" stroke="#7185a3" stroke-opacity=".56" stroke-width="7"/>
+    <path d="M455 546h136l-20 27H475z" fill="#7185a3" fill-opacity=".14" stroke="#7185a3" stroke-opacity=".52" stroke-width="5"/>
+    <rect x="476" y="493" width="34" height="43" rx="7" fill="#171a20" stroke="#ffcc00" stroke-opacity=".56" stroke-width="5"/>
+    <rect x="522" y="488" width="34" height="48" rx="7" fill="#171a20" stroke="#7185a3" stroke-opacity=".62" stroke-width="5"/>
+    <!-- Right pan -->
+    <path d="m1360 306-20 203m20-203 80 207m-106-7c22 27 108 32 138 5l-16 30c-32 22-83 20-111-3z" stroke="#ffcc00" stroke-opacity=".58" stroke-width="7"/>
+    <path d="M1378 540h137l-20 27h-106z" fill="#ffcc00" fill-opacity=".1" stroke="#ffcc00" stroke-opacity=".56" stroke-width="5"/>
+    <rect x="1399" y="487" width="34" height="48" rx="7" fill="#171a20" stroke="#7185a3" stroke-opacity=".64" stroke-width="5"/>
+    <rect x="1445" y="493" width="34" height="42" rx="7" fill="#171a20" stroke="#ffcc00" stroke-opacity=".58" stroke-width="5"/>
+    <!-- Central support and broad base -->
+    <path d="m900 312-95 300h190z" fill="#ffcc00" fill-opacity=".08" stroke="#ffcc00" stroke-opacity=".35" stroke-width="7"/>
+    <path d="M748 632h304l-42 34H790z" fill="#7185a3" fill-opacity=".12" stroke="#7185a3" stroke-opacity=".4" stroke-width="7"/>
+  </g>
+  <g fill="#ffcc00" fill-opacity=".38">
+    <circle cx="640" cy="380" r="7"/><circle cx="1160" cy="424" r="7"/>
+  </g>
+</svg>

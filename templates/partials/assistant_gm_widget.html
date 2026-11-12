@@ -1,0 +1,34 @@
+<div class="assistant-gm-widget"
+     data-chat-url="{% url 'assistant_gm_chat' %}"
+     data-user-id="{{ user.pk }}"
+     data-welcome="Hey! I’m Assistant GM. Ask about projections, player comparisons, lineup moves, waivers, or your matchup.">
+    <section id="assistant-gm-panel" class="assistant-gm-panel" aria-labelledby="assistant-gm-title" hidden>
+        <header class="assistant-gm-widget-header">
+            <div class="assistant-gm-widget-brand">
+                <span class="assistant-gm-widget-icon" aria-hidden="true"><i class="bi bi-chat-square-text-fill"></i></span>
+                <div><h2 id="assistant-gm-title">Assistant GM</h2><p>Your fantasy football helper</p></div>
+            </div>
+            <div class="assistant-gm-widget-actions">
+                <button type="button" data-gm-reset aria-label="Start a new Assistant GM chat" title="New chat"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i></button>
+                <button type="button" data-gm-close aria-label="Close Assistant GM"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            </div>
+        </header>
+        <div class="assistant-gm-quick-prompts" aria-label="Suggested questions">
+            <button type="button" data-question="Who should I start this week?">My best lineup</button>
+            <button type="button" data-question="Who are the best available players on waivers?">Waiver pickups</button>
+            <button type="button" data-question="What is my matchup this week?">My matchup</button>
+            <button type="button" data-question="Who are the top projected players this week?">Top projections</button>
+        </div>
+        <div class="assistant-gm-widget-messages" data-gm-messages role="log" aria-live="polite" aria-relevant="additions text"></div>
+        <form class="assistant-gm-widget-composer" data-gm-form>
+            {% csrf_token %}
+            <label class="visually-hidden" for="assistant-gm-input">Ask Assistant GM</label>
+            <textarea id="assistant-gm-input" name="message" maxlength="500" placeholder="Ask about a player, lineup, waivers…" required></textarea>
+            <button type="submit" data-gm-send aria-label="Send message"><i class="bi bi-arrow-up" aria-hidden="true"></i></button>
+        </form>
+    </section>
+    <button type="button" class="assistant-gm-launcher" aria-label="Open Assistant GM" aria-expanded="false" aria-controls="assistant-gm-panel">
+        <i class="bi bi-chat-dots-fill" aria-hidden="true"></i>
+        <span class="assistant-gm-launcher-label">Assistant GM</span>
+    </button>
+</div>

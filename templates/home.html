@@ -1,16 +1,43 @@
 {% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Roster Radar | Fantasy Football{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/auth.css' %}?v=public-landing-1">{% endblock %}
 
 {% block content %}
-<h1>Roster Radar</h1>
-{% if user.is_authenticated %}
-  <p>Welcome back, <strong>{{ user.username }}</strong>!</p>
-  <form action="{% url 'logout' %}" method="post">
-    {% csrf_token %}
-    <button type="submit">Sign Out</button>
-  </form>
-{% else %}
-  <p>Analyze your roster and win your fantasy league.</p>
-  <a href="{% url 'login' %}">Sign In</a> |
-  <a href="{% url 'signup' %}">Sign Up</a>
-{% endif %}
+<main class="public-page">
+    <section class="public-hero auth-surface">
+        <div class="public-hero-copy">
+            <span class="public-eyebrow"><i class="bi bi-bullseye" aria-hidden="true"></i> Fantasy football, with a sharper view</span>
+            <h1>Make every roster move <span>count.</span></h1>
+            <p>Connect your league, compare weekly and season-long projections, and find the lineup and waiver moves that give your team an edge.</p>
+            <div class="public-actions">
+                {% if user.is_authenticated %}
+                    <a class="auth-primary" href="{% url 'start_sit' %}">Open Start / Sit <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                    <a class="auth-secondary" href="{% url 'market_short_term' %}">Explore Market</a>
+                {% else %}
+                    <a class="auth-primary" href="{% url 'signup' %}">Create your account <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                    <a class="auth-secondary" href="{% url 'login' %}">Sign in</a>
+                {% endif %}
+            </div>
+            <div class="public-proof"><span class="public-proof-dot"></span> Your league data and projections, together in one place</div>
+        </div>
+        <div class="public-hero-art" aria-hidden="true">
+            <div class="public-art-ring public-art-ring--outer"></div>
+            <div class="public-art-ring public-art-ring--inner"></div>
+            <div class="public-art-mark"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="14"/><circle cx="20" cy="20" r="8"/><path d="M20 20l11-11"/><circle cx="20" cy="20" r="2"/></svg></div>
+            <span class="public-art-sweep"></span>
+            <span class="public-art-dot public-art-dot--one"></span>
+            <span class="public-art-dot public-art-dot--two"></span>
+            <span class="public-art-dot public-art-dot--three"></span>
+        </div>
+    </section>
+
+    <section class="public-features" aria-label="Roster Radar features">
+        <article class="public-feature"><span class="public-feature-icon"><i class="bi bi-columns-gap" aria-hidden="true"></i></span><h2>Set your lineup</h2><p>Compare your starters with an optimized lineup built from this week’s projections.</p></article>
+        <article class="public-feature"><span class="public-feature-icon"><i class="bi bi-shop" aria-hidden="true"></i></span><h2>Read the market</h2><p>Compare weekly and rest-of-season projections with player rankings and ADP.</p></article>
+        <article class="public-feature"><span class="public-feature-icon"><i class="bi bi-person-plus" aria-hidden="true"></i></span><h2>Find waiver value</h2><p>Spot free agents who can help now or add meaningful value for the rest of the season.</p></article>
+        <article class="public-feature"><span class="public-feature-icon"><i class="bi bi-arrow-left-right" aria-hidden="true"></i></span><h2>Explore trades</h2><p>Compare roster changes by how they affect both teams’ starting lineups.</p></article>
+    </section>
+</main>
 {% endblock %}

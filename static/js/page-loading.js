@@ -20,9 +20,8 @@
     function show(label, view = "") {
         const pageTitle = label || document.querySelector(".page-content h1")?.textContent.trim() || "Roster Radar";
         shell.dataset.view = view;
-        hero.classList.toggle("radar-hero--adp", view === "adp");
         hero.classList.toggle("radar-hero--waivers", view === "waivers");
-        title.textContent = view === "adp" ? "ADP Rankings" : pageTitle;
+        title.textContent = pageTitle;
         window.clearTimeout(timer);
         shell.style.setProperty("--page-loading-top", Math.max(0, nav.getBoundingClientRect().bottom) + "px");
         shell.hidden = false;

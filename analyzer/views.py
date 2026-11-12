@@ -1,14 +1,11 @@
 import logging
 
 from django.contrib.auth.decorators import login_required
-from django.core.paginator import Paginator
-from django.db import models
 from django.shortcuts import render, redirect
 from django.urls import reverse_lazy
 from django.views.generic import CreateView
 
 from .forms import CustomUserCreationForm, ProfileForm, SettingsForm
-from .models import Players, PlayerWeeklyStats, Teams
 from .assistant_gm import answer_with_state
 
 logger = logging.getLogger(__name__)
@@ -16,82 +13,6 @@ logger = logging.getLogger(__name__)
 def home(request):
     return render(request, "home.html")
 
-
-
-def adp_rankings(request):
-    fantasy_positions = ("QB", "RB", "WR", "K")
-    scoring_formats = (
-        ("ppr", "Full PPR"),
-        ("half_ppr", "Half PPR"),
-        ("std", "Standard"),
-    )
-    season = 2026
-
-    scoring_format = request.GET.get("scoring", "ppr").strip().lower()
-    valid_formats = {value for value, _ in scoring_formats}
-    if scoring_format not in valid_formats:
-        scoring_format = "ppr"
-
-    position = request.GET.get("position", "").strip().upper()
-    team = request.GET.get("team", "").strip()
-    search = request.GET.get("search", "").strip()
-
-    if position not in fantasy_positions:
-        position = ""
-    if not team.isdecimal():
-        team = ""
-
-    context = {
-        "positions": fantasy_positions,
-        "selected_position": position,
-        "selected_team": team,
-        "search": search,
-        "scoring_formats": scoring_formats,
-        "selected_scoring": scoring_format,
-        "season": season,
-    }
-
-    if request.GET.get("view") != "full":
-        context["placeholder_rows"] = range(50)
-        return render(request, "adp.html", context)
-
-    players = (
-        Players.objects
-        .filter(
-            position__in=fantasy_positions,
-            adp_rankings__season=season,
-            adp_rankings__scoring_format=scoring_format,
-        )
-        .exclude(full_name__isnull=True)
-        .exclude(full_name="")
-        .select_related("team")
-        .annotate(adp_value=models.F("adp_rankings__adp"))
-    )
-
-    if position in fantasy_positions:
-        players = players.filter(position=position)
-    if team:
-        players = players.filter(team_id=int(team))
-
-    if search:
-        players = players.filter(full_name__icontains=search)
-
-    players = players.order_by(
-        "adp_rankings__adp",
-        "full_name",
-        "id",
-    )
-
-    teams = (
-        Teams.objects
-        .filter(players__position__in=fantasy_positions)
-        .distinct()
-        .order_by("name")
-    )
-
-    page_obj = Paginator(players, 50).get_page(request.GET.get("page"))
-    context.update(players=page_obj.object_list, page_obj=page_obj, teams=teams)
-    return render(request, "adp.html", context)
 
 
 class SignUpView(CreateView):
@@ -136,7 +57,6 @@ def profile(request):
 @login_required
 def assistant_gm_page(request):
     """Render the rule-based Assistant GM chat page."""
-    request.session.pop("gm_state", None)  # a fresh page load starts a fresh conversation
     return render(request, "assistant_gm.html")
 
 
@@ -151,6 +71,9 @@ def assistant_gm_chat(request):
         return JsonResponse({"error": "Use POST to send a question."}, status=405)
 
     question = (request.POST.get("message") or "").strip()
+    if request.POST.get("reset") == "1":
+        request.session.pop("gm_state", None)
+        return JsonResponse({"status": "reset"})
     if not question:
         return JsonResponse({"error": "Please enter a question."}, status=400)
     if len(question) > 500:

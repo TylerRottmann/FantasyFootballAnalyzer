@@ -1,18 +1,16 @@
 {% if page_obj.paginator.num_pages > 1 %}
 <nav class="market-pagination" aria-label="Market pages">
     <span>Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }}</span>
-    <div class="market-page-actions">
-        {% if page_obj.has_previous %}
-            <a href="?{% if page_query %}{{ page_query }}&amp;{% endif %}page={{ page_obj.previous_page_number }}">Previous</a>
-        {% else %}
-            <span class="disabled">Previous</span>
-        {% endif %}
-        <strong>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</strong>
-        {% if page_obj.has_next %}
-            <a href="?{% if page_query %}{{ page_query }}&amp;{% endif %}page={{ page_obj.next_page_number }}">Next</a>
-        {% else %}
-            <span class="disabled">Next</span>
-        {% endif %}
+    <div class="market-page-numbers" aria-label="Choose a page">
+        {% for number in page_range %}
+            {% if number == page_obj.paginator.ELLIPSIS %}
+                <span class="market-page-ellipsis" aria-hidden="true">{{ number }}</span>
+            {% elif number == page_obj.number %}
+                <span class="market-page-number is-current" aria-current="page" aria-label="Page {{ number }}">{{ number }}</span>
+            {% else %}
+                <a class="market-page-number" href="?{% if page_query %}{{ page_query }}&amp;{% endif %}page={{ number }}" aria-label="Go to page {{ number }}">{{ number }}</a>
+            {% endif %}
+        {% endfor %}
     </div>
 </nav>
 {% endif %}

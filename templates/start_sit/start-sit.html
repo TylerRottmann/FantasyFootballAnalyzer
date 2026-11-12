@@ -8,7 +8,7 @@
 
 <link
     rel="stylesheet"
-    href="{% static 'css/start-sit.css' %}?v=radar-workspace"
+    href="{% static 'css/start-sit.css' %}?v=compact-resync-inline-1"
 >
 
 {% endblock %}
@@ -32,7 +32,20 @@
             <h1>Start / Sit</h1>
             <p>Compare lineups{% if league %} for <strong>{{ active_team_name|default:league.display_name }}</strong>{% endif %}.</p>
 
-            {% include "start_sit/league_settings.html" %}
+            <div class="start-sit-header-actions">
+                {% include "start_sit/league_settings.html" %}
+                <form
+                    method="POST"
+                    action="{% url 'resync_league' %}"
+                    class="resync-form resync-form--header"
+                >
+                    {% csrf_token %}
+                    <button type="submit" class="resync-button">
+                        <i class="bi bi-arrow-repeat"></i>
+                        Refresh from Sleeper
+                    </button>
+                </form>
+            </div>
 
         </div>
 
@@ -40,48 +53,50 @@
         <!-- RIGHT SIDE -->
 
         <div class="week-controls">
-
-            <!-- RESYNC LEAGUE -->
-
-            <form
-                method="POST"
-                action="{% url 'resync_league' %}"
-                class="resync-form"
-            >
-
-                {% csrf_token %}
-
-                <button
-                    type="submit"
-                    class="resync-button"
-                >
-                    <i class="bi bi-arrow-repeat"></i>
-                    Refresh from Sleeper
-                </button>
-
-            </form>
-
-
             {% if week %}
-                <nav class="week-picker" aria-label="NFL week">
-                    {% if week > 1 %}
-                        <a class="week-arrow" href="?week={{ week|add:'-1' }}" aria-label="Previous week">
-                            <i class="bi bi-chevron-left" aria-hidden="true"></i>
-                        </a>
-                        <a class="week-neighbor week-neighbor--previous" href="?week={{ week|add:'-1' }}">Week {{ week|add:'-1' }}</a>
-                    {% else %}
-                        <span aria-hidden="true"></span><span aria-hidden="true"></span>
+                <form method="get" class="lineup-controls-panel">
+                    <div class="lineup-control-group">
+                        <label for="start-sit-week">Week</label>
+                        <select id="start-sit-week" name="week">
+                            {% for week_number in weeks %}
+                                <option value="{{ week_number }}" {% if week_number == week %}selected{% endif %}>Week {{ week_number }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% if projections_available and not historical_mode %}
+                        <div class="lineup-control-group lineup-approach-control">
+                            <div class="lineup-strategy-heading">
+                                <label for="lineup-strategy">Lineup approach</label>
+                                <details class="lineup-strategy-info">
+                                    <summary aria-label="About lineup approaches" title="About lineup approaches">
+                                        <i class="bi bi-info-circle" aria-hidden="true"></i>
+                                    </summary>
+                                    <div class="lineup-strategy-popover">
+                                        <strong>How the lineup approaches differ</strong>
+                                        <p><b>Safe</b> favors lower boom/bust players for a steadier floor.</p>
+                                        <p><b>Normal</b> uses the standard projection-ranked lineup.</p>
+                                        <p><b>Risky</b> favors higher boom/bust players when their projection is within 3 points of the safer option.</p>
+                                        <p><b>Matchup recommendation</b> chooses Safe when favored by more than 10 points, Risky when projected to lose by more than 10, and Normal within that range.</p>
+                                    </div>
+                                </details>
+                            </div>
+                            <select id="lineup-strategy" name="lineup">
+                                <option value="recommended" {% if lineup_selection == 'recommended' %}selected{% endif %}>Matchup recommendation · {{ recommended_strategy|title }}</option>
+                                <option value="safe" {% if lineup_selection == 'safe' %}selected{% endif %}>Safe</option>
+                                <option value="normal" {% if lineup_selection == 'normal' %}selected{% endif %}>Normal</option>
+                                <option value="risky" {% if lineup_selection == 'risky' %}selected{% endif %}>Risky</option>
+                            </select>
+                        </div>
                     {% endif %}
-                    <span class="week-selected" aria-current="page">Week {{ week }}</span>
-                    {% if week < 18 %}
-                        <a class="week-neighbor week-neighbor--next" href="?week={{ week|add:'1' }}">Week {{ week|add:'1' }}</a>
-                        <a class="week-arrow" href="?week={{ week|add:'1' }}" aria-label="Next week">
-                            <i class="bi bi-chevron-right" aria-hidden="true"></i>
-                        </a>
-                    {% else %}
-                        <span aria-hidden="true"></span><span aria-hidden="true"></span>
+                    <button type="submit" class="lineup-controls-apply">Apply</button>
+                    {% if projections_available and not historical_mode %}
+                        {% if matchup_margin is not None %}
+                            <span class="lineup-strategy-note">Projected margin: {% if matchup_margin > 0 %}+{% endif %}{{ matchup_margin|floatformat:1 }} pts</span>
+                        {% else %}
+                            <span class="lineup-strategy-note">No matchup projection; recommendation defaults to Normal.</span>
+                        {% endif %}
                     {% endif %}
-                </nav>
+                </form>
             {% endif %}
 
         </div>
@@ -721,7 +736,9 @@
 
                             <p>
                                 {% if historical_mode %}Our recommended starters for Week {{ week }}{% if algorithm_projection_gaps %} · Unprojected players count as 0{% endif %}{% else %}
-                                Highest projected lineup
+                                    {% if lineup_strategy == 'safe' %}Lower boom/bust choices within 3 projection points of the top lineup
+                                    {% elif lineup_strategy == 'risky' %}Higher boom/bust choices within 3 projection points of the top lineup
+                                    {% else %}Highest projected lineup{% endif %}
                                 {% endif %}
                             </p>
 
@@ -741,8 +758,8 @@
                             </div>
                             {% if historical_mode %}<div class="historical-projected-total">PROJ {{ optimized_total|floatformat:1 }}</div>{% endif %}
 
-                            <div class="lineup-label optimized-label">
-                                {% if historical_mode %}ACTUAL{% else %}RECOMMENDED{% endif %}
+                            <div class="lineup-label optimized-label {% if lineup_strategy == 'safe' %}strategy-label-safe{% elif lineup_strategy == 'risky' %}strategy-label-risky{% endif %}">
+                                {% if historical_mode %}ACTUAL{% elif strategy_is_recommended %}RECOMMENDED · {{ lineup_strategy|upper }}{% else %}{{ lineup_strategy|upper }}{% endif %}
                             </div>
 
                         </div>

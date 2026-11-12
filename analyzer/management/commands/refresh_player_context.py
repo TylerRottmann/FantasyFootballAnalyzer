@@ -175,7 +175,7 @@ class Command(BaseCommand):
                     update_fields=[*stat_fields,'nflverse_player_id','opponent_team','game_id','fumbles','fumbles_lost','updated_at'])
         cache.delete(f'player-reports:{season}:{week}')
         cache.delete(f'absence-start-weeks:{season}:{week}')
-        cache.delete(f'player-values:{season}:{week}')
+        cache.delete(f'player-values:v4:{season}:{week}')
         cache.delete(f'injury-absences:{season}')
         cache.set('fantasy:nfl:current-week', week, timeout=300)
         cache.set('fantasy:nfl:last-known-week', week, timeout=60*60*24*30)
