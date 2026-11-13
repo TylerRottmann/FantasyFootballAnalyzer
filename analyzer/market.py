@@ -19,7 +19,7 @@ from scripts.commands.nflweek import get_current_nfl_week
 PLAYER_POSITIONS = ("QB", "RB", "WR", "TE", "K")
 ALL_POSITIONS = (*PLAYER_POSITIONS, "DST")
 FLEX_POSITIONS = frozenset({"RB", "WR", "TE"})
-PAGE_SIZE = 50
+PAGE_SIZE = 25
 DEFAULT_SORTS = {
     "our_weekly": "desc",
     "sleeper_weekly": "desc",
@@ -506,6 +506,9 @@ def _filtered_rows(request):
         sort_urls[key] = "?" + params.urlencode()
 
     page_obj = Paginator(rows, PAGE_SIZE).get_page(request.GET.get("page"))
+    page_range = page_obj.paginator.get_elided_page_range(
+        page_obj.number, on_each_side=1, on_ends=1,
+    )
     tab_params = request.GET.copy()
     tab_params.pop("page", None)
     short_params = tab_params.copy()
@@ -518,6 +521,7 @@ def _filtered_rows(request):
     context.update({
         "market_rows": page_obj.object_list,
         "page_obj": page_obj,
+        "page_range": page_range,
         "page_query": page_query,
         "sort_urls": sort_urls,
         "sort": sort,

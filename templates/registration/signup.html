@@ -1,11 +1,28 @@
 {% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Sign Up | Roster Radar{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/auth.css' %}?v=public-landing-1">{% endblock %}
 
 {% block content %}
-<h2>Create an Account</h2>
-<form method="post">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Sign Up</button>
-</form>
-<p>Already have an account? <a href="{% url 'login' %}">Log in here</a></p>
+<main class="public-page auth-page">
+    <section class="auth-layout auth-layout--signup">
+        <div class="auth-intro auth-surface">
+            <span class="public-eyebrow"><i class="bi bi-bullseye" aria-hidden="true"></i> Get started</span>
+            <h1>Bring your league into focus.</h1>
+            <p>Create your account to connect a league and get lineup, market, waiver, and trade insights in one place.</p>
+            <div class="auth-intro-mark" aria-hidden="true"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="14"/><circle cx="20" cy="20" r="8"/><path d="M20 20l11-11"/><circle cx="20" cy="20" r="2"/></svg></div>
+        </div>
+        <div class="auth-card">
+            <div class="auth-card-heading"><span class="auth-card-icon"><i class="bi bi-person-plus" aria-hidden="true"></i></span><div><h2>Create an account</h2><p>It only takes a moment to get started.</p></div></div>
+            {% if form.non_field_errors %}<div class="auth-error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+            <form method="post" class="auth-form">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button class="auth-primary auth-submit" type="submit">Create account <i class="bi bi-arrow-right" aria-hidden="true"></i></button>
+            </form>
+            <p class="auth-switch">Already have an account? <a href="{% url 'login' %}">Sign in</a></p>
+        </div>
+    </section>
+</main>
 {% endblock %}

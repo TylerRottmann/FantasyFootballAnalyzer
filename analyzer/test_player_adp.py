@@ -4,7 +4,6 @@ from unittest.mock import Mock, patch
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.urls import reverse
 
 from analyzer.models import PlayerADP
 from analyzer.management.commands.refresh_player_adp import valid_adp
@@ -48,42 +47,6 @@ class PlayerADPTests(WaiverWireTests):
 
         self.assertEqual(valid_adp(12.345), Decimal("12.35"))
         self.assertEqual(valid_adp("4.2"), Decimal("4.20"))
-
-    def test_rankings_are_sorted_by_adp(self):
-        response = self.client.get(reverse("adp_rankings"))
-        self.assertEqual(response.status_code, 200)
-        names = [p.full_name for p in response.context["players"]]
-        self.assertEqual(names, ["Other Team", "Available Receiver"])
-        self.assertContains(response, "4.20")
-        self.assertContains(response, "12.50")
-
-    def test_scoring_formats(self):
-        for scoring, expected in (
-            ("ppr", "12.50"),
-            ("half_ppr", "15.75"),
-            ("std", "19.00"),
-        ):
-            with self.subTest(scoring=scoring):
-                response = self.client.get(
-                    reverse("adp_rankings"),
-                    {"scoring": scoring, "search": "Available Receiver"},
-                )
-                self.assertEqual(response.status_code, 200)
-                self.assertContains(response, expected)
-
-    def test_search_position_and_team_filters(self):
-        response = self.client.get(
-            reverse("adp_rankings"),
-            {
-                "scoring": "ppr",
-                "position": "WR",
-                "team": str(self.team.pk),
-                "search": "Available",
-            },
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Available Receiver")
-        self.assertNotContains(response, "Other Team")
 
     def test_import_dry_run_does_not_write(self):
         response = Mock()

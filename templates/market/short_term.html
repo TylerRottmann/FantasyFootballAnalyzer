@@ -2,25 +2,9 @@
 {% load static player_health %}
 
 {% block content %}
-<link rel="stylesheet" href="{% static 'css/market.css' %}">
+<link rel="stylesheet" href="{% static 'css/market.css' %}?v=market-page-navigation-25">
 <main class="market-page">
-    <header class="market-heading">
-        <div>
-            <h1>Market</h1>
-            {% if active_league %}
-                <p>Compare weekly projections using <strong>{{ active_league.name }}</strong> scoring · {{ market_season }}</p>
-            {% else %}
-                <p>Compare weekly player projections.</p>
-            {% endif %}
-        </div>
-        <div class="market-context">
-            <span>Week {{ market_week }}</span>
-            {% if active_league %}<span>League: {{ active_league.name }}</span>{% endif %}
-        </div>
-    </header>
-
-    {% include "market/_tabs.html" %}
-    {% include "market/_filters.html" %}
+    {% include "market/_header.html" %}
 
     {% if market_error %}<div class="market-notice">{{ market_error }}</div>{% endif %}
     {% if active_league and not has_week_data %}<div class="market-notice">Weekly projections have not been imported for Week {{ market_week }} yet.</div>{% endif %}

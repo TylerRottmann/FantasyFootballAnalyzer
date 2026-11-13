@@ -1,0 +1,36 @@
+<header class="market-hero">
+    <div class="market-hero-top">
+        <div class="market-heading">
+            <h1>Market</h1>
+            {% if active_market_tab == 'short' %}
+                {% if active_league %}
+                    <p>Compare weekly projections using <strong>{{ active_league.name }}</strong> scoring · {{ market_season }}</p>
+                {% else %}
+                    <p>Compare weekly player projections.</p>
+                {% endif %}
+            {% else %}
+                {% if active_league %}
+                    <p>Compare long-term value using <strong>{{ active_league.name }}</strong> scoring · {{ market_season }}</p>
+                {% else %}
+                    <p>Compare ADP and rest-of-season projections.</p>
+                {% endif %}
+            {% endif %}
+        </div>
+
+        <div class="market-header-side">
+            <div class="market-context">
+                <span>Week {{ market_week }}</span>
+                {% if active_league and active_market_tab == 'short' %}
+                    <span>League: {{ active_league.name }}</span>
+                {% elif active_league %}
+                    <span>ADP basis: {{ adp_scoring_label }}</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="market-header-filters">
+        {% include "market/_filters.html" %}
+        {% include "market/_tabs.html" %}
+    </div>
+</header>

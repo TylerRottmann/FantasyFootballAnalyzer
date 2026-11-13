@@ -259,8 +259,8 @@ class PlayerContextTests(WaiverWireTests):
         temporary=classify_value(games,injured_ahead=True,healthy_context=True)
         self.assertEqual(temporary.horizon,'short')
         self.assertEqual(temporary.value_label,'Short-term')
-        self.assertEqual(temporary.short_label,'Growing role')
-        self.assertEqual(classify_value(games).horizon,'unknown')
+        self.assertEqual(temporary.short_label,'Rising value')
+        self.assertEqual(classify_value(games).horizon,'long')
 
     def test_steady_injury_replacement_is_still_short_term(self):
         games=[{'week':w,'share':.8,'opportunities':18} for w in range(1,7)]

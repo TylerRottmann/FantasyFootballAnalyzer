@@ -11,6 +11,7 @@ from django.db.models import Avg, Max, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import resolve, reverse, Resolver404
+from django.utils.http import url_has_allowed_host_and_scheme
 from urllib.parse import urlsplit
 from django.utils import timezone
 import time
@@ -757,14 +758,42 @@ def start_sit(request):
 
     optimized_lineup = []
     optimized_total = 0
+    from leagues.services.start_sit_lineups import (
+        get_lineup_strategy_options,
+        projected_matchup_margin,
+        recommended_lineup_strategy,
+    )
+
+    lineup_selection = (request.GET.get("lineup") or "recommended").strip().lower()
+    if lineup_selection not in {"recommended", "safe", "normal", "risky"}:
+        lineup_selection = "recommended"
+    lineup_strategy = "normal"
+    recommended_strategy = "normal"
+    matchup_margin = None
+    lineup_options = {}
 
     if projections_available:
         start_time = time.perf_counter()
-
-        optimized_lineup, optimized_total = build_optimized_lineup(
-            players,
-            starting_positions,
-        )
+        if week >= current_week:
+            lineup_options = get_lineup_strategy_options(
+                league, roster, week, players, starting_positions,
+            )
+            normal_total = lineup_options["normal"]["total"]
+            matchup_margin = projected_matchup_margin(
+                league, roster, connection.platform, week, starting_positions,
+                normal_total, context=context_for_week,
+            )
+            recommended_strategy = recommended_lineup_strategy(matchup_margin)
+            lineup_strategy = (
+                recommended_strategy if lineup_selection == "recommended" else lineup_selection
+            )
+            optimized_lineup = lineup_options[lineup_strategy]["lineup"]
+            optimized_total = lineup_options[lineup_strategy]["total"]
+        else:
+            optimized_lineup, optimized_total = build_optimized_lineup(
+                players,
+                starting_positions,
+            )
 
         print(
             f"OPTIMIZER TOOK "
@@ -835,6 +864,12 @@ def start_sit(request):
         "optimized_lineup": optimized_lineup,
         "optimized_bench": optimized_bench,
         "optimized_total": optimized_total,
+        "lineup_options": lineup_options,
+        "lineup_selection": lineup_selection,
+        "lineup_strategy": lineup_strategy,
+        "recommended_strategy": recommended_strategy,
+        "matchup_margin": matchup_margin,
+        "strategy_is_recommended": lineup_strategy == recommended_strategy,
         "season": league.season,
         "week": week,
         "current_week": current_week,
@@ -1153,6 +1188,14 @@ def resync_league(request):
     if request.method != "POST":
         return redirect("start_sit")
 
+    redirect_to = request.POST.get("next", "")
+    if not url_has_allowed_host_and_scheme(
+        redirect_to,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        redirect_to = reverse("start_sit")
+
     from leagues.services.active_connection import get_active_connection
 
     if not (
@@ -1160,7 +1203,7 @@ def resync_league(request):
         or request.session.get("active_league_id")
     ):
         messages.error(request, "No active league is selected.")
-        return redirect("start_sit")
+        return redirect(redirect_to)
 
     connection = get_active_connection(
         request,
@@ -1172,7 +1215,7 @@ def resync_league(request):
             request,
             "Your active league connection could not be found.",
         )
-        return redirect("start_sit")
+        return redirect(redirect_to)
 
     try:
         if connection.platform == UserLeagueConnection.PLATFORM_SLEEPER:
@@ -1279,7 +1322,7 @@ def resync_league(request):
             "Please try again or reconnect your league.",
         )
 
-    return redirect("start_sit")
+    return redirect(redirect_to)
 
 
 @login_required

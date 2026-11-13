@@ -2,25 +2,9 @@
 {% load static player_health %}
 
 {% block content %}
-<link rel="stylesheet" href="{% static 'css/market.css' %}">
+<link rel="stylesheet" href="{% static 'css/market.css' %}?v=market-page-navigation-25">
 <main class="market-page">
-    <header class="market-heading">
-        <div>
-            <h1>Market</h1>
-            {% if active_league %}
-                <p>Compare long-term value using <strong>{{ active_league.name }}</strong> scoring · {{ market_season }}</p>
-            {% else %}
-                <p>Compare ADP and rest-of-season projections.</p>
-            {% endif %}
-        </div>
-        <div class="market-context">
-            <span>Week {{ market_week }}</span>
-            {% if active_league %}<span>ADP basis: {{ adp_scoring_label }}</span>{% endif %}
-        </div>
-    </header>
-
-    {% include "market/_tabs.html" %}
-    {% include "market/_filters.html" %}
+    {% include "market/_header.html" %}
 
     <p class="market-signal-help">Buy / sell compares rest-of-season ranks within the player's position. A signal requires a gap of at least 5 spots, widening by 5% of the average same-position rank for lower-ranked players.</p>
 

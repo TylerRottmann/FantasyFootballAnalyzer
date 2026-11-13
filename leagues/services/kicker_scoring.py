@@ -5,30 +5,44 @@ from leagues.services.scoring import (
     score_stat_line,
 )
 
-def _league_kicker_projection(projection, league):
-    result = copy(projection)
+def _league_score(projection, league):
     stats = getattr(projection, 'projected_stats', {})
-    if projection.status in ('bye', 'inactive', 'injury_out', 'qb_backup'):
-        return result
-    prediction = {
+    status = projection.status
+    if status in ('bye', 'inactive', 'injury_out', 'qb_backup'):
+        return projection.projected_fantasy_points, status
+    points = score_projection({
         'position': projection.player.position,
         'projected_stats': stats,
         'projected_fantasy_points': projection.projected_fantasy_points,
-    }
-    points = score_projection(prediction, league)
+    }, league)
     if points is None:
-        result.projected_fantasy_points = None
         if stats or projection.projected_fantasy_points is not None:
-            result.status = 'unsupported_scoring' if stats else 'stats_not_found'
-    else:
-        result.projected_fantasy_points = round(float(points), 2)
+            status = 'unsupported_scoring' if stats else 'stats_not_found'
+        return None, status
+    return round(float(points), 2), status
+
+
+def _league_kicker_projection(projection, league):
+    result = copy(projection)
+    result.projected_fantasy_points, result.status = _league_score(projection, league)
     return result
 
 
+def league_projection_values(projection, league, *, context=None):
+    from .player_availability import adjusted_forecast
+    points, status = _league_score(projection, league)
+    return adjusted_forecast(
+        projection.player, projection.season, projection.week, points, status,
+        getattr(projection, 'projected_stats', None), rescore=True, context=context,
+    )
+
+
 def league_projection(projection, league, *, context=None):
-    from .player_availability import apply_availability
-    result = _league_kicker_projection(projection, league)
-    return apply_availability(result, rescore=True, context=context)
+    result = copy(projection)
+    result.projected_fantasy_points, result.status, result.projected_stats = league_projection_values(
+        projection, league, context=context,
+    )
+    return result
 
 
 def league_defense_projection(projection, league):

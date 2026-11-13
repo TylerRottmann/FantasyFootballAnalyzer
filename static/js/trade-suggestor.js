@@ -10,6 +10,7 @@
     let requestController = null;
 
     function activateTab(name) {
+        page.classList.toggle("is-calculator", name === "calculator");
         tabs.forEach((tab) => {
             const active = tab.dataset.tradeTab === name;
             tab.classList.toggle("is-active", active);
