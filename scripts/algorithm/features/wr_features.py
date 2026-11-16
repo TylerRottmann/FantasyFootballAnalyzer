@@ -129,8 +129,12 @@ def get_wr_history(player_id, season, week):
             ),
         )
 
+        from scripts.algorithm.features.game_participation import drop_injury_shortened_games
         from scripts.algorithm.features.injury_history import filter_injury_history
-        return filter_injury_history(cur.fetchall(), player_id, season)
+        rows = filter_injury_history(cur.fetchall(), player_id, season)
+        # Games he left hurt or only worked back into (far below his usual snap
+        # share, column 7) are not normal games and would drag his averages down.
+        return drop_injury_shortened_games(rows, share_index=7)
 
 
 # ============================================================

@@ -204,26 +204,49 @@ def availability(player, season, week, reports=None, duration_profiles=None, abs
     return '', 1.0
 
 
-def quarterback_role(player, season, week, reports=None, *, is_live=None):
-    """Use fresh current-week depth reports, never today's chart for past games."""
-    if player.position != 'QB' or not (live_week(season, week) if is_live is None else is_live):
-        return None
+def _depth_chart_role(player, season, week, reports, live):
+    """Depth-chart role as (role, saw_fresh_report). Never uses today's chart for past games."""
+    if not live:
+        return None, False
     reports = reports_for_week(season, week) if reports is None else reports
     now = timezone.now()
     fresh = lambda r: now - timedelta(days=7) <= r.observed_at <= now
     own = reports.get(player.pk)
     if not own or not fresh(own) or not own.team_id or own.team_id != player.team_id:
-        return None
+        return None, False
     if not own.depth_order:
-        return 'qb_uncertain'
+        return 'qb_uncertain', True
     if own.depth_order == 1:
-        return None
+        return None, True
     ahead = [r for r in reports.values() if r.position == 'QB' and r.team_id == own.team_id
              and r.depth_order and r.depth_order < own.depth_order and fresh(r)]
     # Questionable does not announce a starting-QB change. Out/IR does.
     if any(not ({normalize_status(r.injury_status), normalize_status(r.roster_status)} & BLOCKED) for r in ahead):
-        return 'qb_backup'
-    return None if ahead else 'qb_uncertain'
+        return 'qb_backup', True
+    return (None if ahead else 'qb_uncertain'), True
+
+
+def quarterback_role(player, season, week, reports=None, *, is_live=None, usage_cache=None):
+    """Is this QB expected to start?  Returns 'qb_backup', 'qb_uncertain' or None.
+
+    A fresh current-week depth chart decides when there is one. Without it (a future
+    week, or a missing/stale report) the QB's recent share of his team's pass attempts
+    decides, so backups no longer slip through with a full projection. Past weeks are
+    never touched.
+    """
+    if player.position != 'QB':
+        return None
+    live = live_week(season, week) if is_live is None else is_live
+    role, saw_report = _depth_chart_role(player, season, week, reports, live)
+    if role is not None or saw_report:
+        return role
+    active_week = active_week_for_season(season)
+    if not live and (active_week is None or week <= active_week):
+        return None
+    from scripts.algorithm.features.qb_role import usage_based_qb_backup
+    if reports is None:
+        reports = reports_for_week(season, active_week) if active_week is not None else {}
+    return 'qb_backup' if usage_based_qb_backup(player, season, week, reports, usage_cache) else None
 
 
 def projection_context(season, week):
@@ -271,7 +294,8 @@ def adjusted_forecast(player, season, week, points, status, metadata=None, *, re
         season_absences=season_absences,
     )
     qb_role = quarterback_role(player, season, week, reports=context.get('reports') if context else None,
-                               is_live=is_live)
+                               is_live=is_live,
+                               usage_cache=context.setdefault('qb_usage', {}) if context is not None else None)
     values = context.get('values') if context else None
     role = ((values if values is not None else load_player_values(season, week)).get(player.pk)
             if is_live and player.position in ('RB', 'WR', 'TE') else None)

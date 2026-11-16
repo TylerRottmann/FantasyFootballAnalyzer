@@ -53,7 +53,8 @@ def predict_player(player_id, season, week, scoring_settings=None, context=None)
         return {'player_id': player.id, 'position': player.position, 'season': season,
                 'week': week, 'projected_fantasy_points': 0.0, 'status': 'injury_out',
                 'projected_stats': {'_context': {'base_points': None, 'base_status': 'insufficient_history'}}}
-    qb_role = quarterback_role(player, season, week, reports=context['reports'] if context else None)
+    qb_role = quarterback_role(player, season, week, reports=context['reports'] if context else None,
+                               usage_cache=context.setdefault('qb_usage', {}) if context is not None else None)
     if qb_role in ('qb_backup', 'qb_uncertain'):
         return {'player_id': player.id, 'position': player.position, 'season': season,
                 'week': week, 'projected_fantasy_points': 0.0 if qb_role == 'qb_backup' else None,

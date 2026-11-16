@@ -15,6 +15,7 @@ os.environ.setdefault(
 django.setup()
 
 from leagues.models import Player
+from scripts.algorithm.features.game_participation import skill_games_sql
 from scripts.algorithm.features.wr_features import build_wr_features
 from scripts.algorithm.wr.feature_names import (
     WR_FEATURE_NAMES,
@@ -67,28 +68,9 @@ def get_wr_games(season, wr_ids):
 
     try:
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT
-                    player_id,
-                    week,
-                    COALESCE(passing_yards, 0), COALESCE(passing_tds, 0),
-                    COALESCE(passing_interceptions, 0), COALESCE(passing_2pt_conversions, 0),
-                    COALESCE(carries, 0),
-                    COALESCE(rushing_yards, 0), COALESCE(rushing_tds, 0),
-                    COALESCE(rushing_2pt_conversions, 0),
-                    COALESCE(targets, 0), COALESCE(receptions, 0),
-                    COALESCE(receiving_yards, 0), COALESCE(receiving_tds, 0),
-                    COALESCE(receiving_2pt_conversions, 0),
-                    COALESCE(fumbles_lost, 0)
-                FROM player_weekly_stats
-                WHERE season = %s
-                  AND season_type = 'REG'
-                  AND player_id = ANY(%s)
-                ORDER BY player_id, week
-                """,
-                (season, list(wr_ids)),
-            )
+            # Skips injury-shortened games so the model is not trained on them.
+            sql, params = skill_games_sql(season, wr_ids)
+            cur.execute(sql, params)
 
             return cur.fetchall()
 
