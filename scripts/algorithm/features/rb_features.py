@@ -5,6 +5,7 @@ from datetime import date
 
 from psycopg.rows import dict_row
 
+from scripts.algorithm.features.game_participation import drop_injury_shortened_games
 from scripts.algorithm.features.qb_features import (
     average, get_connection, standard_deviation, trend,
 )
@@ -219,6 +220,9 @@ def build_rb_features(player, season, week, data=None):
     if data.season != season:
         raise ValueError("RB feature data must match the requested season.")
     history = [g for g in data.players.get(player.id, []) if g["week"] < week]
+    # Games he left hurt or only worked back into (far below his usual snap share)
+    # are not normal games and would drag his averages down. Prior games only.
+    history = drop_injury_shortened_games(history, share_key="offense_snap_share")
     context = data.game_context(player, week)
     team_games = [g for g in data.team_games.get(context["team_id"], []) if g["week"] < week]
     opponent_games = [g for g in data.team_games.get(context["opponent_team_id"], []) if g["week"] < week]

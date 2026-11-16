@@ -16,23 +16,26 @@
     "2023": {
       "recorded_games": 1480,
       "missing_target": 0,
-      "no_history": 147,
+      "injury_shortened": 31,
+      "no_history": 139,
       "missing_matchup": 0,
-      "usable_games": 1333
+      "usable_games": 1310
     },
     "2024": {
       "recorded_games": 1539,
       "missing_target": 0,
+      "injury_shortened": 33,
       "no_history": 0,
       "missing_matchup": 0,
-      "usable_games": 1539
+      "usable_games": 1506
     },
     "2025": {
       "recorded_games": 1578,
       "missing_target": 0,
+      "injury_shortened": 38,
       "no_history": 0,
       "missing_matchup": 0,
-      "usable_games": 1578
+      "usable_games": 1540
     }
   },
   "walk_forward_evaluations": [
@@ -41,28 +44,28 @@
       "training_seasons": [
         2023
       ],
-      "coverage": 1539,
-      "total_test_rows": 1539,
+      "coverage": 1506,
+      "total_test_rows": 1506,
       "model": {
-        "coverage": 1539,
-        "mae": 4.685259748898694,
-        "rmse": 6.393800154809057,
-        "bias": 0.049721958846367716,
-        "within_3_points_pct": 43.3398310591293
+        "coverage": 1506,
+        "mae": 4.70999188588471,
+        "rmse": 6.417182930210836,
+        "bias": 0.02741597511394289,
+        "within_3_points_pct": 43.22709163346614
       },
       "last_three_game_baseline": {
-        "coverage": 1539,
-        "mae": 4.725072557938056,
-        "rmse": 6.80375632340661,
-        "bias": -0.659943686376435,
-        "within_3_points_pct": 47.823261858349575
+        "coverage": 1506,
+        "mae": 4.6979880478087646,
+        "rmse": 6.765611663984361,
+        "bias": -0.7268061088977424,
+        "within_3_points_pct": 47.941567065073045
       },
       "training_position_average_baseline": {
-        "coverage": 1539,
-        "mae": 6.5395064263141816,
-        "rmse": 8.026051387135098,
-        "bias": 0.3548957902243593,
-        "within_3_points_pct": 21.11760883690708
+        "coverage": 1506,
+        "mae": 6.572019342477419,
+        "rmse": 8.061787940216808,
+        "bias": 0.3414110681954133,
+        "within_3_points_pct": 21.314741035856574
       }
     },
     {
@@ -71,41 +74,41 @@
         2023,
         2024
       ],
-      "coverage": 1578,
-      "total_test_rows": 1578,
+      "coverage": 1540,
+      "total_test_rows": 1540,
       "model": {
-        "coverage": 1578,
-        "mae": 4.533464042648925,
-        "rmse": 6.3271923859503305,
-        "bias": 0.376119217921269,
-        "within_3_points_pct": 49.87325728770596
+        "coverage": 1540,
+        "mae": 4.569947570509816,
+        "rmse": 6.379474750393327,
+        "bias": 0.45133030912932887,
+        "within_3_points_pct": 49.02597402597403
       },
       "last_three_game_baseline": {
-        "coverage": 1578,
-        "mae": 4.667190536544148,
-        "rmse": 6.996185295496186,
-        "bias": -0.6850190114068442,
-        "within_3_points_pct": 51.33079847908745
+        "coverage": 1540,
+        "mae": 4.6847792207792205,
+        "rmse": 7.0154885932499536,
+        "bias": -0.7358181818181819,
+        "within_3_points_pct": 51.16883116883116
       },
       "training_position_average_baseline": {
-        "coverage": 1578,
-        "mae": 6.503369432058493,
-        "rmse": 8.250926625467699,
-        "bias": 0.32854410928822986,
-        "within_3_points_pct": 23.70088719898606
+        "coverage": 1540,
+        "mae": 6.540808441558442,
+        "rmse": 8.294816653765887,
+        "bias": 0.3232625811688308,
+        "within_3_points_pct": 23.896103896103895
       }
     }
   ],
   "final_training_fit_in_sample": {
-    "predictions": 4450,
-    "mae": 3.347392547068968,
-    "rmse": 4.693833835766831,
-    "bias": -0.19507310057193342,
+    "predictions": 4356,
+    "mae": 3.325385379888087,
+    "rmse": 4.6602164496609815,
+    "bias": -0.17692552486299637,
     "within_points_percent": {
-      "2": 42.921348314606746,
-      "3": 59.52808988764045,
-      "5": 78.17977528089888,
-      "7": 88.69662921348315
+      "2": 43.06703397612488,
+      "3": 59.61891643709826,
+      "5": 78.44352617079889,
+      "7": 89.0495867768595
     }
   }
 }

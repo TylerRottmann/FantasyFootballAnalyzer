@@ -178,7 +178,8 @@ def get_qb_history(player_id, season, week):
             p.fantasy_points_ppr,
             o.qb_dropbacks,
             o.pressured_dropbacks,
-            o.qb_scrambles
+            o.qb_scrambles,
+            o.offense_snap_share
         FROM player_weekly_stats p
         LEFT JOIN player_weekly_opportunity_stats o
           ON o.player_id = p.player_id AND o.season = p.season AND o.week = p.week
@@ -201,8 +202,12 @@ def get_qb_history(player_id, season, week):
             ),
         )
 
+        from scripts.algorithm.features.game_participation import drop_partial_games
         from scripts.algorithm.features.injury_history import filter_injury_history
-        return filter_injury_history(cur.fetchall(), player_id, season)
+        rows = filter_injury_history(cur.fetchall(), player_id, season)
+        # Games he left hurt, was benched in, or only relieved in are not normal
+        # games for him and would drag every rolling average down (the "Lamar" gap).
+        return drop_partial_games(rows, share_index=13)
 
 
 # ============================================================
@@ -583,6 +588,11 @@ def build_qb_features(player, season, week):
         "l8": last_8_qb,
         "season": qb_games,
     }
+
+    # Team context only from games this QB actually played; games started by his
+    # backup say little about the offense he will lead.
+    from scripts.algorithm.features.game_participation import restrict_to_player_weeks
+    team_games = restrict_to_player_weeks(team_games, {game[0] for game in qb_games})
 
     team_windows = {
         "l3": team_games[-3:],

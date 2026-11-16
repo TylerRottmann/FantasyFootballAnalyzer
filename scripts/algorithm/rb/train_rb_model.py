@@ -13,6 +13,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "FantasyFootballAnalyzer.setting
 django.setup()
 
 from leagues.models import Player
+from scripts.algorithm.features.game_participation import drop_injury_shortened_games
 from scripts.algorithm.features.rb_features import RBSeasonData, build_rb_features
 from scripts.algorithm.rb.feature_names import RB_FEATURE_NAMES
 from scripts.algorithm.rb.rb_model import create_model, predict, train_model
@@ -38,14 +39,21 @@ def build_dataset(season, players_by_id, data=None):
     if data is None:
         data = RBSeasonData.load(season)
     X, y, rows = [], [], []
-    counts = {"recorded_games": 0, "missing_target": 0, "no_history": 0, "missing_matchup": 0}
+    counts = {"recorded_games": 0, "missing_target": 0, "injury_shortened": 0,
+              "no_history": 0, "missing_matchup": 0}
     for player_id in sorted(players_by_id):
         player = players_by_id[player_id]
-        for game in data.players.get(player_id, []):
+        games = data.players.get(player_id, [])
+        # Labels only: skip games far below his own season-median snap share.
+        normal_weeks = {g["week"] for g in drop_injury_shortened_games(games, share_key="offense_snap_share")}
+        for game in games:
             counts["recorded_games"] += 1
             actual = game["fantasy_points_ppr"]
             if actual is None:
                 counts["missing_target"] += 1
+                continue
+            if game["week"] not in normal_weeks:
+                counts["injury_shortened"] += 1
                 continue
             features = build_rb_features(player, season, game["week"], data)
             if (features["games_played"] == 0

@@ -15,6 +15,7 @@ os.environ.setdefault(
 django.setup()
 
 from leagues.models import Player
+from scripts.algorithm.features.game_participation import FULL_ROLE_SNAP_SHARE
 from scripts.algorithm.features.qb_features import build_qb_features
 from scripts.algorithm.qb.qb_model import train_model, predict, create_model, TARGETS
 from leagues.services.scoring import REFERENCE_SKILL_SCORING, score_stat_line
@@ -57,32 +58,41 @@ def get_qb_games(season):
             cur.execute(
                 """
                 SELECT
-                    player_id,
-                    week,
-                    COALESCE(passing_yards, 0),
-                    COALESCE(passing_tds, 0),
-                    COALESCE(passing_interceptions, 0),
-                    COALESCE(passing_2pt_conversions, 0),
-                    COALESCE(rushing_yards, 0),
-                    COALESCE(rushing_tds, 0),
-                    COALESCE(rushing_2pt_conversions, 0),
-                    COALESCE(targets, 0), COALESCE(receptions, 0),
-                    COALESCE(receiving_yards, 0), COALESCE(receiving_tds, 0),
-                    COALESCE(receiving_2pt_conversions, 0),
-                    COALESCE(fumbles_lost, 0),
-                    COALESCE(attempts, 0),
-                    COALESCE(carries, 0)
-                FROM player_weekly_stats
-                WHERE season = %s
-                  AND season_type = 'REG'
+                    pws.player_id,
+                    pws.week,
+                    COALESCE(pws.passing_yards, 0),
+                    COALESCE(pws.passing_tds, 0),
+                    COALESCE(pws.passing_interceptions, 0),
+                    COALESCE(pws.passing_2pt_conversions, 0),
+                    COALESCE(pws.rushing_yards, 0),
+                    COALESCE(pws.rushing_tds, 0),
+                    COALESCE(pws.rushing_2pt_conversions, 0),
+                    COALESCE(pws.targets, 0), COALESCE(pws.receptions, 0),
+                    COALESCE(pws.receiving_yards, 0), COALESCE(pws.receiving_tds, 0),
+                    COALESCE(pws.receiving_2pt_conversions, 0),
+                    COALESCE(pws.fumbles_lost, 0),
+                    COALESCE(pws.attempts, 0),
+                    COALESCE(pws.carries, 0)
+                FROM player_weekly_stats pws
+                LEFT JOIN player_weekly_opportunity_stats o
+                  ON o.player_id = pws.player_id AND o.season = pws.season AND o.week = pws.week
+                WHERE pws.season = %s
+                  AND pws.season_type = 'REG'
                   AND (
-                      attempts > 0
-                      OR passing_yards > 0
-                      OR passing_tds > 0
+                      pws.attempts > 0
+                      OR pws.passing_yards > 0
+                      OR pws.passing_tds > 0
                   )
-                ORDER BY player_id, week
+                  -- Train on normal games only: a game he left hurt or a relief
+                  -- cameo is not what we are trying to project. Unknown share is kept.
+                  AND (
+                      o.offense_snap_share IS NULL
+                      OR (CASE WHEN o.offense_snap_share > 1 THEN o.offense_snap_share / 100.0
+                               ELSE o.offense_snap_share END) >= %s
+                  )
+                ORDER BY pws.player_id, pws.week
                 """,
-                (season,),
+                (season, FULL_ROLE_SNAP_SHARE),
             )
 
             return cur.fetchall()
