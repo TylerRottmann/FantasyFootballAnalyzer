@@ -6,7 +6,7 @@ from collections import defaultdict
 
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.shortcuts import render
+from analyzer.performance import checkpoint, timed, timed_call, timed_render as render
 from django.urls import reverse
 
 from analyzer.models import PlayerADP, PlayerMarketProjection, Players, Teams
@@ -128,6 +128,7 @@ def _normalize_sleeper_stats(position, stats):
     }
 
 
+@timed('market_scoring')
 def _score_sleeper_projection(row, league):
     if row is None:
         return None
@@ -150,16 +151,18 @@ def _score_sleeper_projection(row, league):
     return round(float(points), 2) if isfinite(float(points)) else None
 
 
-def _score_our_player_projection(projection, league):
+@timed('market_scoring')
+def _score_our_player_projection(projection, league, position=None):
     if projection.status in {"bye", "inactive", "injury_out", "qb_backup"}:
         return 0.0
     return score_projection({
-        "position": projection.player.position,
+        "position": position if position is not None else projection.player.position,
         "projected_stats": projection.projected_stats,
         "projected_fantasy_points": projection.projected_fantasy_points,
     }, league)
 
 
+@timed('market_scoring')
 def _score_our_defense_projection(projection, league):
     if projection.status == "bye":
         return 0.0
@@ -191,7 +194,7 @@ def _filtered_rows(request):
         else "long"
     )
     try:
-        week = int(request.GET.get("week") or get_current_nfl_week())
+        week = int(request.GET.get("week") or timed_call('nfl_week', get_current_nfl_week))
         if not 1 <= week <= 18:
             raise ValueError
     except (RuntimeError, TypeError, ValueError):
@@ -257,6 +260,12 @@ def _filtered_rows(request):
     context["market_season"] = season
     adp_format, adp_label = _adp_scoring_format(league)
     context["adp_scoring_label"] = adp_label
+    # The weekly template does not display season totals or ADP. Preserve
+    # legacy explicit season sorts, but avoid loading eight weeks for a normal
+    # weekly page request.
+    needs_ros = active_market_tab == 'long' or request.GET.get('sort') in {'our_ros', 'sleeper_ros'}
+    needs_adp = active_market_tab == 'long' or request.GET.get('sort') == 'adp'
+    checkpoint('market_setup')
 
     players = list(
         Players.objects.filter(position__in=PLAYER_POSITIONS)
@@ -315,7 +324,9 @@ def _filtered_rows(request):
 
     player_ids = [row["player"].pk for row in rows if row["player"] is not None]
     defense_team_ids = [row["team"].pk for row in rows if row["position"] == "DST"]
+    players_by_id = {row['player'].pk: row['player'] for row in rows if row['player'] is not None}
 
+    checkpoint('market_players_filters')
     week_source_rows = list(PlayerMarketProjection.objects.filter(
         season=season,
         week=week,
@@ -334,30 +345,32 @@ def _filtered_rows(request):
         source = sleeper_by_entity_week.get((row["entity_key"], week))
         row["weekly_sleeper"] = _score_sleeper_projection(source, league)
 
+    checkpoint('market_weekly_consensus')
     adp_by_player = dict(PlayerADP.objects.filter(
         season=season,
         scoring_format=adp_format,
         player_id__in=player_ids,
-    ).values_list("player_id", "adp")) if player_ids else {}
+    ).values_list("player_id", "adp")) if player_ids and needs_adp else {}
     for row in rows:
         if row["player"] is not None and row["player"].pk in adp_by_player:
             row["adp"] = float(adp_by_player[row["player"].pk])
 
+    checkpoint('market_adp')
     if rows:
         our_player_projections = list(FantasyProjection.objects.filter(
             player_id__in=player_ids,
             season=season,
             week=week,
             model_version="v2_stat",
-        ).select_related("player")) if player_ids else []
+        ).only('player_id', 'week', 'status', 'projected_stats', 'projected_fantasy_points')) if player_ids else []
         our_defense_projections = list(DefenseProjection.objects.filter(
             team_id__in=defense_team_ids,
             season=season,
             week=week,
             model_version="v2_stat",
-        ).select_related("team")) if defense_team_ids else []
+        ).only('team_id', 'week', 'status', 'projected_stats')) if defense_team_ids else []
         for projection in our_player_projections:
-            points = _score_our_player_projection(projection, league)
+            points = _score_our_player_projection(projection, league, players_by_id[projection.player_id].position)
             row = rows_by_entity.get(f"player:{projection.player_id}")
             if row is not None:
                 row["weekly_our"] = points
@@ -367,6 +380,7 @@ def _filtered_rows(request):
             if row is not None:
                 row["weekly_our"] = points
 
+        checkpoint('market_weekly_saved')
         market_season_rows = list(PlayerMarketProjection.objects.filter(
             season=season,
             week__gte=week,
@@ -378,7 +392,7 @@ def _filtered_rows(request):
             week__gte=week,
             week__lte=18,
             team_id__in=defense_team_ids,
-        ))
+        )) if needs_ros else []
         market_by_entity = {}
         for source in market_season_rows:
             entity_key = f"player:{source.player_id}" if source.player_id else f"team:{source.team_id}"
@@ -396,25 +410,26 @@ def _filtered_rows(request):
                 ), 2)
                 has_ros_data = True
 
+        checkpoint('market_ros_consensus')
         our_player_ros = list(FantasyProjection.objects.filter(
             player_id__in=player_ids,
             season=season,
             week__gte=week,
             week__lte=18,
             model_version="v2_stat",
-        ).select_related("player")) if player_ids else []
+        ).only('player_id', 'week', 'status', 'projected_stats', 'projected_fantasy_points')) if player_ids and needs_ros else []
         our_defense_ros = list(DefenseProjection.objects.filter(
             team_id__in=defense_team_ids,
             season=season,
             week__gte=week,
             week__lte=18,
             model_version="v2_stat",
-        ).select_related("team")) if defense_team_ids else []
+        ).only('team_id', 'week', 'status', 'projected_stats')) if defense_team_ids and needs_ros else []
         our_by_entity = {}
         for projection in our_player_ros:
             entity_key = f"player:{projection.player_id}"
             our_by_entity.setdefault(entity_key, {})[projection.week] = _score_our_player_projection(
-                projection, league
+                projection, league, players_by_id[projection.player_id].position
             )
         for projection in our_defense_ros:
             entity_key = f"team:{projection.team_id}"
@@ -431,6 +446,7 @@ def _filtered_rows(request):
                 ), 2)
         context["has_week_data"] = bool(week_source_rows or our_player_projections or our_defense_projections)
         context["has_ros_data"] = has_ros_data or any(row["our_ros"] is not None for row in rows)
+        checkpoint('market_ros_saved')
     else:
         context["has_week_data"] = False
         context["has_ros_data"] = False
@@ -530,6 +546,7 @@ def _filtered_rows(request):
         "long_term_url": long_url,
         "active_market_tab": "short" if request.resolver_match.url_name == "market_short_term" else "long",
     })
+    checkpoint('market_rank_sort')
     return context
 
 

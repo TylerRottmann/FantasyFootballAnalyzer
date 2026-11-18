@@ -157,6 +157,9 @@ else:
     }
 
 SLOW_REQUEST_LOG_THRESHOLD_MS = int(os.getenv('SLOW_REQUEST_LOG_THRESHOLD_MS', '500'))
+# Detailed page timings appear in DevTools. Production requires explicit opt-in
+# and a logged-in staff user; existing slow-request logs remain enabled.
+SERVER_TIMING_ENABLED = env_bool('SERVER_TIMING_ENABLED', DEBUG)
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,

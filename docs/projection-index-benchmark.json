@@ -1,0 +1,1061 @@
+{
+  "measured_at_utc": "2026-11-18T20:25:02.838776+00:00",
+  "existing_indexes": [
+    [
+      "fantasy_projections_pkey",
+      "CREATE UNIQUE INDEX fantasy_projections_pkey ON public.fantasy_projections USING btree (id)"
+    ],
+    [
+      "fantasy_projections_player_id_8927d9c8",
+      "CREATE INDEX fantasy_projections_player_id_8927d9c8 ON public.fantasy_projections USING btree (player_id)"
+    ],
+    [
+      "player_projection_idx",
+      "CREATE INDEX player_projection_idx ON public.fantasy_projections USING btree (player_id, season, week)"
+    ],
+    [
+      "projection_lookup_idx",
+      "CREATE INDEX projection_lookup_idx ON public.fantasy_projections USING btree (season, week)"
+    ],
+    [
+      "unique_fantasy_projection",
+      "CREATE UNIQUE INDEX unique_fantasy_projection ON public.fantasy_projections USING btree (player_id, season, week, model_version)"
+    ]
+  ],
+  "projection_counts": [
+    [
+      2025,
+      "v1",
+      6758
+    ],
+    [
+      2026,
+      "v1",
+      55475
+    ],
+    [
+      2026,
+      "v2_stat",
+      57584
+    ]
+  ],
+  "season": 2026,
+  "player_count": 3211,
+  "league_player_count": 421,
+  "live_baseline": {
+    "waivers_week_1": {
+      "execution_ms": [
+        69.413,
+        68.839,
+        69.22,
+        69.72,
+        69.028
+      ],
+      "median_execution_ms": 69.22,
+      "median_planning_ms": 5.657,
+      "plan": {
+        "Node Type": "Index Scan",
+        "Index Name": "fantasy_projections_player_id_8927d9c8",
+        "Actual Rows": 57584,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 119253,
+        "Shared Read Blocks": 0,
+        "Local Hit Blocks": 0,
+        "Local Read Blocks": 0,
+        "Rows Removed by Filter": 62233
+      }
+    },
+    "waivers_week_11": {
+      "execution_ms": [
+        17.437,
+        17.93,
+        17.536,
+        17.156,
+        17.769
+      ],
+      "median_execution_ms": 17.536,
+      "median_planning_ms": 5.618,
+      "plan": {
+        "Node Type": "Index Scan",
+        "Index Name": "projection_lookup_idx",
+        "Actual Rows": 25612,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 3615,
+        "Shared Read Blocks": 0,
+        "Local Hit Blocks": 0,
+        "Local Read Blocks": 0,
+        "Rows Removed by Filter": 24726
+      }
+    },
+    "waivers_week_18": {
+      "execution_ms": [
+        9.388,
+        9.312,
+        9.355,
+        9.236,
+        9.168
+      ],
+      "median_execution_ms": 9.312,
+      "median_planning_ms": 5.572,
+      "plan": {
+        "Node Type": "Bitmap Heap Scan",
+        "Actual Rows": 3201,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 2293,
+        "Shared Read Blocks": 0,
+        "Local Hit Blocks": 0,
+        "Local Read Blocks": 0,
+        "Plans": [
+          {
+            "Node Type": "Bitmap Index Scan",
+            "Index Name": "unique_fantasy_projection",
+            "Actual Rows": 3201,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 1963,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0
+          }
+        ]
+      }
+    },
+    "power_rankings": {
+      "execution_ms": [
+        7.614,
+        7.22,
+        7.393,
+        7.343,
+        7.392
+      ],
+      "median_execution_ms": 7.392,
+      "median_planning_ms": 1.095,
+      "plan": {
+        "Node Type": "Hash Join",
+        "Actual Rows": 3368,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 1944,
+        "Shared Read Blocks": 0,
+        "Local Hit Blocks": 0,
+        "Local Read Blocks": 0,
+        "Plans": [
+          {
+            "Node Type": "Bitmap Heap Scan",
+            "Actual Rows": 3368,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 1636,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "Bitmap Index Scan",
+                "Index Name": "unique_fantasy_projection",
+                "Actual Rows": 3368,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 501,
+                "Shared Read Blocks": 0,
+                "Local Hit Blocks": 0,
+                "Local Read Blocks": 0
+              }
+            ]
+          },
+          {
+            "Node Type": "Hash",
+            "Actual Rows": 9389,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 308,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "Seq Scan",
+                "Actual Rows": 9389,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 308,
+                "Shared Read Blocks": 0,
+                "Local Hit Blocks": 0,
+                "Local Read Blocks": 0
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "market_weekly": {
+      "execution_ms": [
+        12.115,
+        11.907,
+        12.001,
+        11.87,
+        14.542
+      ],
+      "median_execution_ms": 12.001,
+      "median_planning_ms": 6.409,
+      "plan": {
+        "Node Type": "Hash Join",
+        "Actual Rows": 3203,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 1751,
+        "Shared Read Blocks": 0,
+        "Local Hit Blocks": 0,
+        "Local Read Blocks": 0,
+        "Plans": [
+          {
+            "Node Type": "Seq Scan",
+            "Actual Rows": 9389,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 308,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0
+          },
+          {
+            "Node Type": "Hash",
+            "Actual Rows": 3203,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 1443,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "Bitmap Heap Scan",
+                "Actual Rows": 3203,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 1443,
+                "Shared Read Blocks": 0,
+                "Local Hit Blocks": 0,
+                "Local Read Blocks": 0,
+                "Plans": [
+                  {
+                    "Node Type": "Bitmap Index Scan",
+                    "Index Name": "unique_fantasy_projection",
+                    "Actual Rows": 3203,
+                    "Actual Loops": 1,
+                    "Shared Hit Blocks": 1165,
+                    "Shared Read Blocks": 0,
+                    "Local Hit Blocks": 0,
+                    "Local Read Blocks": 0
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "market_rest_of_season": {
+      "execution_ms": [
+        32.768,
+        33.082,
+        33.107,
+        32.579,
+        33.341
+      ],
+      "median_execution_ms": 33.082,
+      "median_planning_ms": 6.476,
+      "plan": {
+        "Node Type": "Hash Join",
+        "Actual Rows": 25612,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 3923,
+        "Shared Read Blocks": 0,
+        "Local Hit Blocks": 0,
+        "Local Read Blocks": 0,
+        "Plans": [
+          {
+            "Node Type": "Index Scan",
+            "Index Name": "projection_lookup_idx",
+            "Actual Rows": 25612,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 3615,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Rows Removed by Filter": 24726
+          },
+          {
+            "Node Type": "Hash",
+            "Actual Rows": 9389,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 308,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "Seq Scan",
+                "Actual Rows": 9389,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 308,
+                "Shared Read Blocks": 0,
+                "Local Hit Blocks": 0,
+                "Local Read Blocks": 0
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "copied_projection_rows": 119817,
+  "copy_indexes_before": [
+    "CREATE UNIQUE INDEX fantasy_projections_pkey ON pg_temp.fantasy_projections USING btree (id)",
+    "CREATE INDEX fantasy_projections_player_id_idx ON pg_temp.fantasy_projections USING btree (player_id)",
+    "CREATE INDEX fantasy_projections_player_id_season_week_idx ON pg_temp.fantasy_projections USING btree (player_id, season, week)",
+    "CREATE INDEX fantasy_projections_season_week_idx ON pg_temp.fantasy_projections USING btree (season, week)",
+    "CREATE UNIQUE INDEX fantasy_projections_player_id_season_week_model_version_key ON pg_temp.fantasy_projections USING btree (player_id, season, week, model_version)"
+  ],
+  "copy_baseline": {
+    "waivers_week_1": {
+      "execution_ms": [
+        85.176,
+        85.552,
+        84.876,
+        85.205,
+        84.579
+      ],
+      "median_execution_ms": 85.176,
+      "median_planning_ms": 5.46,
+      "plan": {
+        "Node Type": "Index Scan",
+        "Index Name": "fantasy_projections_player_id_idx",
+        "Actual Rows": 57584,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 0,
+        "Shared Read Blocks": 0,
+        "Local Hit Blocks": 110105,
+        "Local Read Blocks": 8581,
+        "Rows Removed by Filter": 62233
+      }
+    },
+    "waivers_week_11": {
+      "execution_ms": [
+        23.072,
+        23.61,
+        23.417,
+        23.086,
+        23.186
+      ],
+      "median_execution_ms": 23.186,
+      "median_planning_ms": 5.425,
+      "plan": {
+        "Node Type": "Index Scan",
+        "Index Name": "fantasy_projections_season_week_idx",
+        "Actual Rows": 25612,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 0,
+        "Shared Read Blocks": 0,
+        "Local Hit Blocks": 1322,
+        "Local Read Blocks": 2273,
+        "Rows Removed by Filter": 24726
+      }
+    },
+    "waivers_week_18": {
+      "execution_ms": [
+        12.804,
+        13.168,
+        12.863,
+        12.922,
+        12.387
+      ],
+      "median_execution_ms": 12.863,
+      "median_planning_ms": 5.71,
+      "plan": {
+        "Node Type": "Bitmap Heap Scan",
+        "Actual Rows": 3201,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 0,
+        "Shared Read Blocks": 0,
+        "Local Hit Blocks": 1438,
+        "Local Read Blocks": 1133,
+        "Plans": [
+          {
+            "Node Type": "Bitmap Index Scan",
+            "Index Name": "fantasy_projections_player_id_season_week_model_version_key",
+            "Actual Rows": 3201,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 1438,
+            "Local Read Blocks": 809
+          }
+        ]
+      }
+    },
+    "power_rankings": {
+      "execution_ms": [
+        13.345,
+        13.41,
+        13.226,
+        13.307,
+        13.231
+      ],
+      "median_execution_ms": 13.307,
+      "median_planning_ms": 1.07,
+      "plan": {
+        "Node Type": "Hash Join",
+        "Actual Rows": 3368,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 308,
+        "Shared Read Blocks": 0,
+        "Local Hit Blocks": 368,
+        "Local Read Blocks": 1334,
+        "Plans": [
+          {
+            "Node Type": "Bitmap Heap Scan",
+            "Actual Rows": 3368,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 368,
+            "Local Read Blocks": 1334,
+            "Plans": [
+              {
+                "Node Type": "Bitmap Index Scan",
+                "Index Name": "fantasy_projections_player_id_season_week_model_version_key",
+                "Actual Rows": 3368,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 0,
+                "Shared Read Blocks": 0,
+                "Local Hit Blocks": 368,
+                "Local Read Blocks": 192
+              }
+            ]
+          },
+          {
+            "Node Type": "Hash",
+            "Actual Rows": 9389,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 308,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "Seq Scan",
+                "Actual Rows": 9389,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 308,
+                "Shared Read Blocks": 0,
+                "Local Hit Blocks": 0,
+                "Local Read Blocks": 0
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "market_weekly": {
+      "execution_ms": [
+        14.342,
+        14.465,
+        13.959,
+        14.017,
+        13.902
+      ],
+      "median_execution_ms": 14.017,
+      "median_planning_ms": 5.933,
+      "plan": {
+        "Node Type": "Hash Join",
+        "Actual Rows": 3203,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 308,
+        "Shared Read Blocks": 0,
+        "Local Hit Blocks": 200,
+        "Local Read Blocks": 1050,
+        "Plans": [
+          {
+            "Node Type": "Seq Scan",
+            "Actual Rows": 9389,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 308,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0
+          },
+          {
+            "Node Type": "Hash",
+            "Actual Rows": 3203,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 200,
+            "Local Read Blocks": 1050,
+            "Plans": [
+              {
+                "Node Type": "Bitmap Heap Scan",
+                "Actual Rows": 3203,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 0,
+                "Shared Read Blocks": 0,
+                "Local Hit Blocks": 200,
+                "Local Read Blocks": 1050,
+                "Plans": [
+                  {
+                    "Node Type": "Bitmap Index Scan",
+                    "Index Name": "fantasy_projections_player_id_season_week_model_version_key",
+                    "Actual Rows": 3203,
+                    "Actual Loops": 1,
+                    "Shared Hit Blocks": 0,
+                    "Shared Read Blocks": 0,
+                    "Local Hit Blocks": 200,
+                    "Local Read Blocks": 807
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "market_rest_of_season": {
+      "execution_ms": [
+        37.981,
+        37.825,
+        37.455,
+        37.262,
+        38.075
+      ],
+      "median_execution_ms": 37.825,
+      "median_planning_ms": 5.864,
+      "plan": {
+        "Node Type": "Hash Join",
+        "Actual Rows": 25612,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 308,
+        "Shared Read Blocks": 0,
+        "Local Hit Blocks": 1322,
+        "Local Read Blocks": 2273,
+        "Plans": [
+          {
+            "Node Type": "Index Scan",
+            "Index Name": "fantasy_projections_season_week_idx",
+            "Actual Rows": 25612,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 1322,
+            "Local Read Blocks": 2273,
+            "Rows Removed by Filter": 24726
+          },
+          {
+            "Node Type": "Hash",
+            "Actual Rows": 9389,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 308,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "Seq Scan",
+                "Actual Rows": 9389,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 308,
+                "Shared Read Blocks": 0,
+                "Local Hit Blocks": 0,
+                "Local Read Blocks": 0
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "copy_candidate": {
+    "waivers_week_1": {
+      "execution_ms": [
+        36.056,
+        37.52,
+        36.403,
+        36.245,
+        36.303
+      ],
+      "median_execution_ms": 36.303,
+      "median_planning_ms": 5.405,
+      "plan": {
+        "Node Type": "Index Scan",
+        "Index Name": "bench_projection_season_model_week",
+        "Actual Rows": 57584,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 0,
+        "Shared Read Blocks": 0,
+        "Local Hit Blocks": 3103,
+        "Local Read Blocks": 3869,
+        "Rows Removed by Filter": 0
+      }
+    },
+    "waivers_week_11": {
+      "execution_ms": [
+        15.841,
+        17.253,
+        16.771,
+        15.645,
+        15.813
+      ],
+      "median_execution_ms": 15.841,
+      "median_planning_ms": 5.469,
+      "plan": {
+        "Node Type": "Index Scan",
+        "Index Name": "bench_projection_season_model_week",
+        "Actual Rows": 25612,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 0,
+        "Shared Read Blocks": 0,
+        "Local Hit Blocks": 1037,
+        "Local Read Blocks": 1619,
+        "Rows Removed by Filter": 0
+      }
+    },
+    "waivers_week_18": {
+      "execution_ms": [
+        1.391,
+        1.469,
+        1.441,
+        1.397,
+        1.458
+      ],
+      "median_execution_ms": 1.441,
+      "median_planning_ms": 5.419,
+      "plan": {
+        "Node Type": "Index Scan",
+        "Index Name": "bench_projection_season_model_week",
+        "Actual Rows": 3201,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 0,
+        "Shared Read Blocks": 0,
+        "Local Hit Blocks": 328,
+        "Local Read Blocks": 0,
+        "Rows Removed by Filter": 0
+      }
+    },
+    "power_rankings": {
+      "execution_ms": [
+        12.101,
+        13.118,
+        13.215,
+        13.025,
+        13.198
+      ],
+      "median_execution_ms": 13.118,
+      "median_planning_ms": 1.09,
+      "plan": {
+        "Node Type": "Hash Join",
+        "Actual Rows": 3368,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 308,
+        "Shared Read Blocks": 0,
+        "Local Hit Blocks": 370,
+        "Local Read Blocks": 1332,
+        "Plans": [
+          {
+            "Node Type": "Bitmap Heap Scan",
+            "Actual Rows": 3368,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 370,
+            "Local Read Blocks": 1332,
+            "Plans": [
+              {
+                "Node Type": "Bitmap Index Scan",
+                "Index Name": "fantasy_projections_player_id_season_week_model_version_key",
+                "Actual Rows": 3368,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 0,
+                "Shared Read Blocks": 0,
+                "Local Hit Blocks": 369,
+                "Local Read Blocks": 191
+              }
+            ]
+          },
+          {
+            "Node Type": "Hash",
+            "Actual Rows": 9389,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 308,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "Seq Scan",
+                "Actual Rows": 9389,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 308,
+                "Shared Read Blocks": 0,
+                "Local Hit Blocks": 0,
+                "Local Read Blocks": 0
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "market_weekly": {
+      "execution_ms": [
+        5.823,
+        6.131,
+        6.127,
+        5.957,
+        5.965
+      ],
+      "median_execution_ms": 5.965,
+      "median_planning_ms": 5.884,
+      "plan": {
+        "Node Type": "Hash Join",
+        "Actual Rows": 3203,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 308,
+        "Shared Read Blocks": 0,
+        "Local Hit Blocks": 248,
+        "Local Read Blocks": 0,
+        "Plans": [
+          {
+            "Node Type": "Seq Scan",
+            "Actual Rows": 9389,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 308,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0
+          },
+          {
+            "Node Type": "Hash",
+            "Actual Rows": 3203,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 248,
+            "Local Read Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "Index Scan",
+                "Index Name": "bench_projection_season_model_week",
+                "Actual Rows": 3203,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 0,
+                "Shared Read Blocks": 0,
+                "Local Hit Blocks": 248,
+                "Local Read Blocks": 0,
+                "Rows Removed by Filter": 0
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "market_rest_of_season": {
+      "execution_ms": [
+        28.551,
+        29.285,
+        30.61,
+        30.325,
+        31.17
+      ],
+      "median_execution_ms": 30.325,
+      "median_planning_ms": 5.916,
+      "plan": {
+        "Node Type": "Hash Join",
+        "Actual Rows": 25612,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 308,
+        "Shared Read Blocks": 0,
+        "Local Hit Blocks": 1037,
+        "Local Read Blocks": 1619,
+        "Plans": [
+          {
+            "Node Type": "Index Scan",
+            "Index Name": "bench_projection_season_model_week",
+            "Actual Rows": 25612,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 1037,
+            "Local Read Blocks": 1619,
+            "Rows Removed by Filter": 0
+          },
+          {
+            "Node Type": "Hash",
+            "Actual Rows": 9389,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 308,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "Seq Scan",
+                "Actual Rows": 9389,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 308,
+                "Shared Read Blocks": 0,
+                "Local Hit Blocks": 0,
+                "Local Read Blocks": 0
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "copy_baseline_repeat": {
+    "waivers_week_1": {
+      "execution_ms": [
+        486.756,
+        643.663,
+        1181.16,
+        479.305,
+        92.108
+      ],
+      "median_execution_ms": 486.756,
+      "median_planning_ms": 5.565,
+      "plan": {
+        "Node Type": "Index Scan",
+        "Index Name": "fantasy_projections_player_id_idx",
+        "Actual Rows": 57584,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 0,
+        "Shared Read Blocks": 0,
+        "Local Hit Blocks": 110105,
+        "Local Read Blocks": 8581,
+        "Rows Removed by Filter": 62233
+      }
+    },
+    "waivers_week_11": {
+      "execution_ms": [
+        23.595,
+        23.573,
+        23.34,
+        23.185,
+        23.403
+      ],
+      "median_execution_ms": 23.403,
+      "median_planning_ms": 5.444,
+      "plan": {
+        "Node Type": "Index Scan",
+        "Index Name": "fantasy_projections_season_week_idx",
+        "Actual Rows": 25612,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 0,
+        "Shared Read Blocks": 0,
+        "Local Hit Blocks": 1322,
+        "Local Read Blocks": 2273,
+        "Rows Removed by Filter": 24726
+      }
+    },
+    "waivers_week_18": {
+      "execution_ms": [
+        12.269,
+        12.291,
+        12.241,
+        12.195,
+        15.709
+      ],
+      "median_execution_ms": 12.269,
+      "median_planning_ms": 5.513,
+      "plan": {
+        "Node Type": "Bitmap Heap Scan",
+        "Actual Rows": 3201,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 0,
+        "Shared Read Blocks": 0,
+        "Local Hit Blocks": 1438,
+        "Local Read Blocks": 1133,
+        "Plans": [
+          {
+            "Node Type": "Bitmap Index Scan",
+            "Index Name": "fantasy_projections_player_id_season_week_model_version_key",
+            "Actual Rows": 3201,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 1438,
+            "Local Read Blocks": 809
+          }
+        ]
+      }
+    },
+    "power_rankings": {
+      "execution_ms": [
+        13.312,
+        13.037,
+        13.063,
+        13.145,
+        13.588
+      ],
+      "median_execution_ms": 13.145,
+      "median_planning_ms": 1.067,
+      "plan": {
+        "Node Type": "Hash Join",
+        "Actual Rows": 3368,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 308,
+        "Shared Read Blocks": 0,
+        "Local Hit Blocks": 368,
+        "Local Read Blocks": 1334,
+        "Plans": [
+          {
+            "Node Type": "Bitmap Heap Scan",
+            "Actual Rows": 3368,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 368,
+            "Local Read Blocks": 1334,
+            "Plans": [
+              {
+                "Node Type": "Bitmap Index Scan",
+                "Index Name": "fantasy_projections_player_id_season_week_model_version_key",
+                "Actual Rows": 3368,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 0,
+                "Shared Read Blocks": 0,
+                "Local Hit Blocks": 368,
+                "Local Read Blocks": 192
+              }
+            ]
+          },
+          {
+            "Node Type": "Hash",
+            "Actual Rows": 9389,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 308,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "Seq Scan",
+                "Actual Rows": 9389,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 308,
+                "Shared Read Blocks": 0,
+                "Local Hit Blocks": 0,
+                "Local Read Blocks": 0
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "market_weekly": {
+      "execution_ms": [
+        14.389,
+        14.445,
+        13.891,
+        14.116,
+        14.111
+      ],
+      "median_execution_ms": 14.116,
+      "median_planning_ms": 5.887,
+      "plan": {
+        "Node Type": "Hash Join",
+        "Actual Rows": 3203,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 308,
+        "Shared Read Blocks": 0,
+        "Local Hit Blocks": 200,
+        "Local Read Blocks": 1050,
+        "Plans": [
+          {
+            "Node Type": "Seq Scan",
+            "Actual Rows": 9389,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 308,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0
+          },
+          {
+            "Node Type": "Hash",
+            "Actual Rows": 3203,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 200,
+            "Local Read Blocks": 1050,
+            "Plans": [
+              {
+                "Node Type": "Bitmap Heap Scan",
+                "Actual Rows": 3203,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 0,
+                "Shared Read Blocks": 0,
+                "Local Hit Blocks": 200,
+                "Local Read Blocks": 1050,
+                "Plans": [
+                  {
+                    "Node Type": "Bitmap Index Scan",
+                    "Index Name": "fantasy_projections_player_id_season_week_model_version_key",
+                    "Actual Rows": 3203,
+                    "Actual Loops": 1,
+                    "Shared Hit Blocks": 0,
+                    "Shared Read Blocks": 0,
+                    "Local Hit Blocks": 200,
+                    "Local Read Blocks": 807
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "market_rest_of_season": {
+      "execution_ms": [
+        37.327,
+        37.375,
+        37.824,
+        37.779,
+        37.506
+      ],
+      "median_execution_ms": 37.506,
+      "median_planning_ms": 5.998,
+      "plan": {
+        "Node Type": "Hash Join",
+        "Actual Rows": 25612,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 308,
+        "Shared Read Blocks": 0,
+        "Local Hit Blocks": 1322,
+        "Local Read Blocks": 2273,
+        "Plans": [
+          {
+            "Node Type": "Index Scan",
+            "Index Name": "fantasy_projections_season_week_idx",
+            "Actual Rows": 25612,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 1322,
+            "Local Read Blocks": 2273,
+            "Rows Removed by Filter": 24726
+          },
+          {
+            "Node Type": "Hash",
+            "Actual Rows": 9389,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 308,
+            "Shared Read Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "Seq Scan",
+                "Actual Rows": 9389,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 308,
+                "Shared Read Blocks": 0,
+                "Local Hit Blocks": 0,
+                "Local Read Blocks": 0
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

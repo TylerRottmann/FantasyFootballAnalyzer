@@ -1,0 +1,59 @@
+{
+  "market_short_term": {
+    "before": [
+      {
+        "seconds": 9.705553699983284,
+        "queries": 9,
+        "db_seconds": 6.6423575999215245
+      },
+      {
+        "seconds": 5.085661299992353,
+        "queries": 9,
+        "db_seconds": 2.449837999767624
+      }
+    ],
+    "after": [
+      {
+        "seconds": 0.8011092999950051,
+        "queries": 5,
+        "db_seconds": 0.5031331998761743
+      },
+      {
+        "seconds": 0.8158500000135973,
+        "queries": 5,
+        "db_seconds": 0.511172599857673
+      }
+    ],
+    "displayed_rankings_match": true
+  },
+  "market_long_term": {
+    "before": [
+      {
+        "seconds": 5.112136299954727,
+        "queries": 9,
+        "db_seconds": 2.524254399817437
+      },
+      {
+        "seconds": 6.056365800090134,
+        "queries": 9,
+        "db_seconds": 2.752377900062129
+      }
+    ],
+    "after": [
+      {
+        "seconds": 4.321104799979366,
+        "queries": 9,
+        "db_seconds": 2.0509271001210436
+      },
+      {
+        "seconds": 3.8626164000015706,
+        "queries": 9,
+        "db_seconds": 1.8599211002001539
+      }
+    ],
+    "displayed_rankings_match": true
+  },
+  "waiver_synthetic_before_seconds": 6.619057800038718,
+  "waiver_synthetic_after_seconds": 1.6098003999795765,
+  "waiver_synthetic_outputs_match": true
+}
