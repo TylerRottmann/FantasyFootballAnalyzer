@@ -104,6 +104,7 @@ class PlayerWeeklyStats(models.Model):
         managed = False
         db_table = 'player_weekly_stats'
         unique_together = (('player', 'season', 'week', 'season_type'),)
+        indexes = [models.Index(fields=['season', 'season_type', 'week'], name='pws_season_type_week_idx')]
 
 
 class Players(models.Model):
@@ -393,6 +394,7 @@ class TeamWeeklyStats(models.Model):
         managed = False
         db_table = 'team_weekly_stats'
         unique_together = (('team', 'season', 'week', 'season_type'),)
+        indexes = [models.Index(fields=['season', 'season_type', 'week'], name='tws_season_type_week_idx')]
 
 
 class Teams(models.Model):
@@ -471,6 +473,7 @@ class PlayerInjuryReport(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['player', 'season', 'week'], name='injury_player_week_unique')]
+        indexes = [models.Index(fields=['season', 'week'], name='injury_season_week_idx')]
 
 
 class PlayerSnapCount(models.Model):
@@ -485,6 +488,7 @@ class PlayerSnapCount(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['player', 'season', 'week'], name='snaps_player_week_unique')]
+        indexes = [models.Index(fields=['season', 'week'], name='snaps_season_week_idx')]
 
 
 class PlayerADP(models.Model):
