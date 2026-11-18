@@ -249,6 +249,10 @@ class FantasyRosterPlayer(models.Model):
     class Meta:
         managed = False
         db_table = "fantasy_roster_players"
+        indexes = [
+            models.Index(fields=['roster'], name='roster_players_roster_idx'),
+            models.Index(fields=['player'], name='roster_players_player_idx'),
+        ]
 
 
 class UserLeagueConnection(models.Model):
