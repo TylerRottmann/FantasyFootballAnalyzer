@@ -39,9 +39,10 @@ def _known_scores(rows, slots, metric, week=None):
         points = _points(row, metric, week)
         if points is None:
             continue
+        bits = _slot_bits(row, slots)
         updated = states.copy()
         for mask, score in states.items():
-            for bit in _slot_bits(row, slots):
+            for bit in bits:
                 if not mask & bit:
                     next_mask = mask | bit
                     updated[next_mask] = max(updated.get(next_mask, float('-inf')), score + points)
@@ -56,7 +57,8 @@ def _unknown_masks(rows, slots, metric, week=None):
     for row in rows:
         if _points(row, metric, week) is not None:
             continue
-        masks |= {mask | bit for mask in masks for bit in _slot_bits(row, slots) if not mask & bit}
+        bits = _slot_bits(row, slots)
+        masks |= {mask | bit for mask in masks for bit in bits if not mask & bit}
     return masks
 
 

@@ -8,7 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.http import HttpResponse
-from django.shortcuts import render
+from analyzer.performance import timed, timed_call, timed_render as render
 
 from leagues.services.context_processors import league_selector
 from leagues.services.roster_identity import resolve_connection_roster
@@ -62,6 +62,7 @@ class WaiverFilterForm(forms.Form):
         return data
 
 
+@timed('waiver_pool')
 def waiver_pool(league, week):
     scoring = sha256(repr(league.scoring_settings).encode()).hexdigest()
     key = f'waiver-pool:v5:{league.pk}:{league.season}:{week}:{scoring}'
@@ -71,8 +72,8 @@ def waiver_pool(league, week):
 
     players = list(Players.objects.filter(position__in=FANTASY_POSITIONS)
                    .exclude(full_name__isnull=True).exclude(full_name='').select_related('team'))
-    forecasts = load_waiver_predictions([player.pk for player in players], league, week)
-    values = load_player_values(league.season, week)
+    forecasts = timed_call('waiver_forecasts', load_waiver_predictions, [player.pk for player in players], league, week)
+    values = timed_call('waiver_values', load_player_values, league.season, week)
     unknown = PlayerValue()
     rows = {player.pk: {
         'player': player,
@@ -83,6 +84,7 @@ def waiver_pool(league, week):
     return rows
 
 
+@timed('waiver_horizons')
 def _pickup_horizon_tags(league, week, roster_entries, all_available_rows, owned):
     normalized_roster_entries = sorted((str(player_id or ''), str(slot or ''))
         for player_id, slot in roster_entries)
@@ -109,7 +111,7 @@ def waiver_wire(request):
         params['sort'] = 'week'
     if not params.get('week'):
         try:
-            params['week'] = str(max(1, min(18, get_current_nfl_week())))
+            params['week'] = str(max(1, min(18, timed_call('nfl_week', get_current_nfl_week))))
         except (RequestException, KeyError, TypeError, ValueError):
             context['week_unavailable'] = True
     form = WaiverFilterForm(params)
@@ -139,7 +141,7 @@ def waiver_wire(request):
                          for player_id, slot in roster_entries if player_id in all_rows]
                 available = [row for player_id, row in all_rows.items() if player_id not in rostered]
                 pickup_horizons = _pickup_horizon_tags(league, week, roster_entries, available, owned)
-                context['suggested_moves'] = suggested_moves(
+                context['suggested_moves'] = timed_call('waiver_moves', suggested_moves,
                     available, owned, league.roster_positions or [], pickup_horizons
                 )
             else:
