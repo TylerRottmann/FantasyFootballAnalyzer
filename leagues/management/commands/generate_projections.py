@@ -18,6 +18,7 @@ class Command(BaseCommand):
     help = "Generate stat-line player and D/ST projections for league-specific scoring."
 
     def add_arguments(self, parser):
+        parser.add_argument("--strict", action="store_true")
         parser.add_argument("--season", type=int, required=True)
         parser.add_argument(
             "--positions", nargs="+", choices=[*POSITIONS, "DST"],
@@ -266,4 +267,6 @@ class Command(BaseCommand):
         self.stdout.write(f"Zeroed: {total_zeroed}")
         self.stdout.write(f"Skipped: {total_skipped}")
         self.stdout.write(f"Failed: {total_failed}")
+        if options["strict"] and (total_failed or not total_saved):
+            raise CommandError("Projection generation had failures or produced no model projections.")
         cache.set(f"projection_version:{season}", timezone.now().isoformat(), timeout=None)

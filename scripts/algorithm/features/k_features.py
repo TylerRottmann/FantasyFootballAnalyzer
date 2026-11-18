@@ -1,5 +1,6 @@
 """Earlier-game kicker production and team opportunity context."""
 import json
+import os
 from collections import Counter, defaultdict
 from pathlib import Path
 from psycopg.rows import dict_row
@@ -7,7 +8,8 @@ from scripts.algorithm.features.qb_features import average, get_connection
 from scripts.algorithm.features.rb_features import RBSeasonData, normalize_team, paired_rate
 from scripts.algorithm.k.feature_names import PLAYER_STATS, TEAM_STATS, OPPONENT_STATS, WINDOWS
 
-DATA_PATH = Path(__file__).resolve().parents[1] / 'k' / 'kicker_weekly.json'
+ARTIFACT_DIR = os.getenv("FFA_REFRESH_ARTIFACT_DIR")
+DATA_PATH = (Path(ARTIFACT_DIR) if ARTIFACT_DIR else Path(__file__).resolve().parents[1] / "k") / "kicker_weekly.json"
 
 class KSourceUnavailable(ValueError):
     """The local source snapshot needs to be prepared or refreshed."""

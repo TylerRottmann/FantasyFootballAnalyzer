@@ -590,7 +590,6 @@ def save_matchups(conn, matchup_rows):
 
             cur.execute(insert_sql, params)
 
-    conn.commit()
 
     print()
     print(f"Saved {len(matchup_rows)} matchup rows.")
@@ -687,6 +686,7 @@ def main():
         description="Build NFL team matchup features."
     )
 
+    parser.add_argument("--strict", action="store_true")
     parser.add_argument(
         "--season",
         type=int,
@@ -726,6 +726,11 @@ def main():
 
             if not matchup_rows:
                 die("No matchup rows were created.")
+
+            if args.strict:
+                scheduled = load_schedule(args.season, args.week)
+                if len(matchup_rows) != 2 * len(scheduled):
+                    die("Incomplete matchup coverage; existing snapshots retained.")
 
             save_matchups(
                 conn,

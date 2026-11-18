@@ -17,6 +17,8 @@ import polars as pl
 from dotenv import load_dotenv
 
 
+from scripts.imports.scheduled_coverage import completed_games, require_team_coverage
+
 load_dotenv()
 
 
@@ -35,11 +37,20 @@ def _rows(frame):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seasons", nargs="+", type=int, default=[2023, 2024, 2025, 2026])
+    parser.add_argument("--through-week", type=int)
     args = parser.parse_args()
 
     print(f"Loading play-by-play and snap counts for {args.seasons}...")
     pbp = _rows(nfl.load_pbp(seasons=args.seasons).filter(pl.col("season_type") == "REG"))
     snaps = _rows(nfl.load_snap_counts(seasons=args.seasons).filter(pl.col("game_type") == "REG"))
+    if args.through_week is not None:
+        if len(args.seasons) != 1:
+            parser.error("--through-week requires one season.")
+        games = completed_games(args.seasons[0], args.through_week)
+        pbp = [row for row in pbp if row["week"] is not None and 1 <= row["week"] <= args.through_week]
+        snaps = [row for row in snaps if row["week"] is not None and 1 <= row["week"] <= args.through_week]
+        require_team_coverage(games, pbp, "play-by-play", "posteam")
+        require_team_coverage(games, snaps, "snap counts", "team")
     ids = _rows(nfl.load_ff_playerids())
 
     conn = psycopg.connect(
@@ -170,6 +181,9 @@ def main():
                 player_id, season, week,
                 *(values.get(field, 0 if field == "qb_scrambles" else None) for field in fields),
             ))
+
+        if args.through_week is not None and len(team_values) != 2 * len(games):
+            raise ValueError(f"Expected {2 * len(games)} opportunity team-weeks; prepared {len(team_values)}.")
 
         with conn.cursor() as cur:
             cur.executemany("""

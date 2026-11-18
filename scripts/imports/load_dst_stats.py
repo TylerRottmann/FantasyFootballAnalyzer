@@ -24,11 +24,17 @@ from dotenv import load_dotenv
 
 from scripts.algorithm.dst.scoring import dst_fantasy_points
 
+from scripts.imports.scheduled_coverage import completed_games, regular_through, require_team_coverage
+
 load_dotenv()
 
 parser = argparse.ArgumentParser(description="Import weekly D/ST statistics.")
 parser.add_argument("--seasons", nargs="+", type=int, default=[2023, 2024, 2025])
-SEASONS = sorted(set(parser.parse_args().seasons))
+parser.add_argument("--through-week", type=int)
+args = parser.parse_args()
+SEASONS = sorted(set(args.seasons))
+if args.through_week is not None and len(SEASONS) != 1:
+    parser.error("--through-week requires one season.")
 
 conn = psycopg.connect(
     host=os.getenv("DB_HOST"),
@@ -59,9 +65,12 @@ with conn.cursor() as cur:
             ADD COLUMN IF NOT EXISTS safeties numeric(10,2),
             ADD COLUMN IF NOT EXISTS dst_fantasy_points numeric(10,2)
     """)
-conn.commit()
 
 team_stats = nfl.load_team_stats(seasons=SEASONS)
+if args.through_week is not None:
+    games = completed_games(SEASONS[0], args.through_week)
+    team_stats = regular_through(team_stats, args.through_week)
+    require_team_coverage(games, team_stats.to_dicts(), "NFL team stats", "team")
 
 missing = [c for c in REQUIRED if c not in team_stats.columns]
 if missing:
@@ -129,6 +138,8 @@ for row in team_stats.filter(team_stats["season_type"] == "REG").iter_rows(named
               team_id, row["season"], row["week"]))
         updated += 1
 
+if args.through_week is not None and updated != 2 * len(games):
+    raise ValueError(f"Expected {2 * len(games)} D/ST team-week rows; updated {updated}.")
 conn.commit()
 conn.close()
 print(f"Updated {updated} team-week rows with D/ST stats.")

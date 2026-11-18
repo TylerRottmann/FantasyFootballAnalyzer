@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections import defaultdict
 import json
 from math import ceil
+import os
 from pathlib import Path
 from typing import Iterable, Mapping
 
@@ -22,7 +23,8 @@ RETURN_BUFFER_WEEKS = 2
 MIN_PROFILE_SAMPLES = 5
 MIN_GLOBAL_SAMPLES = 25
 REGULAR_SEASON_WEEKS = 18
-PROFILE_PATH = Path(__file__).with_name("data") / "injury_duration_profiles.json"
+ARTIFACT_DIR = os.getenv("FFA_REFRESH_ARTIFACT_DIR")
+PROFILE_PATH = (Path(ARTIFACT_DIR) if ARTIFACT_DIR else Path(__file__).with_name("data")) / "injury_duration_profiles.json"
 
 
 def _normalize(value) -> str:
