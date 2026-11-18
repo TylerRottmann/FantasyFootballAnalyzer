@@ -35,6 +35,7 @@ parser.add_argument(
     help="Number of most recent games used for recent-form features.",
 )
 
+parser.add_argument("--strict", action="store_true")
 args = parser.parse_args()
 
 SEASON = args.season
@@ -1013,6 +1014,9 @@ with conn.cursor() as cur:
 
         inserted += 1
 
+
+if args.strict and inserted != 32:
+    raise ValueError(f"Expected 32 team feature snapshots; prepared {inserted}.")
 
 conn.commit()
 

@@ -21,6 +21,7 @@ class Command(BaseCommand):
             default=[2023, 2024, 2025, 2026],
             help="Seasons to include (default: 2023 through 2026).",
         )
+        parser.add_argument("--through-week", type=int, choices=range(1, 19))
         parser.add_argument("--output", help="Optional JSON output path.")
 
     def handle(self, *args, **options):
@@ -43,6 +44,13 @@ class Command(BaseCommand):
             )
 
         reports = reports.filter(reports["season_type"] == "REG")
+        through = options["through_week"]
+        if through is not None:
+            reports = reports.filter((reports["season"] < seasons[-1]) | (reports["week"] <= through))
+            coverage = set(zip(reports["season"].to_list(), reports["week"].to_list()))
+            expected = {(s, w) for s in seasons for w in range(1, (through if s == seasons[-1] else 18) + 1)}
+            if expected - coverage:
+                raise CommandError("Injury source is missing historical weeks; existing profiles retained.")
         rows = []
         for report in reports.iter_rows(named=True):
             if not report.get("gsis_id"):
@@ -64,6 +72,8 @@ class Command(BaseCommand):
         )
         appearances = {}
         for player_id, season, week in weekly_rows.iterator():
+            if through is not None and season == seasons[-1] and week > through:
+                continue
             appearances.setdefault((str(player_id), int(season)), set()).add(int(week))
 
         episodes = build_injury_episodes(rows, appearances)

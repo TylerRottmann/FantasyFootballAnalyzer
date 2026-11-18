@@ -1,0 +1,4 @@
+# Install as /etc/cron.d/fantasy-football-refresh. Set the deployment paths and account.
+CRON_TZ=UTC
+*/5 * * * * fantasyfootball cd /srv/fantasy-football && /srv/fantasy-football/.venv/bin/python -u manage.py run_scheduled_refreshes --lane imports >> /var/log/fantasy-football/refresh.log 2>&1
+*/5 * * * * fantasyfootball cd /srv/fantasy-football && /srv/fantasy-football/.venv/bin/python -u manage.py run_scheduled_refreshes --lane cache >> /var/log/fantasy-football/refresh.log 2>&1

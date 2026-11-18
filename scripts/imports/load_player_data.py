@@ -31,8 +31,11 @@ conn = psycopg.connect(
 
 print("Downloading players from Sleeper...")
 
-with urlopen(SLEEPER_PLAYERS_URL) as response:
+with urlopen(SLEEPER_PLAYERS_URL, timeout=60) as response:
     players = json.load(response)
+
+if not isinstance(players, dict) or len(players) < 1000:
+    raise ValueError("Incomplete Sleeper player metadata response.")
 
 print(f"Downloaded {len(players)} player records from Sleeper.")
 
@@ -49,6 +52,8 @@ with conn.cursor() as cur:
     """)
 
     team_rows = cur.fetchall()
+    cur.execute("SELECT sleeper_id FROM players WHERE sleeper_id IS NOT NULL")
+    known_ids = {str(row[0]) for row in cur.fetchall()}
 
 
 team_map = {
@@ -64,6 +69,7 @@ print(f"Loaded {len(team_map)} NFL teams from database.")
 # ============================================================
 
 imported = 0
+active_imported = 0
 skipped = 0
 missing_team = 0
 
@@ -78,10 +84,10 @@ with conn.cursor() as cur:
     for sleeper_id, player in players.items():
 
         # ----------------------------------------------------
-        # Only import active players
+        # Import active players and keep statuses current for known inactive players.
         # ----------------------------------------------------
 
-        if not player.get("active"):
+        if not player.get("active") and sleeper_id not in known_ids:
             skipped += 1
             continue
 
@@ -107,7 +113,7 @@ with conn.cursor() as cur:
 
         if team_abbreviation:
 
-            team_id = team_map.get(team_abbreviation)
+            team_id = team_map.get("LAR" if team_abbreviation == "LA" else team_abbreviation)
 
             if team_id is None:
 
@@ -197,10 +203,7 @@ with conn.cursor() as cur:
                     ),
 
                 team_id =
-                    COALESCE(
-                        EXCLUDED.team_id,
-                        players.team_id
-                    ),
+                    CASE WHEN %s THEN EXCLUDED.team_id ELSE players.team_id END,
 
                 headshot_url =
                     COALESCE(
@@ -268,11 +271,16 @@ with conn.cursor() as cur:
             player.get("height"),
             player.get("weight"),
             player.get("college"),
+            "team" in player,
         ))
 
         imported += 1
+        active_imported += bool(player.get("active"))
 
 
+
+if active_imported < 500:
+    raise ValueError(f"Incomplete Sleeper player metadata: only {active_imported} usable active rows.")
 
 conn.commit()
 conn.close()

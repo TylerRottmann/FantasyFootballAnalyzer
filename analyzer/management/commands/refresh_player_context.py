@@ -6,6 +6,36 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 from analyzer.models import Players, Teams, PlayerInjuryReport, PlayerSnapCount, PlayerWeeklyStats
+from scripts.commands.nflweek import SLEEPER_STATE_URL
+
+
+POSITIONS = ('QB', 'RB', 'WR', 'TE', 'K')
+PLAYER_FEED = 'https://api.sleeper.app/v1/players/nfl'
+
+
+def fetch_player_context(*, scheduled):
+    if not scheduled:
+        response = requests.get(PLAYER_FEED, timeout=60)
+        response.raise_for_status()
+        source = response.json()
+        if not isinstance(source, dict) or not source:
+            raise ValueError('Incomplete player feed; existing reports retained.')
+        return source
+
+    source = {}
+    for position in POSITIONS:
+        response = requests.get(
+            PLAYER_FEED, params={'position': position, 'active': 'true'}, timeout=30,
+        )
+        response.raise_for_status()
+        rows = response.json()
+        if (
+            not isinstance(rows, dict) or len(rows) < 10
+            or any(not isinstance(row, dict) or row.get('position') != position for row in rows.values())
+        ):
+            raise ValueError(f'Incomplete {position} player feed; existing reports retained.')
+        source.update(rows)
+    return source
 
 
 class Command(BaseCommand):
@@ -14,23 +44,32 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('--dry-run', action='store_true')
         parser.add_argument('--injuries-only', action='store_true')
+        parser.add_argument('--stats-only', action='store_true')
+        parser.add_argument('--season', type=int)
+        parser.add_argument('--week', type=int)
+        parser.add_argument('--through-week', type=int, choices=range(1, 19))
 
     def handle(self, *args, **options):
+        season, week, through = options['season'], options['week'], options['through_week']
+        stats_only = options['stats_only']
+        if stats_only and (not season or not through or options['injuries_only']):
+            raise CommandError('--stats-only requires --season and --through-week.')
+        source = {}
         try:
-            response = requests.get('https://api.sleeper.app/v1/state/nfl', timeout=20)
-            response.raise_for_status()
-            state = response.json()
-            season, week = int(state['season']), int(state['week'])
-            if not 1 <= week <= 18 or state.get('season_type') != 'regular':
-                raise ValueError('Injury capture requires a current regular-season week.')
-            response = requests.get('https://api.sleeper.app/v1/players/nfl', timeout=60)
-            response.raise_for_status()
-            source = response.json()
-            if not isinstance(source, dict) or not source:
-                raise ValueError('Empty or invalid player feed; existing reports retained.')
+            if not stats_only:
+                if season is None and week is None:
+                    response = requests.get(SLEEPER_STATE_URL, timeout=20)
+                    response.raise_for_status()
+                    state = response.json()
+                    season, week = int(state['season']), int(state['week'])
+                    if state.get('season_type') != 'regular':
+                        raise ValueError('Injury capture requires a current regular-season week.')
+                if season is None or week is None or not 1 <= week <= 18:
+                    raise ValueError('Supply both --season and a regular-season --week.')
+                source = fetch_player_context(scheduled=options['season'] is not None)
         except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
             raise CommandError(f'No changes made: {exc}') from exc
-        players = {str(p.sleeper_id): p for p in Players.objects.filter(position__in=['QB','RB','WR','TE','K'])}
+        players = {str(p.sleeper_id): p for p in Players.objects.filter(position__in=POSITIONS)}
         team_ids = {t.abbreviation: t.pk for t in Teams.objects.all()}
         now = timezone.now()
         injury_types = {}
@@ -39,6 +78,7 @@ class Command(BaseCommand):
         stat_rows = []
         if not options['injuries_only']:
             import nflreadpy as nfl
+        if not options['injuries_only'] and not stats_only:
             try:
                 # Injury type enriches the duration estimate when the official
                 # weekly report has a matching player ID. Sleeper remains the
@@ -92,6 +132,7 @@ class Command(BaseCommand):
             }))
         if not options['injuries_only']:
             try:
+                max_week = through if through is not None else week - 1
                 data = nfl.load_snap_counts(seasons=season)
                 if ids is None:
                     ids = nfl.load_ff_playerids()
@@ -109,7 +150,7 @@ class Command(BaseCommand):
                 seen = set()
                 for row in data.to_dicts():
                     player = mapping.get(row['pfr_player_id'])
-                    if not player or row['season'] != season or row['game_type'] != 'REG' or not 1 <= row['week'] < week:
+                    if not player or row['season'] != season or row['game_type'] != 'REG' or not 1 <= row['week'] <= max_week:
                         continue
                     share, snaps = row['offense_pct'], row['offense_snaps']
                     if share is None or snaps is None or not math.isfinite(share) or not 0 <= share <= 1 or snaps < 0:
@@ -128,6 +169,21 @@ class Command(BaseCommand):
                     'fantasy_points','fantasy_points_ppr']
                 if not {'player_id','week','season','season_type','opponent_team',*stat_fields}.issubset(weekly.columns):
                     raise ValueError('Weekly workload schema changed.')
+                if through is not None:
+                    from scripts.imports.scheduled_coverage import (
+                        completed_games, regular_through, require_team_coverage,
+                    )
+                    games = completed_games(season, through)
+                    require_team_coverage(games, regular_through(data, through, 'game_type').to_dicts(),
+                                          'snap counts', 'team')
+                    require_team_coverage(games, regular_through(weekly, through).to_dicts(),
+                                          'player stats', 'opponent_team')
+                optional_stats = {
+                    field: source_field for field, source_field in (
+                        ('game_id', 'game_id'), ('fumbles', 'fumbles_total'),
+                        ('fumbles_lost', 'fumbles_lost_total'),
+                    ) if source_field in weekly.columns
+                }
                 if 'gsis_id' not in ids.columns:
                     raise ValueError('GSIS player mapping unavailable.')
                 gsis = {str(r['gsis_id']): players[str(r['sleeper_id'])]
@@ -135,28 +191,37 @@ class Command(BaseCommand):
                     if r['gsis_id'] and str(r['sleeper_id']) in players}
                 for row in weekly.to_dicts():
                     player = gsis.get(str(row['player_id']))
-                    if not player or row['season'] != season or row['season_type'] != 'REG' or not 1 <= row['week'] < week:
+                    if not player or row['season'] != season or row['season_type'] != 'REG' or not 1 <= row['week'] <= max_week:
                         continue
                     defaults = {field:row[field] for field in stat_fields}
-                    defaults.update(nflverse_player_id=row['player_id'],opponent_team=row['opponent_team'],
-                        game_id=row.get('game_id'), fumbles=row.get('fumbles_total'),
-                        fumbles_lost=row.get('fumbles_lost_total'), updated_at=now)
+                    defaults.update({field: row[source_field] for field, source_field in optional_stats.items()})
+                    defaults.update(nflverse_player_id=row['player_id'], opponent_team=row['opponent_team'],
+                                    updated_at=now)
                     stat_rows.append(PlayerWeeklyStats(player_id=player.pk,season=season,week=row['week'],
                         season_type='REG',created_at=now,**defaults))
             except Exception as exc:
-                raise CommandError(f'No changes made; snap source unavailable: {exc}. Use --injuries-only to refresh injuries separately.') from exc
+                raise CommandError(f'No changes made; NFL stats or snap source unavailable: {exc}. Use --injuries-only to refresh injuries separately.') from exc
         self.stdout.write(f'Season {season}, week {week}: {len(injury_rows)} injury/depth reports; {len(snap_rows)} completed-game snap rows; {len(stat_rows)} weekly stat rows.')
         if options['dry_run']:
             self.stdout.write('Dry run: no database changes.')
             return
-        if not injury_rows:
+        if through is not None:
+            expected_weeks = set(range(1, through + 1))
+            if expected_weeks - {row.week for row in stat_rows} or expected_weeks - {row[1] for row in snap_rows}:
+                raise CommandError('Mapped stats or snap counts are missing a completed week.')
+        if not stats_only and not injury_rows:
             raise CommandError('No mapped injury reports; existing data retained.')
         with transaction.atomic():
             reports = [PlayerInjuryReport(player_id=player.pk, season=season, week=week, **defaults)
                 for player, defaults in injury_rows]
-            PlayerInjuryReport.objects.bulk_create(reports, batch_size=250, update_conflicts=True,
-                unique_fields=['player', 'season', 'week'],
-                update_fields=['injury_status','injury_type','roster_status','depth_order','team_id','position','source','observed_at'])
+            report_fields = ['injury_status', 'roster_status', 'depth_order', 'team_id', 'position', 'source', 'observed_at']
+            for enriched in (False, True):
+                fields = [*report_fields, 'injury_type'] if enriched else report_fields
+                PlayerInjuryReport.objects.bulk_create(
+                    [report for report in reports if bool(report.injury_type) == enriched],
+                    batch_size=250, update_conflicts=True,
+                    unique_fields=['player', 'season', 'week'], update_fields=fields,
+                )
             updated_players = []
             for player, defaults in injury_rows:
                 player.injury_status = defaults['injury_status'] or None
@@ -172,7 +237,10 @@ class Command(BaseCommand):
             if stat_rows:
                 PlayerWeeklyStats.objects.bulk_create(stat_rows,batch_size=250,update_conflicts=True,
                     unique_fields=['player','season','week','season_type'],
-                    update_fields=[*stat_fields,'nflverse_player_id','opponent_team','game_id','fumbles','fumbles_lost','updated_at'])
+                    update_fields=[*stat_fields, *optional_stats, 'nflverse_player_id', 'opponent_team', 'updated_at'])
+        if stats_only:
+            cache.delete(f'injury-absences:{season}')
+            return
         cache.delete(f'player-reports:{season}:{week}')
         cache.delete(f'absence-start-weeks:{season}:{week}')
         cache.delete(f'player-values:v4:{season}:{week}')

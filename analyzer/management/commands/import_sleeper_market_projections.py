@@ -1,6 +1,6 @@
 """Import weekly Sleeper projections and recompute rest-of-season totals."""
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import date
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import math
@@ -90,6 +90,7 @@ class Command(BaseCommand):
     )
 
     def add_arguments(self, parser):
+        parser.add_argument("--require-coverage", action="store_true")
         parser.add_argument("--season", type=int, default=date.today().year)
         parser.add_argument(
             "--positions",
@@ -319,6 +320,20 @@ class Command(BaseCommand):
             # database upsert is unique by entity, season, and week; using a
             # list here prevents snapshots from different weeks overwriting
             # each other in memory before they reach the database.
+            if options["require_coverage"]:
+                matched = Counter(row["position"] for row in week_prepared.values() if row["projection_available"])
+                previous = Counter(
+                    PlayerMarketProjection.objects.filter(
+                        season=season, week=week, position__in=positions, projection_available=True,
+                    ).values_list("position", flat=True)
+                )
+                for position in positions:
+                    minimum = max(1, (previous[position] * 4 + 4) // 5)
+                    if matched[position] < minimum:
+                        raise CommandError(
+                            f"Week {week} {position}: only {matched[position]} matched projections "
+                            f"(minimum {minimum}); existing projections retained."
+                        )
             prepared.extend(week_prepared.values())
             rows_by_week[week] = len(week_prepared)
 

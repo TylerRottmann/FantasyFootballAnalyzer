@@ -655,3 +655,16 @@ class PlayerMarketRank(models.Model):
                 name="market_rank_lookup_idx",
             ),
         ]
+
+
+class ScheduledRefresh(models.Model):
+    """A seeded UTC schedule and its most recent claimed execution."""
+
+    name = models.CharField(max_length=40, primary_key=True)
+    minutes = models.JSONField()
+    hours = models.JSONField(default=list)
+    weekdays = models.JSONField(default=list)
+    last_slot = models.DateTimeField(null=True, blank=True)
+    lease_until = models.DateTimeField(null=True, blank=True)
+    completed_period = models.CharField(max_length=16, blank=True, default="")
+    profile_month = models.CharField(max_length=7, blank=True, default="")
