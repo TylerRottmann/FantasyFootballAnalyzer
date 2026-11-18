@@ -56,3 +56,8 @@ Requests over `SLOW_REQUEST_LOG_THRESHOLD_MS` emit a warning with route, status,
 total duration, aggregate database duration, and query count. Use those records
 to identify slow routes before changing indexes or query plans. The default
 threshold is 500 ms.
+
+For browser-visible stage timings on Market and Waivers, see
+[Measuring market and waiver pages](page-performance.md). Detailed profiling
+defaults on in development; production requires `SERVER_TIMING_ENABLED=true`
+and a logged-in staff account.
