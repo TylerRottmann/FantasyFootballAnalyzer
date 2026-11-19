@@ -35,12 +35,9 @@ instead of serving the assets from the Django worker.
 
 ## Scheduled cache refresh
 
-Run this command every five minutes from the host's scheduler, using the same
-environment and `REDIS_URL` as the web workers:
-
-```powershell
-python manage.py refresh_external_cache
-```
+The seeded `external-cache` job runs every five minutes. Install the production
+scheduler and supply the web workers' `REDIS_URL` using the
+[scheduled refresh deployment guide](scheduled-refreshes.md).
 
 It refreshes the current NFL week and warms Sleeper playoff metadata. The web
 request reads cached values, and a single cold start can still fetch the NFL

@@ -11,6 +11,9 @@ from scripts.commands.nflweek import refresh_current_nfl_week
 class Command(BaseCommand):
     help = "Refresh cached NFL week and Sleeper playoff metadata."
 
+    def add_arguments(self, parser):
+        parser.add_argument("--strict", action="store_true")
+
     def handle(self, *args, **options):
         try:
             week = refresh_current_nfl_week()
@@ -50,6 +53,8 @@ class Command(BaseCommand):
                     )
                 )
 
+        if options["strict"] and failed:
+            raise CommandError(f"Refreshed playoff metadata for {refreshed} leagues; {failed} failed.")
         self.stdout.write(
             self.style.SUCCESS(
                 f"Refreshed playoff metadata for {refreshed} leagues; {failed} failed."

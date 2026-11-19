@@ -1,3 +1,4 @@
+import argparse
 import csv
 import os
 from datetime import datetime
@@ -14,6 +15,8 @@ os.environ.setdefault(
 
 django.setup()
 
+from django.db import transaction
+
 from analyzer.models import NFLGame, Teams
 
 
@@ -23,7 +26,8 @@ NFL_SCHEDULE_URL = (
 )
 
 
-def import_nfl_schedule(season=None, *, missing_only=False):
+@transaction.atomic
+def import_nfl_schedule(season=None, *, missing_only=False, require_complete=False):
     print("Downloading NFL schedule...")
 
     response = requests.get(
@@ -51,6 +55,7 @@ def import_nfl_schedule(season=None, *, missing_only=False):
     imported = 0
     skipped = 0
 
+    regular_games = set()
     for row in reader:
         row_season = int(row["season"])
 
@@ -69,6 +74,8 @@ def import_nfl_schedule(season=None, *, missing_only=False):
             continue
 
         key = (row_season, int(row["week"]), away_team.id, home_team.id)
+        if row["game_type"] == "REG":
+            regular_games.add(key)
         if missing_only and key in existing_keys:
             continue
 
@@ -102,6 +109,9 @@ def import_nfl_schedule(season=None, *, missing_only=False):
             imported += 1
         existing_keys.add(key)
 
+    if require_complete and len(regular_games) != 272:
+        raise ValueError(f"Expected 272 mapped regular-season games; found {len(regular_games)}.")
+
     print(f"Successfully imported {imported} NFL games.")
 
     if skipped:
@@ -109,4 +119,7 @@ def import_nfl_schedule(season=None, *, missing_only=False):
 
 
 if __name__ == "__main__":
-    import_nfl_schedule(season=2026)
+    parser = argparse.ArgumentParser(description="Import the NFL schedule.")
+    parser.add_argument("--season", type=int, required=True)
+    args = parser.parse_args()
+    import_nfl_schedule(season=args.season, require_complete=True)

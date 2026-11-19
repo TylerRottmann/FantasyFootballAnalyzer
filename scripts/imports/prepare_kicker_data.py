@@ -7,6 +7,7 @@ from pathlib import Path
 import nflreadpy as nfl
 import polars as pl
 from scripts.algorithm.features.qb_features import get_connection
+from scripts.imports.scheduled_coverage import completed_games
 from scripts.algorithm.features.k_features import DATA_PATH
 from scripts.algorithm.k.feature_names import PLAYER_STATS, SOURCE_STATS
 
@@ -31,12 +32,15 @@ def normalize_stats(row):
     stats['pat_missed'] += stats['pat_blocked']
     return stats
 
-def main(seasons, output=DATA_PATH):
+def main(seasons, output=DATA_PATH, *, through_week=None):
     seasons = sorted(set(seasons))
-    frame = nfl.load_player_stats(seasons=seasons, summary_level='week')
+    source_seasons = seasons[:-1] if through_week == 0 else seasons
+    frame = nfl.load_player_stats(seasons=source_seasons, summary_level="week")
     required = {'position', 'season_type', 'season', 'week', 'player_id', 'team', 'opponent_team', 'fg_blocked_list', 'fg_made_list', *SOURCE_STATS}
     if required - set(frame.columns):
         raise ValueError('nflverse kicker fields missing: ' + ', '.join(sorted(required-set(frame.columns))))
+    if through_week is not None:
+        frame = frame.filter((pl.col("season") < seasons[-1]) | (pl.col("week") <= through_week))
     ids = nfl.load_ff_playerids().select(['gsis_id', 'sleeper_id']).to_dicts()
     gsis_to_sleeper = {str(r['gsis_id']): str(r['sleeper_id']) for r in ids
                        if r['gsis_id'] is not None and r['sleeper_id'] is not None}
@@ -63,7 +67,7 @@ def main(seasons, output=DATA_PATH):
         games.append({'player_id': pid, 'nflverse_player_id': row['player_id'],
                       'season': row['season'], 'week': row['week'],
                       'opponent_team': row['opponent_team'], 'source_team': row['team'], **stats})
-    if any(not any(g['season'] == s for g in games) for s in seasons):
+    if any(not any(g['season'] == s for g in games) for s in source_seasons):
         raise ValueError('A requested season has no mapped, complete kicker games.')
     report = {'source_regular_season_rows': dict(counts), 'skipped': dict(skipped),
               'usable_by_season': dict(Counter(g['season'] for g in games))}
@@ -71,6 +75,26 @@ def main(seasons, output=DATA_PATH):
                'seasons': seasons, 'coverage': report, 'games': games}
     path = Path(output)
     path.parent.mkdir(parents=True, exist_ok=True)
+    if through_week is not None:
+        historical_weeks = {(season, week) for season in seasons[:-1] for week in range(1, 19)}
+        if historical_weeks - {(game["season"], game["week"]) for game in games}:
+            raise ValueError("Kicker source is missing historical weeks.")
+    if through_week:
+        expected = Counter(game["week"] for game in completed_games(seasons[-1], through_week))
+        teams = {(g["week"], g["source_team"]) for g in games if g["season"] == seasons[-1]}
+        available = Counter(week for week, _ in teams)
+        if any(available[week] < 2 * count - 2 for week, count in expected.items()):
+            raise ValueError("Incomplete kicker coverage for a completed NFL week.")
+    if through_week is not None and path.exists():
+        previous = json.loads(path.read_text(encoding="utf-8"))
+        included = set(source_seasons)
+        prior_keys = {
+            (g["player_id"], g["season"], g["week"]) for g in previous["games"]
+            if g["season"] in included and (g["season"] < seasons[-1] or g["week"] <= through_week)
+        }
+        keys = {(g["player_id"], g["season"], g["week"]) for g in games}
+        if prior_keys - keys:
+            raise ValueError("Kicker feed lost previously imported games; existing snapshot retained.")
     temporary = path.with_suffix('.tmp')
     temporary.write_text(json.dumps(payload, allow_nan=False) + '\n', encoding='utf-8')
     temporary.replace(path)
@@ -81,5 +105,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--seasons', nargs='+', type=int, required=True)
     parser.add_argument('--output', type=Path, default=DATA_PATH)
+    parser.add_argument("--through-week", type=int, choices=range(19))
     args = parser.parse_args()
-    main(args.seasons, args.output)
+    main(args.seasons, args.output, through_week=args.through_week)

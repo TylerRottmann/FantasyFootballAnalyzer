@@ -1,12 +1,19 @@
+import argparse
 import os
 
 import nflreadpy as nfl
 import psycopg
 from dotenv import load_dotenv
 
+from scripts.imports.scheduled_coverage import completed_games, regular_through, require_team_coverage
+
 load_dotenv()
 
-SEASON = 2026
+parser = argparse.ArgumentParser(description="Import advanced weekly team statistics.")
+parser.add_argument("--seasons", type=int, default=2026, metavar="SEASON")
+parser.add_argument("--through-week", type=int)
+args = parser.parse_args()
+SEASON = args.seasons
 
 
 # ============================================================
@@ -34,6 +41,11 @@ pbp = nfl.load_pbp(seasons=[SEASON])
 pbp = pbp.filter(
     pbp["season_type"] == "REG"
 )
+
+if args.through_week is not None:
+    games = completed_games(SEASON, args.through_week)
+    pbp = regular_through(pbp, args.through_week)
+    require_team_coverage(games, pbp.select("week", "posteam").unique().to_dicts(), "play-by-play", "posteam")
 
 print(f"Loaded {len(pbp)} play records.")
 
@@ -101,6 +113,7 @@ weeks = (
 )
 
 
+inserted = 0
 for week in weeks:
 
     print()
@@ -723,6 +736,7 @@ for week in weeks:
                 data,
             )
 
+        inserted += 1
         print(
             f"  {team}: "
             f"EPA/play={offensive_epa_per_play:.3f} | "
@@ -730,7 +744,14 @@ for week in weeks:
             f"Def EPA/play={defensive_epa_per_play:.3f}"
         )
 
+    if args.through_week is None:
+        conn.commit()
+
+if args.through_week is not None:
+    if inserted != 2 * len(games):
+        raise ValueError(f"Expected {2 * len(games)} advanced team-week rows; prepared {inserted}.")
     conn.commit()
+print(f"Imported {inserted} advanced team-week rows.")
 
 
 # ============================================================

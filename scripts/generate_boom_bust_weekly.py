@@ -78,6 +78,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--season", type=int)
     parser.add_argument("--week", type=int)
+    parser.add_argument("--strict", action="store_true")
     parser.add_argument("--auto", action="store_true")
     parser.add_argument("--dry-run", action="store_true", help="Calculate without saving predictions.")
     args = parser.parse_args()
@@ -104,7 +105,9 @@ def main():
     counts = generate_week(season, week, dry_run=args.dry_run)
 
     print(f"Boom/Bust {season} Week {week}: {counts}")
-    if counts["failed"]:
+    if counts["failed"] or (
+        args.strict and not (counts["saved"] + counts["updated"] + counts["would_save"])
+    ):
         sys.exit(1)
 
 

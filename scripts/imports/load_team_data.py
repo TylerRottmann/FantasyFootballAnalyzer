@@ -4,6 +4,8 @@ import nflreadpy as nfl
 import psycopg
 from dotenv import load_dotenv
 
+from scripts.imports.scheduled_coverage import completed_games, regular_through, require_team_coverage
+
 load_dotenv()
 
 # --------------------------------------------------
@@ -12,7 +14,11 @@ load_dotenv()
 
 parser = argparse.ArgumentParser(description="Import weekly team statistics and schedules.")
 parser.add_argument("--seasons", nargs="+", type=int, default=[2023, 2024, 2025])
-SEASONS = sorted(set(parser.parse_args().seasons))
+parser.add_argument("--through-week", type=int)
+args = parser.parse_args()
+SEASONS = sorted(set(args.seasons))
+if args.through_week is not None and len(SEASONS) != 1:
+    parser.error("--through-week requires one season.")
 
 conn = psycopg.connect(
     host=os.getenv("DB_HOST"),
@@ -27,6 +33,10 @@ conn = psycopg.connect(
 # --------------------------------------------------
 
 team_stats = nfl.load_team_stats(seasons=SEASONS)
+if args.through_week is not None:
+    games = completed_games(SEASONS[0], args.through_week)
+    team_stats = regular_through(team_stats, args.through_week)
+    require_team_coverage(games, team_stats.to_dicts(), "NFL team stats", "team")
 schedules = nfl.load_schedules(seasons=SEASONS)
 
 # Only completed/available regular-season games
@@ -36,6 +46,9 @@ schedules = schedules.filter(
 )
 
 # --------------------------------------------------
+if args.through_week is not None:
+    schedules = schedules.filter(schedules['week'] <= args.through_week)
+
 # Load our team IDs
 # --------------------------------------------------
 
@@ -267,6 +280,9 @@ print()
 print("Loading fantasy points allowed by position...")
 
 player_stats = nfl.load_player_stats(seasons=SEASONS)
+if args.through_week is not None:
+    player_stats = regular_through(player_stats, args.through_week)
+    require_team_coverage(games, player_stats.to_dicts(), "NFL player stats", "opponent_team")
 
 for season in SEASONS:
 
@@ -335,6 +351,9 @@ for season in SEASONS:
                     season,
                     week,
                 ))
+
+if args.through_week is not None and inserted != 2 * len(games):
+    raise ValueError(f"Expected {2 * len(games)} mapped team-week rows; prepared {inserted}.")
 
 print("Fantasy matchup data loaded.")
 

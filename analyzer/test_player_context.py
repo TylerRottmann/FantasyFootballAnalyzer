@@ -141,10 +141,11 @@ class PlayerContextTests(WaiverWireTests):
         snap={'season':2026,'week':6,'game_type':'REG','pfr_player_id':'Test00','team':'GB','offense_snaps':30,'offense_pct':0.5}
         snaps=Mock();snaps.columns=list(snap);snaps.to_dicts.return_value=[snap,dict(snap,week=7),dict(snap,pfr_player_id='Unknown')]
         fields=['completions','attempts','passing_yards','passing_tds','passing_interceptions','carries','rushing_yards','rushing_tds','targets','receptions','receiving_yards','receiving_tds','fantasy_points','fantasy_points_ppr']
+        fields.extend(['passing_2pt_conversions', 'rushing_2pt_conversions', 'receiving_2pt_conversions'])
         stat={field:0 for field in fields}
         stat.update(player_id='00-test',season=2026,week=6,season_type='REG',opponent_team='KC',targets=5,receptions=4,receiving_yards=50,fantasy_points_ppr=9)
         stats=Mock();stats.columns=list(stat);stats.to_dicts.return_value=[stat,dict(stat,week=7)]
-        with patch('analyzer.management.commands.refresh_player_context.requests.get',side_effect=[state,feed]), patch('nflreadpy.load_snap_counts',return_value=snaps), patch('nflreadpy.load_ff_playerids',return_value=ids), patch('nflreadpy.load_player_stats',return_value=stats):
+        with patch('analyzer.management.commands.refresh_player_context.requests.get',side_effect=[state,feed]), patch('nflreadpy.load_snap_counts',return_value=snaps), patch('nflreadpy.load_ff_playerids',return_value=ids), patch('nflreadpy.load_player_stats',return_value=stats), patch('nflreadpy.load_injuries', side_effect=ValueError('Fixture has no enrichment')):
             call_command('refresh_player_context',stdout=StringIO())
         self.assertEqual(PlayerSnapCount.objects.count(),1)
         self.assertEqual(PlayerSnapCount.objects.get().player_id,self.available.pk)
